@@ -1,0 +1,581 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#F2F2F7">
+<title>양진웅 Note — 라이트</title>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<script>
+  const firebaseConfig = {
+    apiKey: "AIzaSyC6fOvzE69mucSuCgDVl-sB5s1eFgKQQaA",
+    authDomain: "quiz-app-f6c45.firebaseapp.com",
+    projectId: "quiz-app-f6c45",
+    storageBucket: "quiz-app-f6c45.firebasestorage.app",
+    messagingSenderId: "66139024814",
+    appId: "1:66139024814:web:7e1ac161bee6308fee6c3f"
+  };
+  const USER_ID = 'main';
+  let db, FIREBASE_OK = false;
+  try {
+    firebase.initializeApp(firebaseConfig);
+    db = firebase.firestore();
+    FIREBASE_OK = true;
+  } catch (e) {
+    const _fail = () => Promise.reject(new Error('offline'));
+    db = { collection: () => ({ doc: () => ({ collection: () => ({ doc: () => ({ get: _fail, set: _fail }) }) }) }) };
+  }
+</script>
+
+<style>
+/* ══ iOS 기본 앱 어법 · 애니메이션 없음 ══ */
+:root {
+  --bg: #F2F2F7;
+  --card: #FFFFFF;
+  --line: #C6C6C8;
+  --line-soft: #E5E5EA;
+  --text: #000000;
+  --text2: #8E8E93;
+  --blue: #007AFF;
+  --green: #34C759;
+  --red: #FF3B30;
+  --orange: #FF9500;
+  --sep: 16px;
+}
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { margin: 0; padding: 0; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 17px;
+  line-height: 1.45;
+  -webkit-text-size-adjust: 100%;
+  padding-bottom: env(safe-area-inset-bottom, 0);
+}
+button, input, textarea { font-family: inherit; font-size: inherit; color: inherit; }
+
+/* ── 상단 바 ── */
+.nav {
+  position: sticky; top: 0; z-index: 10;
+  background: rgba(249,249,249,0.94);
+  border-bottom: 0.5px solid var(--line);
+  padding: calc(env(safe-area-inset-top, 0) + 6px) 8px 6px;
+  display: flex; align-items: center; gap: 4px;
+  min-height: 44px;
+}
+.nav-back {
+  border: none; background: none; color: var(--blue);
+  padding: 6px 6px 6px 2px; cursor: pointer;
+  display: flex; align-items: center; gap: 2px;
+  font-size: 17px;
+}
+.nav-back::before {
+  content: ""; width: 10px; height: 10px;
+  border-left: 2.5px solid var(--blue); border-bottom: 2.5px solid var(--blue);
+  transform: rotate(45deg); margin-right: 4px;
+}
+.nav-title { flex: 1; text-align: center; font-size: 17px; font-weight: 600; }
+.nav-right { min-width: 60px; text-align: right; }
+.nav-act { border: none; background: none; color: var(--blue); cursor: pointer; padding: 6px 8px; font-size: 16px; }
+.nav-back + .nav-title { text-align: center; }
+.nav-spacer { min-width: 60px; }
+
+/* ── 큰 제목 ── */
+.big-title { font-size: 34px; font-weight: 700; letter-spacing: -0.6px; padding: 8px 20px 10px; }
+
+/* ── 목록 ── */
+.group-label {
+  font-size: 13px; color: var(--text2); text-transform: none;
+  padding: 22px 20px 6px;
+}
+.list { background: var(--card); border-top: 0.5px solid var(--line-soft); border-bottom: 0.5px solid var(--line-soft); }
+.row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 12px 16px; min-height: 48px;
+  border-bottom: 0.5px solid var(--line-soft);
+  background: var(--card); width: 100%;
+  border-left: none; border-right: none; border-top: none;
+  text-align: left; cursor: pointer;
+}
+.row:last-child { border-bottom: none; }
+.row:active { background: #D1D1D6; }
+.row-main { flex: 1; min-width: 0; }
+.row-title { font-size: 17px; }
+.row-sub { font-size: 13px; color: var(--text2); margin-top: 2px; }
+.row-val { font-size: 16px; color: var(--text2); flex-shrink: 0; }
+.chev { width: 8px; height: 8px; flex-shrink: 0;
+  border-top: 2px solid #C7C7CC; border-right: 2px solid #C7C7CC;
+  transform: rotate(45deg); }
+
+/* 회차 격자 */
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(78px, 1fr)); gap: 10px; padding: 12px 16px; }
+.tile {
+  background: var(--card); border: none; border-radius: 10px;
+  padding: 10px 4px 12px; cursor: pointer; text-align: center;
+  position: relative; overflow: hidden;
+}
+.tile:active { background: #D1D1D6; }
+.tile-y { display: block; font-size: 11px; color: var(--text2); }
+.tile-n { display: block; font-size: 17px; font-weight: 600; margin-top: 1px; }
+.tile-bar { position: absolute; left: 0; bottom: 0; height: 3px; background: var(--green); }
+.tile-done .tile-n { color: var(--green); }
+
+/* ── 문제 ── */
+.q-wrap { padding: 16px; }
+.q-meta { font-size: 13px; color: var(--text2); margin-bottom: 6px; }
+.q-text { font-size: 18px; line-height: 1.5; white-space: pre-wrap; word-break: break-word; margin-bottom: 16px; }
+.opts { display: flex; flex-direction: column; gap: 8px; }
+.opt {
+  display: flex; align-items: flex-start; gap: 10px;
+  background: var(--card); border: 1.5px solid transparent; border-radius: 10px;
+  padding: 12px 14px; cursor: pointer; text-align: left; width: 100%;
+  font-size: 16px; line-height: 1.4;
+}
+.opt:active { background: #D1D1D6; }
+.opt-no {
+  flex-shrink: 0; width: 22px; height: 22px; border-radius: 50%;
+  background: var(--line-soft); color: var(--text2);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px; font-weight: 600;
+}
+.opt.pick { border-color: var(--blue); }
+.opt.pick .opt-no { background: var(--blue); color: #fff; }
+.opt.ok { border-color: var(--green); background: #EBFBEE; }
+.opt.ok .opt-no { background: var(--green); color: #fff; }
+.opt.no { border-color: var(--red); background: #FFF0EF; }
+.opt.no .opt-no { background: var(--red); color: #fff; }
+
+.subj-in {
+  width: 100%; min-height: 120px; padding: 12px 14px;
+  background: var(--card); border: none; border-radius: 10px;
+  resize: vertical; line-height: 1.5;
+}
+.subj-in:focus { outline: 2px solid var(--blue); }
+.ans-box { background: #EBFBEE; border-radius: 10px; padding: 14px; margin-top: 12px; }
+.ans-t { font-size: 13px; color: #248A3D; font-weight: 600; margin-bottom: 6px; }
+.ans-b { font-size: 16px; white-space: pre-wrap; }
+.expl { margin-top: 12px; background: var(--card); border-radius: 10px; padding: 14px; }
+.expl-t { font-size: 13px; color: var(--text2); font-weight: 600; margin-bottom: 6px; }
+.expl-b { font-size: 15px; white-space: pre-wrap; line-height: 1.5; }
+
+.acts { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-top: 14px; }
+.act {
+  padding: 12px 4px; border: none; border-radius: 10px;
+  background: var(--card); color: var(--blue);
+  font-size: 15px; font-weight: 500; cursor: pointer;
+}
+.act:active { background: #D1D1D6; }
+.act.on-ok { background: var(--green); color: #fff; }
+.act.on-no { background: var(--red); color: #fff; }
+.act.mid { color: var(--blue); }
+.act.mid.on { background: var(--blue); color: #fff; }
+
+/* 하단 이동 바 */
+.foot {
+  position: sticky; bottom: 0;
+  display: flex; gap: 8px; padding: 8px 16px calc(8px + env(safe-area-inset-bottom, 0));
+  background: rgba(249,249,249,0.94);
+  border-top: 0.5px solid var(--line);
+}
+.foot button {
+  flex: 1; padding: 13px; border: none; border-radius: 10px;
+  background: var(--card); color: var(--blue); font-size: 16px; font-weight: 500; cursor: pointer;
+}
+.foot button:active { background: #D1D1D6; }
+.foot button:disabled { color: #C7C7CC; }
+.foot .main { background: var(--blue); color: #fff; }
+.foot .main:active { background: #0062CC; }
+
+.empty { text-align: center; color: var(--text2); font-size: 15px; padding: 60px 24px; }
+.toast {
+  position: fixed; left: 50%; bottom: 90px; transform: translateX(-50%);
+  background: rgba(0,0,0,0.82); color: #fff;
+  padding: 10px 18px; border-radius: 20px; font-size: 14px;
+  z-index: 50; display: none; max-width: calc(100vw - 40px);
+}
+.toast.show { display: block; }
+.dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--green); margin-left: 6px; vertical-align: middle; }
+.dot.off { background: var(--orange); }
+.hide { display: none !important; }
+</style>
+</head>
+<body>
+
+<div class="nav">
+  <button class="nav-back hide" id="back" onclick="goBack()">뒤로</button>
+  <div class="nav-spacer" id="lspacer"></div>
+  <div class="nav-title" id="title">양진웅 Note</div>
+  <div class="nav-right"><button class="nav-act" id="navact" onclick="navAction()"></button></div>
+</div>
+
+<div id="view"></div>
+<div class="toast" id="toast"></div>
+
+<script>
+/* ══════════════════════════════════════════════════════════════
+   라이트 버전 — 문제 풀기 · 회차 선택 · 오답노트 · 진도 동기화
+   정식 버전과 같은 저장 방식(판 번호 기준)을 그대로 써서
+   서로 데이터를 덮어쓰거나 지우지 않는다.
+   ══════════════════════════════════════════════════════════════ */
+
+/* ── 저장소 (정식 버전과 동일 규칙) ── */
+const _cache = {};
+function _get(k, d) {
+  if (_cache[k] !== undefined) return _cache[k];
+  try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch (e) { return d; }
+}
+function _set(k, v) {
+  _cache[k] = v;
+  try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {}
+}
+function _ts(k)      { try { return parseInt(localStorage.getItem(k + '_ts') || '0'); } catch (e) { return 0; } }
+function _setTs(k, v){ try { localStorage.setItem(k + '_ts', String(v)); } catch (e) {} }
+function _rev(k)     { try { return parseInt(localStorage.getItem(k + '_rev') || '0'); } catch (e) { return 0; } }
+function _setRev(k,v){ try { localStorage.setItem(k + '_rev', String(v)); } catch (e) {} }
+
+const FB_TIMEOUT = 10000;
+function withTimeout(p, ms) {
+  return Promise.race([p, new Promise((_, rj) => setTimeout(() => rj(new Error('시간 초과')), ms))]);
+}
+async function fbGet(id) {
+  try {
+    const d = await withTimeout(db.collection('users').doc(USER_ID).collection('data').doc(id).get(), FB_TIMEOUT);
+    return d.exists ? d.data() : null;
+  } catch (e) { return null; }
+}
+async function fbSet(id, value) {
+  try {
+    await withTimeout(db.collection('users').doc(USER_ID).collection('data').doc(id)
+      .set({ value, updatedAt: Date.now(), rev: _rev(id) }), FB_TIMEOUT);
+    return true;
+  } catch (e) { return false; }
+}
+// 저장 = 이 기기에 즉시 + 서버에 배경 업로드 (판 번호 하나 올림)
+async function save(key, value) {
+  const ts = Date.now(), rev = _rev(key) + 1;
+  _set(key, value); _setTs(key, ts); _setRev(key, rev);
+  setDot('busy');
+  const ok = await fbSet(key, value);
+  setDot(ok ? 'ok' : 'off');
+}
+
+// 라이트에서 쓰는 키만 동기화한다 (건드리지 않는 키는 그대로 둔다)
+const KEYS = ['quiz_data', 'quiz_categories', 'quiz_progress', 'quiz_wrong', 'resume_bookmark'];
+let _syncing = false;
+async function syncDown() {
+  if (_syncing || !FIREBASE_OK) return;
+  _syncing = true; setDot('busy');
+  try {
+    await Promise.all(KEYS.map(async key => {
+      const remote = await fbGet(key);
+      if (!remote) return;
+      const rRev = remote.rev || 0, rTs = remote.updatedAt || 0;
+      const lRev = _rev(key),      lTs = _ts(key);
+      // 판 번호가 큰 쪽이 최신 (기기마다 시계가 달라도 안전)
+      if (rRev > lRev || (rRev === lRev && rTs > lTs)) {
+        _set(key, remote.value); _setTs(key, rTs); _setRev(key, rRev);
+      } else if (lRev > rRev || (lRev === rRev && lTs > rTs)) {
+        const v = _get(key, null);
+        if (v !== null && JSON.stringify(v) !== JSON.stringify(remote.value)) await fbSet(key, v);
+      }
+    }));
+    setDot('ok');
+  } catch (e) { setDot('off'); }
+  finally { _syncing = false; render(); }
+}
+
+/* ── 데이터 ── */
+const getData  = () => _get('quiz_data', {});
+const getCats  = () => _get('quiz_categories', []);
+const getProg  = () => _get('quiz_progress', {});
+const getWrong = () => _get('quiz_wrong', []);
+
+function sortRounds(a) {
+  return a.slice().sort((x, y) => {
+    const px = String(x).split('-'), py = String(y).split('-');
+    for (let i = 0; i < Math.max(px.length, py.length); i++) {
+      const nx = parseInt(px[i] || 0, 10), ny = parseInt(py[i] || 0, 10);
+      if (!isNaN(nx) && !isNaN(ny) && nx !== ny) return nx - ny;
+    }
+    return String(x).localeCompare(String(y));
+  });
+}
+const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+/* ── 화면 상태 ── */
+let view = 'cats';           // cats | rounds | quiz | wrong
+let cat = null, round = null;
+let quiz = null;             // { questions, idx, answered, revealed, inputs, src }
+
+function setDot(state) {
+  const el = document.getElementById('sync-dot');
+  if (el) el.className = 'dot' + (state === 'ok' ? '' : ' off');
+}
+let _toastT = null;
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  clearTimeout(_toastT);
+  _toastT = setTimeout(() => t.classList.remove('show'), 1600);
+}
+
+/* ── 이동 ── */
+function go(v, opts) {
+  view = v;
+  if (opts && 'cat' in opts) cat = opts.cat;
+  if (opts && 'round' in opts) round = opts.round;
+  window.scrollTo(0, 0);
+  saveSpot();
+  render();
+}
+function goBack() {
+  if (view === 'quiz') { saveProgress(); go(quiz && quiz.src === 'wrong' ? 'wrong' : 'rounds'); return; }
+  if (view === 'rounds') { go('cats'); return; }
+  if (view === 'wrong') { go('cats'); return; }
+  go('cats');
+}
+
+/* 마지막 자리 (이 기기 전용) */
+function saveSpot() {
+  try {
+    const s = { view, cat, round, at: Date.now() };
+    if (view === 'quiz' && quiz) s.idx = quiz.idx;
+    localStorage.setItem('light_spot', JSON.stringify(s));
+  } catch (e) {}
+}
+function restoreSpot() {
+  try {
+    const s = JSON.parse(localStorage.getItem('light_spot') || 'null');
+    if (!s || Date.now() - (s.at || 0) > 12 * 3600 * 1000) return false;
+    if (s.view === 'quiz' && s.cat && s.round) {
+      const qs = (getData()[s.cat] || {})[s.round];
+      if (!qs || !qs.length) return false;
+      startQuiz(s.cat, s.round, s.idx);
+      return true;
+    }
+    if (s.view === 'rounds' && s.cat && getCats().includes(s.cat)) { cat = s.cat; view = 'rounds'; return true; }
+    if (s.view === 'wrong') { view = 'wrong'; return true; }
+  } catch (e) {}
+  return false;
+}
+
+/* ── 그리기 ── */
+function render() {
+  const v = document.getElementById('view');
+  const back = document.getElementById('back');
+  const spacer = document.getElementById('lspacer');
+  const title = document.getElementById('title');
+  const act = document.getElementById('navact');
+
+  const showBack = view !== 'cats';
+  back.classList.toggle('hide', !showBack);
+  spacer.classList.toggle('hide', showBack);
+
+  if (view === 'cats')   { title.innerHTML = '양진웅 Note<span class="dot" id="sync-dot"></span>'; act.textContent = '정식'; v.innerHTML = viewCats(); }
+  if (view === 'rounds') { title.textContent = cat; act.textContent = ''; v.innerHTML = viewRounds(); }
+  if (view === 'quiz')   { title.textContent = round + '회차'; act.textContent = ''; v.innerHTML = viewQuiz(); }
+  if (view === 'wrong')  { title.textContent = '오답노트'; act.textContent = ''; v.innerHTML = viewWrong(); }
+}
+function navAction() { if (view === 'cats') location.href = 'index.html'; }
+
+function viewCats() {
+  const cats = getCats().filter(c => Object.keys(getData()[c] || {}).length);
+  const wrongN = getWrong().length;
+  const bm = _get('resume_bookmark', null);
+  let html = '<div class="big-title">문제 풀기</div>';
+
+  if (bm && (getData()[bm.cat] || {})[bm.round]) {
+    html += `<div class="group-label">이어서</div><div class="list">
+      <button class="row" onclick="startQuiz('${esc(bm.cat)}','${esc(bm.round)}',${bm.qIndex || 0})">
+        <div class="row-main"><div class="row-title">${esc(bm.cat)}</div>
+        <div class="row-sub">${esc(bm.round)}회차 · Q${esc(bm.qNum || 1)}부터</div></div>
+        <div class="chev"></div></button></div>`;
+  }
+
+  html += '<div class="group-label">자격증</div><div class="list">';
+  if (!cats.length) {
+    html += '<div class="empty">등록된 문제가 없어요<br>정식 버전에서 추가하세요</div>';
+  } else {
+    cats.forEach(c => {
+      const n = Object.keys(getData()[c] || {}).length;
+      html += `<button class="row" onclick="go('rounds',{cat:'${esc(c)}'})">
+        <div class="row-main"><div class="row-title">${esc(c)}</div></div>
+        <div class="row-val">${n}회차</div><div class="chev"></div></button>`;
+    });
+  }
+  html += '</div>';
+
+  html += `<div class="group-label">복습</div><div class="list">
+    <button class="row" onclick="go('wrong')">
+      <div class="row-main"><div class="row-title">오답노트</div></div>
+      <div class="row-val">${wrongN}</div><div class="chev"></div></button>
+    <button class="row" onclick="syncDown();toast('동기화 중…')">
+      <div class="row-main"><div class="row-title">지금 동기화</div>
+      <div class="row-sub">다른 기기에서 푼 내용 받아오기</div></div></button>
+  </div>`;
+  return html;
+}
+
+function viewRounds() {
+  const rounds = sortRounds(Object.keys(getData()[cat] || {}));
+  if (!rounds.length) return '<div class="empty">회차가 없어요</div>';
+  const prog = getProg();
+  let html = '<div class="grid">';
+  rounds.forEach(r => {
+    const qs = getData()[cat][r];
+    const p = prog[cat + '_' + r] || {};
+    const done = Object.keys(p.answered || {}).length;
+    const pct = qs.length ? Math.round(done / qs.length * 100) : 0;
+    const m = /^(\d{4})[-_. ]?(.*)$/.exec(String(r));
+    const top = m ? m[1] : String(r).slice(0, 4);
+    const bot = m ? m[2] : String(r).slice(4);
+    html += `<button class="tile${pct >= 100 ? ' tile-done' : ''}" onclick="startQuiz('${esc(cat)}','${esc(r)}')">
+      <span class="tile-y">${esc(top)}</span><span class="tile-n">${esc(bot || '·')}</span>
+      ${pct ? `<span class="tile-bar" style="width:${pct}%"></span>` : ''}</button>`;
+  });
+  return html + '</div>';
+}
+
+function startQuiz(c, r, idx) {
+  const qs = (getData()[c] || {})[r];
+  if (!qs || !qs.length) { toast('문제가 없어요'); return; }
+  const p = getProg()[c + '_' + r] || {};
+  let start = 0;
+  if (typeof idx === 'number' && idx >= 0 && idx < qs.length) start = idx;
+  else if (typeof p.idx === 'number' && p.idx >= 0 && p.idx < qs.length) start = p.idx;
+  else { for (let i = 0; i < qs.length; i++) if (!(i in (p.answered || {}))) { start = i; break; } }
+  cat = c; round = r;
+  quiz = { questions: qs, idx: start, answered: { ...(p.answered || {}) }, revealed: {}, inputs: {}, src: 'round' };
+  go('quiz');
+}
+
+function viewQuiz() {
+  const q = quiz.questions[quiz.idx];
+  const isSubj = q.type === 'subj';
+  const ans = quiz.answered[quiz.idx];
+  const shown = quiz.revealed[quiz.idx];
+
+  let html = `<div class="q-wrap">
+    <div class="q-meta">${quiz.idx + 1} / ${quiz.questions.length}${isSubj ? ' · 주관식' : ''}</div>
+    <div class="q-text">${esc(q.question)}</div>`;
+
+  if (isSubj) {
+    html += `<textarea class="subj-in" id="subj" placeholder="여기에 답을 써보세요"
+      oninput="quiz.inputs[quiz.idx]=this.value">${esc(quiz.inputs[quiz.idx] || '')}</textarea>`;
+    if (shown) {
+      html += `<div class="ans-box"><div class="ans-t">모범 답안</div><div class="ans-b">${esc(q.answer || '')}</div></div>`;
+      if (q.explanation) html += `<div class="expl"><div class="expl-t">해설</div><div class="expl-b">${esc(q.explanation)}</div></div>`;
+    }
+    html += `<div class="acts">
+      <button class="act${ans === 'correct' ? ' on-ok' : ''}" onclick="judge('correct')">맞았어요</button>
+      <button class="act mid${shown ? ' on' : ''}" onclick="toggleAnswer()">${shown ? '정답 숨기기' : '정답 보기'}</button>
+      <button class="act${ans === 'wrong' ? ' on-no' : ''}" onclick="judge('wrong')">틀렸어요</button>
+    </div>`;
+  } else {
+    html += '<div class="opts">';
+    (q.options || []).forEach((o, i) => {
+      let cls = '';
+      if (shown) {
+        if (i === q.correct) cls = ' ok';
+        else if (ans === i) cls = ' no';
+      } else if (ans === i) cls = ' pick';
+      html += `<button class="opt${cls}" onclick="pick(${i})">
+        <span class="opt-no">${i + 1}</span><span>${esc(o)}</span></button>`;
+    });
+    html += '</div>';
+    if (shown && q.explanation) html += `<div class="expl"><div class="expl-t">해설</div><div class="expl-b">${esc(q.explanation)}</div></div>`;
+  }
+  html += '</div>';
+
+  html += `<div class="foot">
+    <button onclick="move(-1)" ${quiz.idx === 0 ? 'disabled' : ''}>이전</button>
+    <button class="main" onclick="move(1)" ${quiz.idx >= quiz.questions.length - 1 ? 'disabled' : ''}>다음</button>
+  </div>`;
+  return html;
+}
+
+function pick(i) {
+  const q = quiz.questions[quiz.idx];
+  quiz.answered[quiz.idx] = i;
+  quiz.revealed[quiz.idx] = true;
+  if (i !== q.correct) addWrong(q, i); else removeWrong(q);
+  saveProgress();
+  render();
+}
+function judge(r) {
+  const q = quiz.questions[quiz.idx];
+  quiz.answered[quiz.idx] = r;
+  if (r === 'wrong') addWrong(q, -1); else removeWrong(q);
+  saveProgress();
+  render();
+}
+function toggleAnswer() { quiz.revealed[quiz.idx] = !quiz.revealed[quiz.idx]; render(); }
+function move(d) {
+  const n = quiz.idx + d;
+  if (n < 0 || n >= quiz.questions.length) return;
+  quiz.idx = n;
+  saveProgress(); saveSpot();
+  window.scrollTo(0, 0);
+  render();
+}
+
+function saveProgress() {
+  if (!quiz || quiz.src === 'wrong') return;
+  const p = getProg();
+  p[cat + '_' + round] = { answered: { ...quiz.answered }, at: Date.now(), idx: quiz.idx };
+  save('quiz_progress', p);
+  const q = quiz.questions[quiz.idx];
+  save('resume_bookmark', { cat, round, qIndex: quiz.idx, qNum: q.num || (quiz.idx + 1), savedAt: Date.now(), auto: true });
+}
+
+/* ── 오답노트 ──
+   [중요] 정식 버전과 완전히 같은 형식이어야 한다.
+   id 규칙: cat_round_(q.id || q.num) · 필드명: myAnswer, addedAt */
+function wrongId(q) { return cat + '_' + round + '_' + (q.id || q.num); }
+function addWrong(q, myAnswer) {
+  const id = wrongId(q);
+  const list = getWrong().filter(w => w.id !== id);
+  list.push({ id, cat, round, q, myAnswer, addedAt: Date.now() });
+  save('quiz_wrong', list);
+}
+function removeWrong(q) {
+  const id = wrongId(q);
+  const list = getWrong();
+  const next = list.filter(w => w.id !== id);
+  if (next.length !== list.length) save('quiz_wrong', next);
+}
+
+function viewWrong() {
+  const list = getWrong();
+  if (!list.length) return '<div class="empty">오답이 없어요 👍</div>';
+  let html = `<div class="group-label">${list.length}문제</div><div class="list">`;
+  list.forEach((w, i) => {
+    const t = (w.q && w.q.question) ? w.q.question : '(문제 없음)';
+    html += `<button class="row" onclick="openWrong(${i})">
+      <div class="row-main"><div class="row-title">${esc(t.slice(0, 40))}${t.length > 40 ? '…' : ''}</div>
+      <div class="row-sub">${esc(w.cat)} ${esc(w.round)}회차</div></div>
+      <div class="chev"></div></button>`;
+  });
+  return html + '</div>';
+}
+function openWrong(i) {
+  const list = getWrong();
+  const qs = list.map(w => w.q).filter(Boolean);
+  if (!qs.length) return;
+  cat = list[i].cat; round = list[i].round;
+  quiz = { questions: qs, idx: i, answered: {}, revealed: {}, inputs: {}, src: 'wrong' };
+  go('quiz');
+}
+
+/* ── 시작 ── */
+window.addEventListener('pagehide', saveSpot);
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') saveSpot(); });
+restoreSpot();
+render();
+syncDown();
+</script>
+</body>
+</html>
