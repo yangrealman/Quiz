@@ -1,0 +1,419 @@
+/* ══════════════════════════════════════════════════════════════════════
+   모노크롬 스킨 — 흑백, 넓은 여백, 없는 듯 얇은 선
+   ──────────────────────────────────────────────────────────────────────
+   · 이 파일은 껍데기만 바꾼다. 기능 코드는 하나도 건드리지 않는다.
+   · 설정에서 끄면 <link disabled> 가 되어 흔적 없이 원래 모습으로 돌아간다.
+   · 색을 쓰지 않으므로 맞음·틀림은 '채움'과 '부호'로 구분한다.
+       맞음 = 먹으로 채운 면,  틀림 = 빈 면에 취소선과 ✕
+   ══════════════════════════════════════════════════════════════════════ */
+
+/* ── 1. 팔레트를 흑백으로 갈아끼운다 ───────────────────────────────── */
+:root {
+  --ink:   #0A0A0A;
+  --paper: #FFFFFF;
+
+  --primary:       #0A0A0A;
+  --primary-dark:  #000000;
+  --primary-light: #F2F2F2;
+  --primary-rgb:   10,10,10;
+
+  --success: #0A0A0A;  --success-light: #F2F2F2;  --success-deep: #000;
+  --danger:  #0A0A0A;  --danger-light:  #F2F2F2;
+  --warning: #0A0A0A;  --warning-light: #F2F2F2;
+  --mock:    #0A0A0A;  --mock-light:    #F2F2F2;  --mock-border: #E4E4E4;
+  --success-border: #E4E4E4; --danger-border: #E4E4E4; --warning-border: #E4E4E4;
+
+  --gray-50:  #FAFAFA;
+  --gray-100: #F4F4F4;
+  --gray-200: #EAEAEA;
+  --gray-300: #DADADA;
+  --gray-400: #9A9A9A;
+  --gray-500: #6E6E6E;
+  --gray-600: #4A4A4A;
+  --gray-700: #2E2E2E;
+  --gray-800: #171717;
+  --gray-900: #0A0A0A;
+
+  --bg:          #FFFFFF;
+  --card:        #FFFFFF;
+  --card-border: #E6E6E6;
+  --text:        #0A0A0A;
+  --text-sub:    #6E6E6E;
+
+  --nav-bg:     #FFFFFF;
+  --nav-border: #0A0A0A;
+  --nav-g1: #FFFFFF; --nav-g2: #FFFFFF; --nav-g3: #FFFFFF;
+
+  --input-bg: #FFFFFF; --input-border: #DADADA;
+  --option-bg: #FFFFFF; --option-hover: #FAFAFA;
+
+  --tint-primary: #FFFFFF; --tint-primary-edge: #E6E6E6;
+  --tint-warning: #FFFFFF; --tint-warning-edge: #E6E6E6;
+  --tint-success: #FFFFFF; --tint-success-edge: #E6E6E6;
+  --tint-danger:  #FFFFFF; --tint-danger-edge:  #E6E6E6;
+
+  --mst-low: #C4C4C4; --mst-mid: #7A7A7A; --mst-high: #0A0A0A;
+
+  /* 선만 남기고 그림자는 없앤다 */
+  --shadow: none; --shadow-md: none;
+  --sh-1: none; --sh-2: none; --sh-3: none;
+  --radius: 0px; --r-card: 0px; --r-sm: 0px;
+
+  /* 여백은 크게 — 이 스킨의 성격 */
+  --sp-1: 10px; --sp-2: 16px; --sp-3: 28px; --sp-4: 44px;
+  --fs-1: 11px; --fs-2: 12px; --fs-3: 14px; --fs-4: 16px; --fs-5: 22px; --fs-6: 34px;
+}
+
+body.dark {
+  --ink: #F2F2F2; --paper: #0A0A0A;
+  --primary: #F2F2F2; --primary-dark: #FFFFFF; --primary-light: #1C1C1C;
+  --primary-rgb: 242,242,242;
+  --success: #F2F2F2; --success-light: #1C1C1C;
+  --danger:  #F2F2F2; --danger-light:  #1C1C1C;
+  --warning: #F2F2F2; --warning-light: #1C1C1C;
+  --mock:    #F2F2F2; --mock-light:    #1C1C1C; --mock-border: #2A2A2A;
+  --success-border: #2A2A2A; --danger-border: #2A2A2A; --warning-border: #2A2A2A;
+
+  --gray-50:  #131313; --gray-100: #171717; --gray-200: #202020;
+  --gray-300: #2C2C2C; --gray-400: #7A7A7A; --gray-500: #9C9C9C;
+  --gray-600: #C4C4C4; --gray-700: #DCDCDC; --gray-800: #EDEDED; --gray-900: #F7F7F7;
+
+  --bg: #0A0A0A; --card: #0A0A0A; --card-border: #262626;
+  --text: #F2F2F2; --text-sub: #9C9C9C;
+  --nav-bg: #0A0A0A; --nav-border: #F2F2F2;
+  --nav-g1: #0A0A0A; --nav-g2: #0A0A0A; --nav-g3: #0A0A0A;
+  --input-bg: #0A0A0A; --input-border: #2C2C2C;
+  --option-bg: #0A0A0A; --option-hover: #141414;
+  --tint-primary: #0A0A0A; --tint-primary-edge: #262626;
+  --tint-warning: #0A0A0A; --tint-warning-edge: #262626;
+  --tint-success: #0A0A0A; --tint-success-edge: #262626;
+  --tint-danger:  #0A0A0A; --tint-danger-edge:  #262626;
+  --mst-low: #3A3A3A; --mst-mid: #8A8A8A; --mst-high: #F2F2F2;
+}
+
+/* ── 2. 바탕과 글자 ────────────────────────────────────────────────── */
+body {
+  background: var(--paper) !important;
+  background-image: none !important;
+  color: var(--ink) !important;
+  letter-spacing: -0.011em;
+}
+body::before, body::after { display: none !important; }
+
+/* 장식은 전부 걷어낸다 */
+*, *::before, *::after {
+  box-shadow: none !important;
+  text-shadow: none !important;
+}
+.card, .home-card, .stat-card, .mst-card, .review-card, .set-card, .set-row,
+.set-row-btn, .round-card, .wrong-item, .search-result-item, .exam-item,
+.memo-popup, .cal-popup, .admin-box, .qc-item, .explanation-box,
+.subj-answer-box, .rt-panel, .result-score, .home-hero {
+  border-radius: 0 !important;
+  background-image: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+/* ── 3. 헤더 — 그라데이션을 걷고 얇은 선 하나로 ────────────────────── */
+nav {
+  background: var(--paper) !important;
+  background-image: none !important;
+  border-bottom: 1px solid var(--ink) !important;
+}
+.nav-inner { padding: 0 20px !important; }
+.nav-logo {
+  color: var(--ink) !important;
+  font-weight: 800 !important;
+  letter-spacing: -0.03em !important;
+  text-transform: none;
+}
+.nav-tab, .nav-reset, #dark-toggle, #nav-clock, .nav-back {
+  background: transparent !important;
+  border: none !important;
+  color: var(--gray-500) !important;
+  border-radius: 0 !important;
+}
+.nav-tab {
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.14em !important;
+  text-transform: uppercase;
+  padding: 6px 2px !important;
+  margin: 0 9px;
+  border-bottom: 2px solid transparent !important;
+}
+.nav-tab .ic { display: none !important; }     /* 아이콘을 지우고 글자만 */
+.nav-tab:hover { color: var(--ink) !important; }
+.nav-tab.active {
+  color: var(--ink) !important;
+  border-bottom-color: var(--ink) !important;
+}
+.nav-reset:hover, #dark-toggle:hover, .nav-back:hover { color: var(--ink) !important; }
+.sync-dot { box-shadow: none !important; }
+
+/* 하단 탭바 */
+.nav-mobile-tabs {
+  background: var(--paper) !important;
+  border-top: 1px solid var(--ink) !important;
+}
+.nav-mobile-tab { color: var(--gray-400) !important; }
+.nav-mobile-tab .ic { display: none !important; }
+.nav-mobile-tab {
+  font-size: 11px !important; font-weight: 700 !important;
+  letter-spacing: 0.12em !important; text-transform: uppercase;
+  padding: 14px 0 !important;
+}
+.nav-mobile-tab.active { color: var(--ink) !important; }
+.nav-mobile-tab.active::after {
+  content: ""; position: absolute; top: 0; left: 22%; right: 22%;
+  height: 2px; background: var(--ink);
+}
+.nav-mobile-tab { position: relative; }
+
+/* ── 4. 카드를 걷어내고 괘선으로 ──────────────────────────────────── */
+.container { max-width: 780px !important; padding: 0 20px !important; }
+.page > .container { padding-top: 34px !important; }
+
+.home-card, .dday-card, .resume-card, .mst-card, .review-card,
+.stat-card, .wrong-item, .search-result-item, .exam-item {
+  background: transparent !important;
+  border: none !important;
+  border-top: 1px solid var(--card-border) !important;
+  padding: 20px 0 !important;
+}
+.home-duo { grid-template-columns: 1fr !important; gap: 0 !important; }
+.home-duo > * { border-top: 1px solid var(--card-border) !important; }
+
+/* 시험 일정 — 숫자를 크게 */
+.dday-label, .rc-title {
+  font-size: 10.5px !important; font-weight: 700 !important;
+  letter-spacing: 0.16em !important; text-transform: uppercase;
+  color: var(--gray-400) !important;
+}
+.dday-num {
+  font-size: 54px !important; font-weight: 800 !important;
+  letter-spacing: -0.05em !important; line-height: 1 !important;
+  color: var(--ink) !important; margin-top: 8px !important;
+}
+.dday-date, .rc-sub { font-size: 13px !important; color: var(--gray-500) !important; }
+.rc-emoji { display: none !important; }
+
+/* 섹션 제목 */
+.section-label, .section-header, .page-title, .mst-title {
+  font-size: 10.5px !important; font-weight: 700 !important;
+  letter-spacing: 0.2em !important; text-transform: uppercase;
+  color: var(--gray-400) !important;
+}
+.section-header { border-bottom: 1px solid var(--ink) !important; padding-bottom: 10px !important; }
+.page-title .ic, .section-label .ic { display: none !important; }
+
+/* ── 5. 단추 — 채움 하나, 선 하나 ─────────────────────────────────── */
+.btn, button.btn {
+  border-radius: 0 !important;
+  font-weight: 700 !important;
+  letter-spacing: -0.01em;
+  transition: background 0.15s, color 0.15s !important;
+}
+.btn .ic { display: none !important; }
+.btn-primary {
+  background: var(--ink) !important; background-image: none !important;
+  color: var(--paper) !important; border: 1px solid var(--ink) !important;
+}
+.btn-primary:hover { background: var(--paper) !important; color: var(--ink) !important; }
+.btn-secondary, .btn-ghost {
+  background: transparent !important; background-image: none !important;
+  color: var(--ink) !important; border: 1px solid var(--card-border) !important;
+}
+.btn-secondary:hover { border-color: var(--ink) !important; }
+.btn-danger { background: transparent !important; color: var(--ink) !important; border: 1px solid var(--ink) !important; }
+
+/* ── 6. 자격증·회차 목록 — 번호만 남긴 격자 ───────────────────────── */
+.cat-card, .category-card {
+  background: transparent !important;
+  border: none !important;
+  border-top: 1px solid var(--card-border) !important;
+  border-radius: 0 !important;
+  padding: 22px 0 !important;
+}
+.round-card, .round-tile {
+  background: transparent !important;
+  border: 1px solid var(--card-border) !important;
+  border-radius: 0 !important;
+}
+.round-card:hover, .round-tile:hover { border-color: var(--ink) !important; }
+.round-btn {
+  border-radius: 0 !important;
+  border: 1px solid var(--card-border) !important;
+  background: transparent !important;
+  color: var(--gray-500) !important;
+}
+.round-btn:hover { border-color: var(--ink) !important; color: var(--ink) !important; }
+
+/* 암기도 막대 */
+.mastery-bar, .mst-bar, .bar, .gauge {
+  border-radius: 0 !important;
+  background: var(--gray-200) !important;
+  height: 2px !important;
+}
+.mastery-fill, .mst-fill, .bar > i {
+  border-radius: 0 !important;
+  background: var(--ink) !important;
+  background-image: none !important;
+}
+
+/* ── 7. 문제 화면 ─────────────────────────────────────────────────── */
+.quiz-q-num {
+  background: transparent !important;
+  color: var(--ink) !important;
+  border: none !important;
+  border-radius: 0 !important;
+  font-size: 30px !important;
+  font-weight: 800 !important;
+  letter-spacing: -0.05em !important;
+  padding: 0 !important;
+}
+.quiz-where-t {
+  font-size: 10.5px !important; letter-spacing: 0.16em !important;
+  text-transform: uppercase; color: var(--gray-400) !important;
+}
+.quiz-header { border-bottom: 1px solid var(--ink) !important; padding-bottom: 12px !important; }
+.quiz-act, .star-btn, .quiz-num-btn {
+  background: transparent !important; border: 1px solid var(--card-border) !important;
+  border-radius: 0 !important; color: var(--gray-500) !important;
+}
+.quiz-act:hover, .star-btn:hover { border-color: var(--ink) !important; color: var(--ink) !important; }
+
+.question-text, .quiz-question {
+  font-size: 19px !important;
+  line-height: 1.85 !important;
+  font-weight: 500 !important;
+  letter-spacing: -0.015em !important;
+}
+
+/* 보기 — 상자를 없애고 줄로 */
+.option, .option-btn {
+  background: transparent !important;
+  border: none !important;
+  border-bottom: 1px solid var(--card-border) !important;
+  border-left: 2px solid transparent !important;
+  border-radius: 0 !important;
+  padding: 16px 10px 16px 14px !important;
+  transition: border-left-color 0.15s, background 0.15s !important;
+}
+.option:hover:not(:disabled), .option-btn:hover:not(:disabled) {
+  background: var(--gray-50) !important;
+  border-left-color: var(--gray-300) !important;
+}
+/* 맞음 = 먹으로 채운 왼쪽 선 + 굵은 글씨 · 틀림 = 흐리게 + 취소선 */
+.option.correct, .option-btn.correct {
+  border-left-color: var(--ink) !important;
+  background: transparent !important;
+  font-weight: 800 !important;
+}
+.option.wrong, .option-btn.wrong {
+  color: var(--gray-400) !important;
+  text-decoration: line-through;
+  text-decoration-thickness: 1px;
+}
+.option-num, .opt-num {
+  background: transparent !important; color: var(--gray-400) !important;
+  border: none !important; border-radius: 0 !important;
+  font-weight: 700 !important;
+}
+
+/* 해설 */
+.explanation-box, .subj-answer-box {
+  background: transparent !important;
+  border: none !important;
+  border-top: 1px solid var(--ink) !important;
+  border-radius: 0 !important;
+  padding: 18px 0 0 !important;
+  line-height: 1.95 !important;
+}
+.explanation-title, .subj-answer-title {
+  font-size: 10.5px !important; letter-spacing: 0.2em !important;
+  text-transform: uppercase; color: var(--gray-400) !important;
+  font-weight: 700 !important;
+}
+.explanation-title .ic, .subj-answer-title .ic { display: none !important; }
+
+/* 진행 막대 */
+.quiz-progress-bar { background: var(--gray-200) !important; height: 2px !important; border-radius: 0 !important; }
+.quiz-progress-fill { background: var(--ink) !important; border-radius: 0 !important; }
+.quiz-progress-thumb {
+  background: var(--ink) !important; border: none !important;
+  border-radius: 0 !important; width: 2px !important; height: 12px !important;
+}
+.scrub-arrow {
+  background: transparent !important; border: 1px solid var(--card-border) !important;
+  border-radius: 0 !important; color: var(--gray-500) !important;
+}
+.scrub-arrow:hover { background: transparent !important; border-color: var(--ink) !important; color: var(--ink) !important; }
+
+/* 주관식 */
+.subj-input, .qmemo-input, input, select, textarea {
+  border-radius: 0 !important;
+  border: none !important;
+  border-bottom: 1px solid var(--input-border) !important;
+  background: transparent !important;
+  font-size: 16px !important;
+}
+.subj-input:focus, .qmemo-input:focus, input:focus, textarea:focus {
+  border-bottom-color: var(--ink) !important;
+  box-shadow: none !important;
+}
+.sja {
+  border-radius: 0 !important; background: transparent !important;
+  border: 1px solid var(--card-border) !important; color: var(--gray-600) !important;
+}
+.sja.on, .sja-reveal.on, .sja-ok.on, .sja-no.on {
+  background: var(--ink) !important; border-color: var(--ink) !important; color: var(--paper) !important;
+}
+
+/* ── 8. 결과 ──────────────────────────────────────────────────────── */
+.result-score { background: transparent !important; border: none !important; border-top: 1px solid var(--ink) !important; padding: 30px 0 !important; }
+.result-circle { border: none !important; background: transparent !important; width: auto !important; height: auto !important; }
+.result-pct { font-size: 72px !important; font-weight: 800 !important; letter-spacing: -0.06em !important; color: var(--ink) !important; }
+.result-badge { border-radius: 0 !important; background: transparent !important; border: 1px solid var(--card-border) !important; color: var(--gray-600) !important; }
+
+/* ── 9. 설정 ──────────────────────────────────────────────────────── */
+.set-card { border-radius: 0 !important; border-bottom: none !important; }
+.set-row, .set-row-btn {
+  background: transparent !important;
+  border: none !important;
+  border-top: 1px solid var(--card-border) !important;
+  border-radius: 0 !important;
+  padding: 20px 0 !important;
+}
+.set-group-label {
+  letter-spacing: 0.2em !important; color: var(--gray-400) !important;
+  margin-bottom: 2px !important;
+}
+.set-switch { border-radius: 0 !important; background: var(--gray-200) !important; }
+.set-switch span { border-radius: 0 !important; }
+.set-switch.on { background: var(--ink) !important; }
+.set-row-note { background: transparent !important; }
+.beta-tag { border-radius: 0 !important; background: transparent !important; color: var(--gray-500) !important; border: 1px solid var(--card-border) !important; }
+
+/* ── 10. 그 밖의 장식 제거 ────────────────────────────────────────── */
+.badge, .chip, .tag, .pill, .review-card-icon, .mst-avg-badge {
+  border-radius: 0 !important;
+  background: transparent !important;
+  border: 1px solid var(--card-border) !important;
+  color: var(--gray-500) !important;
+}
+.review-card-icon { border: none !important; }
+.review-card-icon .ic { color: var(--ink) !important; }
+#toast, .toast {
+  border-radius: 0 !important;
+  background: var(--ink) !important;
+  color: var(--paper) !important;
+}
+.fab, .calc-fab { border-radius: 0 !important; background: var(--ink) !important; color: var(--paper) !important; }
+.modal, .popup, .sheet, .memo-popup, .cal-popup { border-radius: 0 !important; }
+
+/* 움직임은 절제 */
+@media (prefers-reduced-motion: no-preference) {
+  .btn, .option, .nav-tab, .set-row-btn { transition-duration: 0.14s !important; }
+}
