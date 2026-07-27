@@ -4604,8 +4604,23 @@
     transition: width 0.25s cubic-bezier(0.22,1,0.36,1);
   }
   .rt.open::after { width: 46%; }
+  /* [추가] 회차 옮기기 줄 */
+  .mv-grid { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1.4fr) auto; gap: 8px; align-items: center; }
+  .mv-grid .btn { white-space: nowrap; padding: 10px 16px; }
+  @media (max-width: 560px) {
+    .mv-grid { grid-template-columns: 1fr; }
+    .mv-grid .btn { width: 100%; }
+  }
+
   .rt-top { font-size: 10.5px; font-weight: 600; color: var(--gray-400); line-height: 1.2; }
   .rt-bottom { font-size: 16px; font-weight: 800; color: var(--gray-700); line-height: 1.2; letter-spacing: -0.4px; }
+  /* [추가] 소제목처럼 긴 이름 — 두 줄까지 보이고 넘치면 … */
+  .rt-bottom.long {
+    font-size: 12.5px; line-height: 1.32; letter-spacing: -0.3px;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+    overflow: hidden; word-break: keep-all; text-align: center;
+  }
+  .rt-bottom.long.vlong { font-size: 11.5px; }
   .rt.open .rt-bottom { color: var(--primary); font-weight: 800; }
   .rt.open .rt-top { color: var(--primary); opacity: 0.75; }
   /* 암기도만 아래 가는 띠로 */
@@ -7112,12 +7127,16 @@
         </select>
       </div>
       <div class="form-group" id="rename-round-box" style="display:none;">
-        <label class="form-label">회차 이름 수정</label>
-        <div style="display:flex; gap:8px; align-items:center;">
-          <input type="text" class="form-input" id="rename-round-input" placeholder="예: 2023-88" style="flex:1;">
-          <button class="btn btn-primary" style="white-space:nowrap; padding:10px 16px;" onclick="renameRound()">변경</button>
+        <label class="form-label">회차 옮기기 · 이름 바꾸기</label>
+        <div class="mv-grid">
+          <select class="form-select" id="move-round-cat"></select>
+          <input type="text" class="form-input" id="rename-round-input" placeholder="새 이름 (예: 01-도시가스사용시설)">
+          <button class="btn btn-primary" onclick="moveRound()">적용</button>
         </div>
-        <div style="font-size:11px; color:var(--gray-400); margin-top:6px;">선택한 회차의 이름을 바꿉니다. 진도·오답·별표·암기도 기록도 함께 옮겨집니다.</div>
+        <div style="font-size:11px; color:var(--gray-400); margin-top:6px;">
+          자격증만 바꾸면 그대로 옮기고, 이름만 바꾸면 제자리에서 이름만 바뀝니다. 둘 다 한 번에도 됩니다.<br>
+          문제·진도·오답·별표·암기도·주석 기록이 함께 따라갑니다.
+        </div>
       </div>
       <div class="q-manage-list" id="q-manage-list"></div>
     </div>
@@ -8968,13 +8987,29 @@ function moveCat(index, dir) {
 let _openRound = null;      // 현재 펼쳐진 회차 이름
 
 // "2024-1" → { year: '2024', rest: '-1' } / 형식이 다르면 통째로
+// 회차 이름을 두 줄로 나눈다 (위: 작은 회색 / 아래: 크고 진하게)
+//
+// [수정] 예전엔 이름을 무조건 앞 4글자에서 잘랐다. 그래서 숫자가 아닌
+//        소제목이 들어오면 "01-도" / "시가스사용시설" 처럼 엉뚱하게 갈라지고,
+//        5글자 이하면 작은 회색 글씨만 남아 안 보였다.
+//        → 이제 '숫자 + 이름' 형태만 나누고, 그 밖의 이름은 통째로 아래에 둔다.
 function splitRoundName(r) {
-  const m = /^(\d{4})\s*[-_.\s]\s*(.+)$/.exec(String(r));
+  const t = String(r).trim();
+
+  // 2017-61 · 2017 61 · 2017.1  → 연도 / 회차
+  const m = /^(\d{4})\s*[-_.\s]\s*(.+)$/.exec(t);
   if (m) return { top: m[1], bottom: m[2] };
-  const m2 = /^(\d{4})$/.exec(String(r));
-  if (m2) return { top: m2[1], bottom: '' };
-  const t = String(r);
-  return t.length > 5 ? { top: t.slice(0, 4), bottom: t.slice(4) } : { top: t, bottom: '' };
+  if (/^\d{4}$/.test(t)) return { top: t, bottom: '' };
+
+  // 01-도시가스사용시설 · 3. 안전관리  → 번호 / 이름
+  const m2 = /^(\d{1,3})\s*[-_.)\s]\s*(.+)$/.exec(t);
+  if (m2) return { top: m2[1], bottom: m2[2] };
+
+  // 61 · 3  → 숫자만
+  if (/^\d{1,3}$/.test(t)) return { top: '', bottom: t };
+
+  // 그 밖(순수 소제목)은 자르지 않고 통째로
+  return { top: '', bottom: t };
 }
 
 // [수정] 같은 이름의 함수가 두 곳에 있어 앞의 것이 죽은 코드였음 → 하나로 통합
@@ -9042,8 +9077,8 @@ function renderRoundList(cat) {
       <button class="rt${isChecked ? ' done' : ''}" data-idx="${i}" data-round="${escHtml(r)}"
               onclick="toggleRoundTile(${i})" title="${escHtml(r)}회차 · ${qs.length}문제 · 암기도 ${pct}%">
         ${isChecked ? '<span class="rt-check"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-check"/></svg></span>' : ''}
-        <span class="rt-top">${escHtml(nm.top)}</span>
-        ${nm.bottom ? `<span class="rt-bottom">${escHtml(nm.bottom)}</span>` : ''}
+        ${nm.top ? `<span class="rt-top">${escHtml(nm.top)}</span>` : ''}
+        ${nm.bottom ? `<span class="rt-bottom${nm.bottom.length > 6 ? ' long' : ''}${nm.bottom.length > 12 ? ' vlong' : ''}">${escHtml(nm.bottom)}</span>` : ''}
         <span class="rt-bars"><i class="rt-mst" style="width:${pct}%; background:${mstColor(pct)}"></i></span>
       </button>`;
   }).join('');
@@ -11446,13 +11481,19 @@ function loadManageList() {
     if (ci && document.activeElement !== ci) ci.value = cat || '';
   }
 
-  // 회차 이름 수정 박스 표시 여부
+  // 회차 옮기기·이름 바꾸기 박스
   const renameBox = document.getElementById('rename-round-box');
   if (renameBox) {
     const sel = roundSel.value;
     renameBox.style.display = (cat && sel) ? '' : 'none';
     const inp = document.getElementById('rename-round-input');
     if (inp && document.activeElement !== inp) inp.value = sel || '';
+    const mvSel = document.getElementById('move-round-cat');
+    if (mvSel && document.activeElement !== mvSel) {
+      mvSel.innerHTML = getCategories()
+        .map(c => `<option value="${escHtml(c)}"${c === cat ? ' selected' : ''}>${escHtml(c)}${c === cat ? ' (지금)' : ''}</option>`)
+        .join('');
+    }
   }
 
   if (!cat) { list.innerHTML = '<div style="color:var(--gray-400);font-size:13px;padding:12px">자격증을 선택하세요</div>'; return; }
@@ -11569,32 +11610,63 @@ function renameCategory() {
   showToast(`자격증 이름을 "${newC}" 로 변경했어요 ✅`);
 }
 
-function renameRound() {
-  const cat = document.getElementById('manage-category').value;
+// 회차를 다른 자격증으로 옮기거나, 이름을 바꾸거나, 둘 다.
+// (JSON 을 엉뚱한 자격증에 올렸을 때 되돌릴 수 있어야 한다)
+function moveRound() {
+  const cat  = document.getElementById('manage-category').value;
   const oldR = document.getElementById('manage-round').value;
-  const newR = document.getElementById('rename-round-input').value.trim();
+  const mvEl = document.getElementById('move-round-cat');
+  const newC = (mvEl && mvEl.value) || cat;
+  const newR = document.getElementById('rename-round-input').value.trim() || oldR;
 
   if (!cat) { showToast('자격증을 선택하세요'); return; }
-  if (!oldR) { showToast('수정할 회차를 선택하세요'); return; }
-  if (!newR) { showToast('새 회차 이름을 입력하세요'); return; }
-  if (newR === oldR) { showToast('같은 이름이에요'); return; }
-
+  if (!oldR) { showToast('옮길 회차를 선택하세요'); return; }
+  if (newC === cat && newR === oldR) { showToast('바뀐 것이 없어요'); return; }
   if (!getRoundCount(cat, oldR) && !getRound(cat, oldR).length) { showToast('회차를 찾을 수 없어요'); return; }
-  if (getRoundCount(cat, newR)) { showToast('이미 있는 회차 이름이에요'); return; }
-  if (!confirm(`"${oldR}" → "${newR}" 로 바꿀까요?\n진도·오답·별표·암기도 기록도 함께 옮겨집니다.`)) return;
 
-  // 1) 문제 데이터 — 새 회차로 옮기고 옛 회차는 지운다
-  saveRound(cat, newR, getRound(cat, oldR));
+  // 옮길 곳에 같은 이름이 이미 있으면 섞이므로 막는다
+  if (getRoundCount(newC, newR)) {
+    showToast(`"${newC}" 에 "${newR}" 회차가 이미 있어요 · 다른 이름을 쓰세요`);
+    return;
+  }
+
+  const moving = (newC !== cat);
+  const msg = moving
+    ? `"${cat}" 의 "${oldR}" 회차를\n"${newC}" 의 "${newR}" 로 옮길까요?`
+    : `"${oldR}" → "${newR}" 로 이름을 바꿀까요?`;
+  if (!confirm(msg + `\n\n문제 ${getRoundCount(cat, oldR)}개와 진도·오답·별표·암기도·주석 기록이 함께 따라갑니다.`)) return;
+
+  _relocateRound(cat, oldR, newC, newR);
+
+  document.getElementById('rename-round-input').value = '';
+  if (moving) {
+    // 옮긴 자격증 쪽을 보여 준다
+    const catSel = document.getElementById('manage-category');
+    if (catSel) catSel.value = newC;
+  }
+  loadManageList();
+  const rs = document.getElementById('manage-round');
+  if (rs) rs.value = newR;
+  loadManageList();
+  renderHome();
+  showToast(moving ? `"${newC}" 로 옮겼어요 ✅` : `"${newR}" 로 바꿨어요 ✅`);
+}
+
+// 실제 이사 — 문제와 딸린 기록을 모두 새 자리로
+function _relocateRound(cat, oldR, newC, newR) {
+
+  // 1) 문제 데이터 — 새 자리로 옮기고 옛 자리는 지운다
+  saveRound(newC, newR, getRound(cat, oldR));
   deleteRound(cat, oldR);
 
   // 2) 진도 (cat_round)
   const prog = getProgress();
-  const oldPK = cat + '_' + oldR, newPK = cat + '_' + newR;
+  const oldPK = cat + '_' + oldR, newPK = newC + '_' + newR;
   if (prog[oldPK] !== undefined) { prog[newPK] = prog[oldPK]; delete prog[oldPK]; saveProgress(prog); }
 
   // 3) 암기도 (cat||round)
+  const oldMK = cat + '||' + oldR, newMK = newC + '||' + newR;
   const mst = getMastery();
-  const oldMK = cat + '||' + oldR, newMK = cat + '||' + newR;
   if (mst[oldMK] !== undefined) { mst[newMK] = mst[oldMK]; delete mst[oldMK]; saveMasteryData(mst); }
 
   // 4) 회차 체크 (cat||round)
@@ -11607,8 +11679,8 @@ function renameRound() {
   Object.keys(starred).forEach(k => {
     const pre = cat + '||' + oldR + '||';
     if (k.startsWith(pre)) {
-      const nk = cat + '||' + newR + '||' + k.slice(pre.length);
-      starred[nk] = { ...starred[k], round: newR };
+      const nk = newC + '||' + newR + '||' + k.slice(pre.length);
+      starred[nk] = { ...starred[k], cat: newC, round: newR };
       delete starred[k];
       starChanged = true;
     }
@@ -11620,8 +11692,9 @@ function renameRound() {
   let wrongChanged = false;
   wrongs.forEach(w => {
     if (w.cat === cat && String(w.round) === String(oldR)) {
+      w.cat = newC;
       w.round = newR;
-      w.id = cat + '_' + newR + '_' + (w.q && (w.q.id || w.q.num));
+      w.id = newC + '_' + newR + '_' + (w.q && (w.q.id || w.q.num));
       wrongChanged = true;
     }
   });
@@ -11630,15 +11703,41 @@ function renameRound() {
   // 7) 이어하기 북마크
   const bm = getResumeBookmark();
   if (bm && bm.cat === cat && String(bm.round) === String(oldR)) {
-    bm.round = newR;
+    bm.cat = newC; bm.round = newR;
     saveResumeBookmark(bm);
   }
 
-  document.getElementById('rename-round-input').value = '';
-  document.getElementById('manage-round').value = newR;
-  loadManageList();
-  renderHome();
-  showToast(`회차를 "${newR}" 로 변경했어요 ✅`);
+  // 8) 주석 (cat||round||qid)
+  try {
+    const memos = getQMemos();
+    let memoChanged = false;
+    Object.keys(memos).forEach(k => {
+      const pre = cat + '||' + oldR + '||';
+      if (k.startsWith(pre)) {
+        memos[newC + '||' + newR + '||' + k.slice(pre.length)] = memos[k];
+        delete memos[k];
+        memoChanged = true;
+      }
+    });
+    if (memoChanged) saveQMemos(memos);
+  } catch (_) {}
+
+  // 9) 복습 일정 (cat||round||qid)
+  try {
+    const srs = getSrs();
+    let srsChanged = false;
+    Object.keys(srs).forEach(k => {
+      const pre = cat + '||' + oldR + '||';
+      if (k.startsWith(pre)) {
+        const v = srs[k];
+        if (v && typeof v === 'object') { v.cat = newC; v.round = newR; }
+        srs[newC + '||' + newR + '||' + k.slice(pre.length)] = v;
+        delete srs[k];
+        srsChanged = true;
+      }
+    });
+    if (srsChanged) saveSrs(srs);
+  } catch (_) {}
 }
 
 function deleteQuestion(cat, round, idx) {
@@ -15433,7 +15532,7 @@ applyRenderFlags();
 // ── 앱 버전 ──
 // 폰이 옛 파일을 캐시해 두고 있는지 바로 확인할 수 있도록 화면에 표시한다.
 // (설정 맨 아래 · 개발자 도구 콘솔에도 찍힘)
-const APP_VERSION = '260727-0231';
+const APP_VERSION = '260727-0304';
 console.log('%c양진웅 Note 버전 ' + APP_VERSION, 'font-weight:bold');
 
 // PWA 서비스워커 등록
