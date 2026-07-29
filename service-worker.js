@@ -2,7 +2,7 @@
 // 양진웅 Note — 서비스워커
 // 배포할 때마다 CACHE_VERSION 숫자만 올리면 즉시 갱신됩니다.
 // ══════════════════════════════════════════════════════════════
-const CACHE_VERSION = 'v4';
+const CACHE_VERSION = 'v5';
 const CACHE_NAME = `yjw-note-${CACHE_VERSION}`;
 
 // 오프라인에서도 열리도록 최소한만 캐시
