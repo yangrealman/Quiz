@@ -16743,6 +16743,10 @@ applyRenderFlags();
 //   k: 'new'(새 기능) · 'fix'(고침) · 'chg'(바뀜)
 // ══════════════════════════════════════════════════════════════════════
 const PATCH_NOTES = [
+  { v: '260730-0639', at: '2026-07-30', items: [
+    { k: 'fix', t: '<b>홈 화면에 설치한 PWA</b>가 새 버전을 못 받던 문제 — 아이콘을 눌러도 멈춰 있던 화면이 그대로 되살아나는 경우가 있어, 화면이 다시 보일 때마다 새 버전을 확인하도록 했습니다' },
+    { k: 'new', t: '설치된 PWA에서 새 버전이 확인되면 <b>풀던 문제를 그대로 두고</b> 화면 아래에 새로고침 배너로 알려 줍니다' },
+  ]},
   { v: '260730-0634', at: '2026-07-30', items: [
     { k: 'fix', t: '상단 탭은 "문제"로 바뀌었는데 <b>모바일 하단 탭</b>은 "문제풀기"로 그대로 남아있던 것을 마저 맞췄습니다' },
   ]},
@@ -16861,7 +16865,7 @@ function closePatchNotes() {
 // ── 앱 버전 ──
 // 폰이 옛 파일을 캐시해 두고 있는지 바로 확인할 수 있도록 화면에 표시한다.
 // (설정 맨 아래 · 개발자 도구 콘솔에도 찍힘)
-const APP_VERSION = '260730-0634';
+const APP_VERSION = '260730-0639';
 console.log('%c양진웅 Note 버전 ' + APP_VERSION, 'font-weight:bold');
 
 // PWA 서비스워커 등록
@@ -16874,6 +16878,13 @@ if ('serviceWorker' in navigator) {
         console.log('서비스워커 등록 완료');
         try { reg.update(); } catch (_) {}         // 즉시 새 버전 확인
         setInterval(() => { try { reg.update(); } catch (_) {} }, 60 * 60 * 1000);
+
+        // [추가] 홈 화면에 설치해 둔 PWA는 아이콘을 눌러도 "새로 열리는" 게 아니라
+        //        꺼져 있던 화면을 그대로 되살리는 경우가 많아, 위의 등록 시점 확인만으로는
+        //        업데이트를 놓친다. → 화면이 다시 보일 때마다 한 번 더 확인한다.
+        document.addEventListener('visibilitychange', () => {
+          if (document.visibilityState === 'visible') { try { reg.update(); } catch (_) {} }
+        });
 
         // 새 워커가 대기 중이면 바로 교체
         reg.addEventListener('updatefound', () => {
@@ -16898,7 +16909,42 @@ if ('serviceWorker' in navigator) {
       location.reload();
     });
   });
+
+  // [추가] 뒤로가기 캐시(bfcache)에서 예전 화면이 그대로 되살아나면
+  //        JS 가 다시 실행되지 않아 위의 업데이트 확인들이 전혀 돌지 않는다 → 통째로 새로고침
+  window.addEventListener('pageshow', (ev) => {
+    if (ev.persisted) location.reload();
+  });
 }
+
+// [추가] 홈 화면에 설치한 PWA — 특히 iOS — 는 아이콘을 눌러도 "새로 열리는" 게 아니라
+//        멈춰 있던 화면을 그대로 되살리는 경우가 많다. 이때는 서비스워커 갱신 확인조차
+//        돌지 않아, 배포를 새로 해도 계속 옛 화면만 보일 수 있다.
+//        → 화면이 다시 보일 때마다 배포된 index.html 을 가볍게 훑어 버전을 비교하고,
+//          다르면 (풀던 문제를 날리지 않도록) 강제로 새로고침하지 않고 배너로만 알려 준다.
+let _versionCheckBusy = false;
+async function _checkForNewVersion() {
+  if (_versionCheckBusy || document.getElementById('update-banner')) return;
+  _versionCheckBusy = true;
+  try {
+    const res = await fetch('./index.html', { cache: 'no-store' });
+    const html = await res.text();
+    const m = html.match(/APP_VERSION\s*=\s*'([^']+)'/);
+    if (m && m[1] && m[1] !== APP_VERSION) _showUpdateBanner(m[1]);
+  } catch (_) {}
+  _versionCheckBusy = false;
+}
+function _showUpdateBanner(newVer) {
+  if (document.getElementById('update-banner')) return;
+  const b = document.createElement('div');
+  b.id = 'update-banner';
+  b.style.cssText = 'position:fixed; left:12px; right:12px; bottom:calc(70px + env(safe-area-inset-bottom, 0px)); z-index:9999; background:var(--primary); color:#fff; padding:12px 14px; border-radius:12px; box-shadow:0 8px 24px rgba(0,0,0,0.28); display:flex; align-items:center; justify-content:space-between; gap:10px; font-size:13px; font-weight:700;';
+  b.innerHTML = `<span>새 버전이 있어요 (${escHtml(newVer)})</span><button style="background:#fff; color:var(--primary); border:none; border-radius:8px; padding:6px 12px; font-weight:800; cursor:pointer;" onclick="location.reload()">새로고침</button>`;
+  document.body.appendChild(b);
+}
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') _checkForNewVersion();
+});
 
 // 캐시 강제 초기화 (주소 뒤에 ?reset 을 붙여 접속하면 실행)
 if (location.search.includes('reset')) {
