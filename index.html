@@ -652,7 +652,7 @@
     font-weight: 500;
   }
   /* ── 진행바 스크러버(드래그로 문항 이동) ── */
-  #quiz-progress-bar {
+  #quiz-progress-bar, #sq-progress-bar {
     position: relative;
     height: 8px;
     overflow: visible;
@@ -662,7 +662,7 @@
     margin-bottom: 10px;
   }
   /* 얇은 막대를 손가락으로 쉽게 잡도록 위아래로 넓힌 투명 터치 영역 */
-  #quiz-progress-bar::before {
+  #quiz-progress-bar::before, #sq-progress-bar::before {
     content: "";
     position: absolute;
     left: 0;
@@ -671,7 +671,7 @@
     bottom: -16px;
     z-index: 1;
   }
-  #quiz-progress-bar .quiz-progress-fill { pointer-events: none; }
+  #quiz-progress-bar .quiz-progress-fill, #sq-progress-bar .quiz-progress-fill { pointer-events: none; }
   .quiz-progress-thumb {
     position: absolute;
     top: 50%;
@@ -686,11 +686,11 @@
     transition: left 0.15s ease-out;
     pointer-events: none;
   }
-  #quiz-progress-bar.dragging .quiz-progress-thumb {
+  #quiz-progress-bar.dragging .quiz-progress-thumb, #sq-progress-bar.dragging .quiz-progress-thumb {
     transition: none;
     transform: translate(-50%, -50%) scale(1.18);
   }
-  #quiz-progress-bar.dragging .quiz-progress-fill { transition: none; }
+  #quiz-progress-bar.dragging .quiz-progress-fill, #sq-progress-bar.dragging .quiz-progress-fill { transition: none; }
   .quiz-progress-tip {
     position: absolute;
     left: 0;
@@ -708,7 +708,7 @@
     transition: opacity 0.12s ease;
     box-shadow: 0 2px 8px rgba(0,0,0,0.2);
   }
-  #quiz-progress-bar.dragging .quiz-progress-tip { opacity: 1; }
+  #quiz-progress-bar.dragging .quiz-progress-tip, #sq-progress-bar.dragging .quiz-progress-tip { opacity: 1; }
   .quiz-scrub-hint {
     text-align: center;
     font-size: 10.5px;
@@ -10521,7 +10521,7 @@ function showResult() {
                 <div class="wrong-note-q"${hlAttr(cat, round, q, 'q')}>${escHtml(q.question)}</div>
                 <div style="margin:8px 0; padding:10px; background:var(--danger-light); border-radius:8px; font-size:13px; color:var(--danger); line-height:1.9; white-space:pre-wrap;">내 답: ${myText}</div>
                 <div style="margin:8px 0; padding:12px 14px; background:var(--success-light); border-radius:8px; font-size:13px; color:var(--success-deep); line-height:1.9; white-space:pre-wrap;"><b>모범 답안</b><br>${renderExp(q.answer || '')}</div>
-                ${q.explanation ? `<div class="wn-explain"${hlAttr(w.cat, w.round, q, 'e')}><svg class="ic" viewBox="0 0 24 24"><use href="#ic-bulb"/></svg> ${renderExp(q.explanation)}</div>` : ''}${expImgSlot(q)}
+                ${q.explanation ? `<div class="wn-explain"${hlAttr(cat, round, q, 'e')}><svg class="ic" viewBox="0 0 24 24"><use href="#ic-bulb"/></svg> ${renderExp(q.explanation)}</div>` : ''}${expImgSlot(q)}
               </div>
             `;
           }
@@ -10541,7 +10541,7 @@ function showResult() {
                   </div>
                 `).join('')}
               </div>
-              ${q.explanation ? `<div class="wn-explain"${hlAttr(w.cat, w.round, q, 'e')}><svg class="ic" viewBox="0 0 24 24"><use href="#ic-bulb"/></svg> ${renderExp(q.explanation)}</div>` : ''}${expImgSlot(q)}
+              ${q.explanation ? `<div class="wn-explain"${hlAttr(cat, round, q, 'e')}><svg class="ic" viewBox="0 0 24 24"><use href="#ic-bulb"/></svg> ${renderExp(q.explanation)}</div>` : ''}${expImgSlot(q)}
             </div>
           `;
         }).join('')}
@@ -12924,6 +12924,11 @@ function renderSQ() {
   }
   document.getElementById('sq-question').textContent = q.question;
   renderQImage('sq-img-wrap', q);   // [추가] 문제 그림
+  {   // [추가] 형광펜 (일반 풀이와 같은 기록을 공유)
+    const hk = src ? srsKey(src.cat, src.round, q, idx) : '';
+    hlBind('sq-question', hk, 'q');
+    hlBind('sq-explanation-text', hk, 'e');
+  }
 
   const optEl = document.getElementById('sq-options');
   const expBox = document.getElementById('sq-explanation-box');
@@ -13582,7 +13587,7 @@ function showMockResult(correct, total, pct, timeUsed, questions, answered) {
                 ${myAns !== undefined ? `<span>내 답: ${circleNums[myAns]||myAns+1}</span>` : '<span>미응답</span>'}
                 <span style="color:var(--success)">정답: ${circleNums[q.correct]||q.correct+1}</span>
               </div>
-              <div class="wrong-note-q"${hlAttr(cat, round, q, 'q')}>${escHtml(q.question)}</div>
+              <div class="wrong-note-q"${hlAttr(item.cat, item.round, q, 'q')}>${escHtml(q.question)}</div>
               <div class="wrong-note-options">
                 ${q.options.map((opt, oi) => `
                   <div class="wn-option ${oi === q.correct ? 'correct' : (oi === myAns ? 'my-wrong' : '')}">
@@ -13590,13 +13595,14 @@ function showMockResult(correct, total, pct, timeUsed, questions, answered) {
                   </div>
                 `).join('')}
               </div>
-              ${q.explanation ? `<div class="wn-explain"${hlAttr(w.cat, w.round, q, 'e')}><svg class="ic" viewBox="0 0 24 24"><use href="#ic-bulb"/></svg> ${renderExp(q.explanation)}</div>` : ''}${expImgSlot(q)}
+              ${q.explanation ? `<div class="wn-explain"${hlAttr(item.cat, item.round, q, 'e')}><svg class="ic" viewBox="0 0 24 24"><use href="#ic-bulb"/></svg> ${renderExp(q.explanation)}</div>` : ''}${expImgSlot(q)}
             </div>
           `;
         }).join('')}
       </div>
     `;
   }
+  hlBindList('mock-result-review');
   goPage('mock-result');
 }
 
@@ -16673,6 +16679,12 @@ applyRenderFlags();
 //   k: 'new'(새 기능) · 'fix'(고침) · 'chg'(바뀜)
 // ══════════════════════════════════════════════════════════════════════
 const PATCH_NOTES = [
+  { v: '260729-0230', at: '2026-07-29', items: [
+    { k: 'fix', t: '<b>문제풀기 결과 보기</b>가 눌리지 않던 문제 (형광펜 추가 중 생긴 오류로 화면이 그려지지 않았습니다)' },
+    { k: 'fix', t: '<b>별표만 풀기</b>에도 형광펜을 칠할 수 있게 (오답 풀기에는 됐는데 별표 풀기엔 빠져 있었습니다)' },
+    { k: 'fix', t: '<b>별표만 풀기</b>의 진행바 손잡이·말풍선이 엉뚱한 자리에 뜨던 문제' },
+    { k: 'fix', t: '모의고사 결과에서 <b>틀린 문제가 하나라도 있으면</b> 화면이 그려지지 않던 문제' },
+  ]},
   { v: '260729-0158', at: '2026-07-29', items: [
     { k: 'new', t: '<b>형광펜이 모든 화면에서</b> — 오답노트·별표·검색·결과에서도 보이고, 어디서 칠하든 서로 반영됩니다' },
     { k: 'new', t: '이미 칠해둔 형광펜도 <b>그대로 나타납니다</b> (문제 단위로 저장돼 있어 화면과 무관)' },
@@ -16761,7 +16773,7 @@ function closePatchNotes() {
 // ── 앱 버전 ──
 // 폰이 옛 파일을 캐시해 두고 있는지 바로 확인할 수 있도록 화면에 표시한다.
 // (설정 맨 아래 · 개발자 도구 콘솔에도 찍힘)
-const APP_VERSION = '260729-0158';
+const APP_VERSION = '260729-0230';
 console.log('%c양진웅 Note 버전 ' + APP_VERSION, 'font-weight:bold');
 
 // PWA 서비스워커 등록
