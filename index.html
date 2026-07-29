@@ -9236,24 +9236,24 @@ function renderDashboard() {
   // [삭제] 홈 상단의 소개 배너와 날씨 위젯 제거 (요청사항)
 
   const calData = getCalData();
-  let ddayCard = '';
-  const _mainEv = typeof mainEvent === 'function' ? mainEvent() : null;
-  if (_mainEv) {
-    const _at = new Date(_mainEv.at);
-    ddayCard = `
+  // [수정] 대표 일정도 자격증당 1개가 아니라 최대 2개까지 켤 수 있다.
+  //        각각 가로로 긴 한 줄로 보여 준다 (반반으로 쪼개지 않는다).
+  const _mainEvs = typeof mainEvents === 'function' ? mainEvents() : [];
+  const renderDdayCard = (ev) => {
+    const _at = new Date(ev.at);
+    return `
       <div class="home-card dday-card" onclick="toggleCalendar()">
         <div>
-          <div class="dday-label"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-target"/></svg> ${escHtml(_mainEv.name)}까지 남은 일정</div>
-          <div class="dday-num">${ddayLabel(_mainEv.at)}</div>
+          <div class="dday-label"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-target"/></svg> ${escHtml(ev.name)}까지 남은 일정</div>
+          <div class="dday-num">${ddayLabel(ev.at)}</div>
         </div>
         <div class="dday-date">${_ymd(_at).replace(/-/g,'. ')}<br>${String(_at.getHours()).padStart(2,'0')}:${String(_at.getMinutes()).padStart(2,'0')}</div>
       </div>
     `;
-  } else {
-    ddayCard = `
-      <div class="home-card dday-empty" onclick="toggleCalendar()"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-target"/></svg> 시험 날짜를 설정해보세요</div>
-    `;
-  }
+  };
+  const ddayRows = _mainEvs.length
+    ? _mainEvs.map(renderDdayCard).join('')
+    : `<div class="home-card dday-empty" onclick="toggleCalendar()"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-target"/></svg> 시험 날짜를 설정해보세요</div>`;
 
   // [수정] 이어서 풀기를 자격증당 1개가 아니라 무엇이든 최대 2개까지 개별로 보여 준다.
   const _bms = getResumeBookmarks();
@@ -9269,15 +9269,12 @@ function renderDashboard() {
       <button class="rc-close" onclick="clearResumeBookmark('${escArg(bm.id)}', event)" aria-label="지우기"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-x"/></svg></button>
     </div>
   `;
-
-  // [수정] 시험 일정과 (가장 최근) 이어서 풀기를 한 줄에 반반으로 놓는다
-  //        (이어할 자리가 없을 땐 일정 카드가 한 줄을 다 쓴다)
-  const topRow = _bms.length
-    ? `<div class="home-duo">${ddayCard}${renderResumeCard(_bms[0])}</div>`
-    : ddayCard;
-  // 두 번째 북마크는 그 아래에 한 줄로 온전히 보여 준다
-  const secondResumeRow = _bms.length > 1 ? renderResumeCard(_bms[1]) : '';
-  main.innerHTML = topRow + secondResumeRow + '<div id="mst-panel"></div>';
+  // [수정] 시험 일정을 위에 가로로 길게, 이어서 풀기는 그 아래에 나란히(반반) 놓는다.
+  //        이어서 풀기가 1개뿐이면 그 한 줄을 다 쓴다.
+  const resumeRow = _bms.length > 1
+    ? `<div class="home-duo">${_bms.map(renderResumeCard).join('')}</div>`
+    : _bms.map(renderResumeCard).join('');
+  main.innerHTML = ddayRows + resumeRow + '<div id="mst-panel"></div>';
   // [되돌림] 다음 프레임으로 미뤘더니 한 프레임 동안 화면이 짧아져
   //          모바일에서 아래쪽에 흰 여백이 번쩍였다 → 다시 같은 프레임에 그린다
   renderMasteryPanel();
@@ -10643,6 +10640,12 @@ function mainEvent() {
   const l = getEvents();
   return l.find(e => e.main) || l[0] || null;
 }
+// 홈에 보여줄 대표 일정 — 최대 2개까지 (등록된 게 1개뿐이면 1개만)
+function mainEvents() {
+  const l = getEvents();
+  const mains = l.filter(e => e.main);
+  return mains.length ? mains.slice(0, 2) : (l[0] ? [l[0]] : []);
+}
 
 // 남은(지난) 시간 계산 — 지난 일정은 passed:true 로 표시
 function timeLeft(at) {
@@ -10716,20 +10719,30 @@ function deleteEvent(id) {
   if (!confirm(`"${t.name}" 일정을 지울까요?`)) return;
   const wasMain = t.main;
   const next = list.filter(e => e.id !== id);
-  if (wasMain && next.length) next[0].main = true;
+  // [수정] 지운 게 대표 일정 중 하나였고 남은 대표가 하나도 없을 때만 새로 하나 골라준다.
+  //        (다른 대표 하나가 이미 남아있는데 여기서 또 켜면 대표가 도로 2개가 되어 버린다)
+  if (wasMain && next.length && !next.some(e => e.main)) next[0].main = true;
   saveEvents(next);
   renderCalPopup(); renderSchedList();
   if (currentPage === 'dashboard') renderDashboard();
   showToast('일정을 지웠어요');
 }
 
-// 홈 배너에 보여줄 대표 일정 고르기
+// 홈에 보여줄 대표 일정 고르기 — 최대 2개까지 켤 수 있다 (토글 방식)
 function setMainEvent(id) {
-  const list = getEvents().map(e => ({ ...e, main: e.id === id }));
-  saveEvents(list);
+  const list = getEvents();
+  const target = list.find(e => e.id === id);
+  if (!target) return;
+  if (!target.main && list.filter(e => e.main).length >= 2) {
+    showToast('홈에는 최대 2개까지 표시할 수 있어요');
+    return;
+  }
+  const wasMain = target.main;
+  const next = list.map(e => e.id === id ? { ...e, main: !e.main } : e);
+  saveEvents(next);
   renderCalPopup(); renderSchedList();
   if (currentPage === 'dashboard') renderDashboard();
-  showToast('홈에 보여줄 일정으로 정했어요');
+  showToast(wasMain ? '홈 표시를 껐어요' : '홈에 보여줄 일정으로 정했어요');
 }
 
 // ── 캘린더 팝업 안의 일정 목록 ──
@@ -16713,6 +16726,10 @@ applyRenderFlags();
 //   k: 'new'(새 기능) · 'fix'(고침) · 'chg'(바뀜)
 // ══════════════════════════════════════════════════════════════════════
 const PATCH_NOTES = [
+  { v: '260729-0400', at: '2026-07-29', items: [
+    { k: 'new', t: '<b>시험 일정도 2개까지</b> — 켜둔 개수만큼(1개면 1개, 2개면 2개) 홈에 가로로 긴 줄로 보여 줍니다' },
+    { k: 'chg', t: '홈 첫 줄 배치를 바꿨습니다 — 시험 일정이 위에 길게, <b>이어서 풀기는 그 아래에 나란히</b>' },
+  ]},
   { v: '260729-0330', at: '2026-07-29', items: [
     { k: 'new', t: '<b>이어서 풀기를 2개까지</b> — 자격증당 1개가 아니라, 무엇이든 최대 2개를 개별로 남겨둘 수 있습니다' },
   ]},
@@ -16813,7 +16830,7 @@ function closePatchNotes() {
 // ── 앱 버전 ──
 // 폰이 옛 파일을 캐시해 두고 있는지 바로 확인할 수 있도록 화면에 표시한다.
 // (설정 맨 아래 · 개발자 도구 콘솔에도 찍힘)
-const APP_VERSION = '260729-0330';
+const APP_VERSION = '260729-0400';
 console.log('%c양진웅 Note 버전 ' + APP_VERSION, 'font-weight:bold');
 
 // PWA 서비스워커 등록
