@@ -6401,15 +6401,15 @@
     </button>
     <div class="nav-logo" onclick="goHomeAndSync()" title="홈으로 이동하며 지금 동기화">양진웅 Note<span class="sync-dot" id="sync-dot" title="동기화 상태"></span></div>
     <div class="nav-tabs">
-      <button class="nav-tab" data-tab="practice" onclick="goPage('home')"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-book"/></svg>문제풀기</button>
+      <button class="nav-tab" data-tab="practice" onclick="goPage('home')"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-book"/></svg>문제</button>
       <button class="nav-tab" data-tab="review" onclick="goPage('review')"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-layers"/></svg>복습</button>
       <button class="nav-tab" data-tab="search" onclick="goPage('search')"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-search"/></svg>검색</button>
       <button class="nav-tab" data-tab="memo-tab" onclick="goPage('memo-tab')"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-note"/></svg>메모</button>
     </div>
     <div class="nav-right">
-      <button class="nav-reset" onclick="goPage('settings')" title="설정"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-sliders"/></svg></button>
       <button class="nav-reset" id="calc-toggle" onclick="toggleCalc()" title="계산기 (분수 계산)" aria-label="계산기"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-calc"/></svg></button>
       <button id="dark-toggle" onclick="toggleDarkMode()" title="다크모드 전환"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-moon"/></svg></button>
+      <button class="nav-reset" onclick="goPage('settings')" title="설정"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-sliders"/></svg></button>
       <button id="nav-clock" onclick="toggleSchedPopup()" title="일정까지 남은 시간" aria-label="일정까지 남은 시간"></button>
     </div>
   </div>
@@ -16346,7 +16346,6 @@ function renderDataSize() {
   const pct = Math.min(100, Math.round(biggest.bytes / QDATA_LIMIT * 100));
   const lv = biggest.bytes >= QDATA_LIMIT * 0.9 ? 'full'
            : biggest.bytes >= QDATA_WARN ? 'warn' : 'ok';
-  const maxCat = per.length ? per[0].bytes : 1;
 
   const say = !qn
     ? '아직 등록된 문항이 없습니다.'
@@ -16365,7 +16364,10 @@ function renderDataSize() {
     ${per.length ? `
       <div class="dsz-list">
         ${per.map(p => {
-          const w = Math.max(2, Math.round(p.bytes / maxCat * 100));
+          // [수정] 예전엔 "가장 큰 자격증" 대비 비율이라 그 자격증이 늘 100%(꽉 참)로 보였다.
+          //        진짜 한도는 회차 하나(1MB)에 걸리는 거라 이 막대가 꽉 차 보이는 건 오해를 부른다.
+          //        → 전체 데이터 중 이 자격증이 차지하는 비중으로 바꾼다 (전부 합쳐야 100%).
+          const w = total > 0 ? Math.max(2, Math.round(p.bytes / total * 100)) : 2;
           const bp = Math.round(p.big.bytes / QDATA_LIMIT * 100);
           const hot = p.big.bytes >= QDATA_WARN;
           return `
@@ -16741,6 +16743,11 @@ applyRenderFlags();
 //   k: 'new'(새 기능) · 'fix'(고침) · 'chg'(바뀜)
 // ══════════════════════════════════════════════════════════════════════
 const PATCH_NOTES = [
+  { v: '260729-0500', at: '2026-07-29', items: [
+    { k: 'chg', t: '상단 탭 <b>"문제풀기"를 "문제"</b>로 줄였습니다' },
+    { k: 'chg', t: '상단 오른쪽 아이콘 순서를 <b>계산기 · 다크모드 · 설정</b> 순으로 바꿨습니다' },
+    { k: 'fix', t: '<b>문제 데이터 크기</b>의 자격증별 막대가 항상 하나는 꽉 차 보이던 문제 — 진짜 한도는 회차 하나(1MB)에 걸리는 거라, 이제 전체 중 차지하는 비중으로 보여 줍니다' },
+  ]},
   { v: '260729-0440', at: '2026-07-29', items: [
     { k: 'fix', t: '<b>이어서 풀기</b> 카드 두 개를 번갈아 눌러 보면 자리가 계속 뒤바뀌던 문제 — 이제 각 카드는 자기 자리를 지킵니다' },
   ]},
@@ -16851,7 +16858,7 @@ function closePatchNotes() {
 // ── 앱 버전 ──
 // 폰이 옛 파일을 캐시해 두고 있는지 바로 확인할 수 있도록 화면에 표시한다.
 // (설정 맨 아래 · 개발자 도구 콘솔에도 찍힘)
-const APP_VERSION = '260729-0440';
+const APP_VERSION = '260729-0500';
 console.log('%c양진웅 Note 버전 ' + APP_VERSION, 'font-weight:bold');
 
 // PWA 서비스워커 등록
