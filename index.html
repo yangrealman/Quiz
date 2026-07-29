@@ -8135,9 +8135,18 @@ function saveChecks(d) { syncToFirebase('quiz_checks', d); }
 // [수정] 예전엔 단일 객체 하나만 저장했다 → 배열로 바꾸고, 옛 저장값(단일 객체)도 읽을 때 자동으로 배열로 바꿔 준다.
 function getResumeBookmarks() {
   const v = _getCache('resume_bookmark', []);
-  if (Array.isArray(v)) return v;
-  if (v && typeof v === 'object') return [v];   // 옛 형식(단일 객체) 이전
-  return [];
+  let list;
+  if (Array.isArray(v)) list = v;
+  else if (v && typeof v === 'object') list = [v];   // 옛 형식(단일 객체) 이전
+  else list = [];
+  // [수정] 옛 형식(단일 객체)엔 id 가 없어서, 새 북마크가 하나 더 생기면
+  //        그 카드는 자기 자리로 못 가고 항상 목록 맨 앞(가장 최근 것)으로만 갔다.
+  let idAdded = false;
+  list.forEach(b => {
+    if (!b.id) { b.id = 'bm' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5); idAdded = true; }
+  });
+  if (idAdded) saveResumeBookmarks(list);
+  return list;
 }
 function saveResumeBookmarks(arr) { syncToFirebase('resume_bookmark', arr); }
 
@@ -16726,6 +16735,9 @@ applyRenderFlags();
 //   k: 'new'(새 기능) · 'fix'(고침) · 'chg'(바뀜)
 // ══════════════════════════════════════════════════════════════════════
 const PATCH_NOTES = [
+  { v: '260729-0420', at: '2026-07-29', items: [
+    { k: 'fix', t: '<b>이어서 풀기</b> 카드가 2개일 때, 뭘 눌러도 같은 곳으로 가던 문제 (예전 방식으로 저장된 북마크엔 식별자가 없었습니다)' },
+  ]},
   { v: '260729-0400', at: '2026-07-29', items: [
     { k: 'new', t: '<b>시험 일정도 2개까지</b> — 켜둔 개수만큼(1개면 1개, 2개면 2개) 홈에 가로로 긴 줄로 보여 줍니다' },
     { k: 'chg', t: '홈 첫 줄 배치를 바꿨습니다 — 시험 일정이 위에 길게, <b>이어서 풀기는 그 아래에 나란히</b>' },
@@ -16830,7 +16842,7 @@ function closePatchNotes() {
 // ── 앱 버전 ──
 // 폰이 옛 파일을 캐시해 두고 있는지 바로 확인할 수 있도록 화면에 표시한다.
 // (설정 맨 아래 · 개발자 도구 콘솔에도 찍힘)
-const APP_VERSION = '260729-0400';
+const APP_VERSION = '260729-0420';
 console.log('%c양진웅 Note 버전 ' + APP_VERSION, 'font-weight:bold');
 
 // PWA 서비스워커 등록
