@@ -6314,7 +6314,7 @@
     margin-top: 6px;
     margin-bottom: 10px;
   }
-  .quiz-scrub-row #quiz-progress-bar {
+  .quiz-scrub-row #quiz-progress-bar, .quiz-scrub-row #sq-progress-bar {
     flex: 1;
     margin-top: 0;
     margin-bottom: 0;
@@ -15703,7 +15703,7 @@ function startClock() {
     if (!swipeOn()) return;
     const t = e.target;
     // 입력/스크롤 위젯 위에서 시작한 터치만 제외 (버튼·보기 위에서도 스와이프 가능해야 함)
-    if (t && t.closest && t.closest('input, textarea, select, .mst-slider, .weather-hours, .cal-popup, .calc-popup, .hl-zone, .hl-toolbar, .q-img-box, #quiz-progress-bar, [data-noswipe]')) return;
+    if (t && t.closest && t.closest('input, textarea, select, .mst-slider, .weather-hours, .cal-popup, .calc-popup, .hl-zone, .hl-toolbar, .q-img-box, #quiz-progress-bar, #sq-progress-bar, [data-noswipe]')) return;
     sx = mx = e.touches[0].clientX;
     sy = my = e.touches[0].clientY;
     startT = Date.now();
@@ -16679,6 +16679,9 @@ applyRenderFlags();
 //   k: 'new'(새 기능) · 'fix'(고침) · 'chg'(바뀜)
 // ══════════════════════════════════════════════════════════════════════
 const PATCH_NOTES = [
+  { v: '260729-0300', at: '2026-07-29', items: [
+    { k: 'fix', t: '<b>별표만 풀기</b> 진행바가 다시 너무 짧고 안 움직이던 문제 (스크러버를 늘려주는 CSS와, 스와이프 넘기기 제외 목록에 별표 풀기 진행바가 빠져 있었습니다)' },
+  ]},
   { v: '260729-0230', at: '2026-07-29', items: [
     { k: 'fix', t: '<b>문제풀기 결과 보기</b>가 눌리지 않던 문제 (형광펜 추가 중 생긴 오류로 화면이 그려지지 않았습니다)' },
     { k: 'fix', t: '<b>별표만 풀기</b>에도 형광펜을 칠할 수 있게 (오답 풀기에는 됐는데 별표 풀기엔 빠져 있었습니다)' },
@@ -16773,7 +16776,7 @@ function closePatchNotes() {
 // ── 앱 버전 ──
 // 폰이 옛 파일을 캐시해 두고 있는지 바로 확인할 수 있도록 화면에 표시한다.
 // (설정 맨 아래 · 개발자 도구 콘솔에도 찍힘)
-const APP_VERSION = '260729-0230';
+const APP_VERSION = '260729-0300';
 console.log('%c양진웅 Note 버전 ' + APP_VERSION, 'font-weight:bold');
 
 // PWA 서비스워커 등록
