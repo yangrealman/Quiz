@@ -8150,19 +8150,25 @@ function getResumeBookmarks() {
 }
 function saveResumeBookmarks(arr) { syncToFirebase('resume_bookmark', arr); }
 
-// 같은 자격증·회차 북마크가 있으면 그 자리를 갱신하고, 없으면 새로 추가한다.
-// 맨 앞이 가장 최근이며, 2개를 넘으면 가장 오래된 것을 밀어낸다.
+// 같은 자격증·회차 북마크가 있으면 그 "자리 그대로" 내용만 갱신한다 (없으면 새로 추가).
+// [수정] 예전엔 갱신할 때마다 맨 앞으로 옮겼다 → 문제 하나를 잠깐 보고 나가기만 해도
+//        카드 위치가 뒤바뀌어서, 같은 자리를 눌러도 매번 다른 곳으로 가는 것처럼 보였다.
+//        이제 이미 있는 자리는 위치를 유지하고, 정말 새로운(다른 자격증·회차) 북마크가
+//        2개를 넘길 때만 가장 오래전에 손댄 것을 밀어낸다.
 function upsertResumeBookmark(entry) {
   let list = getResumeBookmarks();
   const i = list.findIndex(b => b.cat === entry.cat && String(b.round) === String(entry.round));
   if (i >= 0) {
     entry.id = list[i].id;
-    list = list.filter((_, idx2) => idx2 !== i);
+    list[i] = entry;
   } else {
     entry.id = 'bm' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
+    list = [...list, entry];
+    if (list.length > 2) {
+      list.sort((a, b) => (b.savedAt || 0) - (a.savedAt || 0));
+      list = list.slice(0, 2);
+    }
   }
-  list.unshift(entry);
-  if (list.length > 2) list = list.slice(0, 2);
   saveResumeBookmarks(list);
 }
 
@@ -16735,6 +16741,9 @@ applyRenderFlags();
 //   k: 'new'(새 기능) · 'fix'(고침) · 'chg'(바뀜)
 // ══════════════════════════════════════════════════════════════════════
 const PATCH_NOTES = [
+  { v: '260729-0440', at: '2026-07-29', items: [
+    { k: 'fix', t: '<b>이어서 풀기</b> 카드 두 개를 번갈아 눌러 보면 자리가 계속 뒤바뀌던 문제 — 이제 각 카드는 자기 자리를 지킵니다' },
+  ]},
   { v: '260729-0420', at: '2026-07-29', items: [
     { k: 'fix', t: '<b>이어서 풀기</b> 카드가 2개일 때, 뭘 눌러도 같은 곳으로 가던 문제 (예전 방식으로 저장된 북마크엔 식별자가 없었습니다)' },
   ]},
@@ -16842,7 +16851,7 @@ function closePatchNotes() {
 // ── 앱 버전 ──
 // 폰이 옛 파일을 캐시해 두고 있는지 바로 확인할 수 있도록 화면에 표시한다.
 // (설정 맨 아래 · 개발자 도구 콘솔에도 찍힘)
-const APP_VERSION = '260729-0420';
+const APP_VERSION = '260729-0440';
 console.log('%c양진웅 Note 버전 ' + APP_VERSION, 'font-weight:bold');
 
 // PWA 서비스워커 등록
