@@ -10365,17 +10365,25 @@ function judgeSubj(result) {
     burstParticles(document.querySelector('.sja-ok'));
   }
 
-  // [수정] 3칸 버튼으로 바뀌면서 클래스가 달라졌는데 옛 이름을 그대로 찾고 있어
-  //        판정해도 버튼에 표시가 안 되던 문제
-  document.querySelectorAll('.sja-ok, .sja-no').forEach(b => b.classList.remove('on'));
   if (result === 'correct') {
-    document.querySelector('.sja-ok')?.classList.add('on');
     removeWrongAnswer(cat, round, q.id || idx);
   } else {
-    document.querySelector('.sja-no')?.classList.add('on');
     saveWrongAnswer(cat, round, q, -1);
   }
   saveQuizProgress();
+
+  // [추가] 정답을 펼쳐 둔 채로 판정하면 판정 후 다시 접는다 (안 펼쳐져 있었다면 그대로 유지)
+  if (currentQuiz.revealed && currentQuiz.revealed[idx]) {
+    currentQuiz.revealed[idx] = false;
+    renderQuestion();
+    return;
+  }
+
+  // [수정] 3칸 버튼으로 바뀌면서 클래스가 달라졌는데 옛 이름을 그대로 찾고 있어
+  //        판정해도 버튼에 표시가 안 되던 문제
+  document.querySelectorAll('.sja-ok, .sja-no').forEach(b => b.classList.remove('on'));
+  if (result === 'correct') document.querySelector('.sja-ok')?.classList.add('on');
+  else document.querySelector('.sja-no')?.classList.add('on');
 }
 
 function selectAnswer(chosen) {
@@ -12063,6 +12071,8 @@ function wqJudge(result) {
   // [추가] 복습 일정 갱신
   const src = wqState.source && wqState.source[wqState.idx];
   if (src) srsGrade(src.cat, src.round, src.q, wqState.idx, result === 'correct');
+  // [추가] 정답을 펼쳐 둔 채로 판정하면 판정 후 다시 접는다 (안 펼쳐져 있었다면 그대로 유지)
+  if (wqState.revealed && wqState.revealed[wqState.idx]) wqState.revealed[wqState.idx] = false;
   renderWQ();
 }
 
@@ -13109,6 +13119,8 @@ function toggleSQReveal() {
 
 function sqJudge(result) {
   sqState.answered[sqState.idx] = result;
+  // [추가] 정답을 펼쳐 둔 채로 판정하면 판정 후 다시 접는다 (안 펼쳐져 있었다면 그대로 유지)
+  if (sqState.revealed && sqState.revealed[sqState.idx]) sqState.revealed[sqState.idx] = false;
   renderSQ();
 }
 
@@ -13889,6 +13901,8 @@ function toggleMWQReveal() {
 
 function mwqJudge(result) {
   mwqState.answered[mwqState.idx] = result;
+  // [추가] 정답을 펼쳐 둔 채로 판정하면 판정 후 다시 접는다 (안 펼쳐져 있었다면 그대로 유지)
+  if (mwqState.revealed && mwqState.revealed[mwqState.idx]) mwqState.revealed[mwqState.idx] = false;
   renderMWQ();
 }
 
@@ -16784,6 +16798,9 @@ applyRenderFlags();
 //   k: 'new'(새 기능) · 'fix'(고침) · 'chg'(바뀜)
 // ══════════════════════════════════════════════════════════════════════
 const PATCH_NOTES = [
+  { v: '260730-0851', at: '2026-07-30', items: [
+    { k: 'new', t: '주관식 <b>정답 보기</b>를 펼쳐둔 채로 맞았어요·틀렸어요를 누르면 판정 후 자동으로 다시 접힙니다 (문제풀기·오답풀기·별표풀기·모의고사 오답풀기 전부 동일) — 안 펼쳐져 있었다면 그대로예요' },
+  ]},
   { v: '260730-0832', at: '2026-07-30', items: [
     { k: 'fix', t: '회차 칸의 <b>"오늘 풀었어요"</b>가 실제로 새로 안 풀어도 화면만 들어갔다 나가면 갱신되던 문제 — 이제 진짜로 새로 답했을 때만 시각이 바뀝니다' },
   ]},
@@ -16916,7 +16933,7 @@ function closePatchNotes() {
 // ── 앱 버전 ──
 // 폰이 옛 파일을 캐시해 두고 있는지 바로 확인할 수 있도록 화면에 표시한다.
 // (설정 맨 아래 · 개발자 도구 콘솔에도 찍힘)
-const APP_VERSION = '260730-0832';
+const APP_VERSION = '260730-0851';
 console.log('%c양진웅 Note 버전 ' + APP_VERSION, 'font-weight:bold');
 
 // PWA 서비스워커 등록
