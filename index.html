@@ -10506,8 +10506,14 @@ function saveQuizProgress() {
   const { cat, round, answered } = currentQuiz;
   const progress = getProgress();
   const key = cat + '_' + round;
-  // [추가] 마지막으로 푼 시각과 보던 문항 번호도 함께 (이어서 풀기 기준)
-  progress[key] = { answered: { ...answered }, at: Date.now(), idx: currentQuiz.idx };
+  // [수정] "OO 풀었어요" 시각은 실제로 새로 답했을 때만 갱신한다.
+  //        예전엔 화면을 열었다 나가기만 해도(답을 하나도 안 바꿔도) 지금 시각으로 갱신돼,
+  //        그냥 들여다보기만 한 회차도 전부 "오늘 풀었어요"로 보이는 문제가 있었다.
+  const prev = progress[key];
+  const prevCount = prev ? Object.keys(prev.answered || {}).length : 0;
+  const newCount = Object.keys(answered).length;
+  const at = newCount > prevCount ? Date.now() : (prev ? prev.at : 0);
+  progress[key] = { answered: { ...answered }, at, idx: currentQuiz.idx };
   saveProgress(progress);
 }
 
@@ -16778,6 +16784,9 @@ applyRenderFlags();
 //   k: 'new'(새 기능) · 'fix'(고침) · 'chg'(바뀜)
 // ══════════════════════════════════════════════════════════════════════
 const PATCH_NOTES = [
+  { v: '260730-0832', at: '2026-07-30', items: [
+    { k: 'fix', t: '회차 칸의 <b>"오늘 풀었어요"</b>가 실제로 새로 안 풀어도 화면만 들어갔다 나가면 갱신되던 문제 — 이제 진짜로 새로 답했을 때만 시각이 바뀝니다' },
+  ]},
   { v: '260730-0824', at: '2026-07-30', items: [
     { k: 'chg', t: '회차 칸의 <b>정답률</b>도 숫자만이 아니라 암기도와 같은 크기의 막대로 함께 보여 줍니다' },
   ]},
@@ -16907,7 +16916,7 @@ function closePatchNotes() {
 // ── 앱 버전 ──
 // 폰이 옛 파일을 캐시해 두고 있는지 바로 확인할 수 있도록 화면에 표시한다.
 // (설정 맨 아래 · 개발자 도구 콘솔에도 찍힘)
-const APP_VERSION = '260730-0824';
+const APP_VERSION = '260730-0832';
 console.log('%c양진웅 Note 버전 ' + APP_VERSION, 'font-weight:bold');
 
 // PWA 서비스워커 등록
