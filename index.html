@@ -4923,6 +4923,11 @@
   .rt-panel .mst-sl-thumb { width: 20px; height: 20px; }
   .rtp-mst-pct { flex-shrink: 0; min-width: 38px; text-align: right; font-size: 13px; font-weight: 800; }
 
+  /* [추가] 정답률 줄 — 한 번이라도 풀었을 때만 암기도 아래에 한 줄 더 */
+  .rtp-acc { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-top: 8px; }
+  .rtp-acc-val { font-size: 13px; font-weight: 800; }
+  .rtp-acc-val small { font-weight: 600; color: var(--text-sub); font-size: 12px; margin-left: 3px; }
+
   .rtp-start {
     display: flex; align-items: center; justify-content: center; gap: 7px;
     width: calc(100% - 36px); margin: 14px 18px 0 !important;
@@ -9398,6 +9403,22 @@ function _roundStats(cat, r, qs) {
   return { done, total: qs.length, at: prog.at || 0 };
 }
 
+// [추가] 한 번이라도 풀었으면 지금까지 답한 것 중 맞춘 비율 (회차 눌렀을 때 암기도 아래에 보여 줌)
+function _roundAccuracy(cat, r, qs) {
+  const prog = getProgress()[cat + '_' + r] || {};
+  const answered = prog.answered || {};
+  const keys = Object.keys(answered);
+  if (!keys.length) return null;
+  let correct = 0;
+  keys.forEach(k => {
+    const q = qs[Number(k)];
+    if (!q) return;
+    const a = answered[k];
+    if (q.type === 'subj' ? a === 'correct' : a === q.correct) correct++;
+  });
+  return { correct, done: keys.length, pct: Math.round(correct / keys.length * 100) };
+}
+
 function _agoText(ts) {
   if (!ts) return '아직 푼 적 없음';
   const d = Math.floor((Date.now() - ts) / 86400000);
@@ -9424,8 +9445,10 @@ function warmRoundPanel() {
         <div class="rtp-mst"><span class="rtp-mst-label">암기도</span>
           <div class="mst-slider"><div class="mst-sl-fill"></div><div class="mst-sl-thumb"></div></div>
           <b class="rtp-mst-pct">0%</b></div>
+        <div class="rtp-acc"><span class="rtp-mst-label">정답률</span>
+          <span class="rtp-acc-val"><b>0%</b> <small>(0/0)</small></span></div>
         <button class="rtp-start">문제 풀기</button>
-        <div class="rtp-acts"><button class="round-btn"><span class="rb-label">완료</span></button>
+        <div class="rtp-acts"><button class="round-btn"><span class="rb-label">체크</span></button>
         <button class="round-btn"><span class="rb-label">정답지</span></button>
         <button class="round-btn"><span class="rb-label">문제만</span></button></div>
       </div>`;
@@ -9814,6 +9837,7 @@ function _openRoundPanel(grid, tile, round) {
   const pct = getMastery()[cat + '||' + round] || 0;
   const st = _roundStats(cat, round, qs);
   const isChecked = !!getChecks()[cat + '||' + round];
+  const acc = _roundAccuracy(cat, round, qs);   // [추가] 한 번이라도 풀었으면 맞춘 퍼센테이지
 
   const panel = document.createElement('div');
   panel.className = 'rt-panel';
@@ -9837,6 +9861,11 @@ function _openRoundPanel(grid, tile, round) {
       </div>
       <b class="rtp-mst-pct" id="mastery-pct-${escHtml(cat)}-${escHtml(round)}" style="color:${mstColor(pct)}">${pct}%</b>
     </div>
+    ${acc ? `
+    <div class="rtp-acc">
+      <span class="rtp-mst-label">정답률</span>
+      <span class="rtp-acc-val"><b style="color:${mstColor(acc.pct)}">${acc.pct}%</b> <small>(${acc.correct}/${acc.done})</small></span>
+    </div>` : ''}
 
     <button class="rtp-start" onclick="startQuiz('${escArg(cat)}', '${escArg(round)}')">
       ${st.done ? '이어서 풀기' : '문제 풀기'}
@@ -9846,7 +9875,7 @@ function _openRoundPanel(grid, tile, round) {
     <div class="rtp-acts">
       <button class="round-btn${isChecked ? ' on' : ''}" onclick="toggleRoundCheck('${escArg(cat)}','${escArg(round)}',event)">
         <span class="rb-ico"><svg class="ic" viewBox="0 0 24 24"><use href="${isChecked ? '#ic-check-square' : '#ic-square'}"/></svg></span>
-        <span class="rb-label">완료</span>
+        <span class="rb-label">체크</span>
       </button>
       <button class="round-btn" onclick="showAnswerSheet('${escArg(cat)}','${escArg(round)}')">
         <span class="rb-ico"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-clipboard"/></svg></span>
@@ -16743,6 +16772,10 @@ applyRenderFlags();
 //   k: 'new'(새 기능) · 'fix'(고침) · 'chg'(바뀜)
 // ══════════════════════════════════════════════════════════════════════
 const PATCH_NOTES = [
+  { v: '260730-0820', at: '2026-07-30', items: [
+    { k: 'new', t: '회차를 눌렀을 때 나오는 칸에 <b>정답률</b>을 추가했습니다 — 한 번이라도 풀었으면 암기도 아래에 맞춘 개수/비율이 보입니다 (회차 목록은 예전처럼 암기도만 보여 줍니다)' },
+    { k: 'chg', t: '회차 칸의 <b>"완료"를 "체크"</b>로 바꿨습니다 — 실제로는 다 풀었다는 뜻이 아니라 그냥 표시해두는 체크였어서' },
+  ]},
   { v: '260730-0639', at: '2026-07-30', items: [
     { k: 'fix', t: '<b>홈 화면에 설치한 PWA</b>가 새 버전을 못 받던 문제 — 아이콘을 눌러도 멈춰 있던 화면이 그대로 되살아나는 경우가 있어, 화면이 다시 보일 때마다 새 버전을 확인하도록 했습니다' },
     { k: 'new', t: '설치된 PWA에서 새 버전이 확인되면 <b>풀던 문제를 그대로 두고</b> 화면 아래에 새로고침 배너로 알려 줍니다' },
@@ -16865,7 +16898,7 @@ function closePatchNotes() {
 // ── 앱 버전 ──
 // 폰이 옛 파일을 캐시해 두고 있는지 바로 확인할 수 있도록 화면에 표시한다.
 // (설정 맨 아래 · 개발자 도구 콘솔에도 찍힘)
-const APP_VERSION = '260730-0639';
+const APP_VERSION = '260730-0820';
 console.log('%c양진웅 Note 버전 ' + APP_VERSION, 'font-weight:bold');
 
 // PWA 서비스워커 등록
