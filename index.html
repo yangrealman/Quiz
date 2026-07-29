@@ -8131,8 +8131,31 @@ function getChecks() { return _getCache('quiz_checks', {}); }
 function saveChecks(d) { syncToFirebase('quiz_checks', d); }
 
 // ── 이어하기 북마크 ──
-function getResumeBookmark() { return _getCache('resume_bookmark', null); }
-function saveResumeBookmark(d) { syncToFirebase('resume_bookmark', d); }
+// 자격증 하나당 1개가 아니라, 무엇이든 최대 2개까지 개별로 남긴다.
+// [수정] 예전엔 단일 객체 하나만 저장했다 → 배열로 바꾸고, 옛 저장값(단일 객체)도 읽을 때 자동으로 배열로 바꿔 준다.
+function getResumeBookmarks() {
+  const v = _getCache('resume_bookmark', []);
+  if (Array.isArray(v)) return v;
+  if (v && typeof v === 'object') return [v];   // 옛 형식(단일 객체) 이전
+  return [];
+}
+function saveResumeBookmarks(arr) { syncToFirebase('resume_bookmark', arr); }
+
+// 같은 자격증·회차 북마크가 있으면 그 자리를 갱신하고, 없으면 새로 추가한다.
+// 맨 앞이 가장 최근이며, 2개를 넘으면 가장 오래된 것을 밀어낸다.
+function upsertResumeBookmark(entry) {
+  let list = getResumeBookmarks();
+  const i = list.findIndex(b => b.cat === entry.cat && String(b.round) === String(entry.round));
+  if (i >= 0) {
+    entry.id = list[i].id;
+    list = list.filter((_, idx2) => idx2 !== i);
+  } else {
+    entry.id = 'bm' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
+  }
+  list.unshift(entry);
+  if (list.length > 2) list = list.slice(0, 2);
+  saveResumeBookmarks(list);
+}
 
 // [추가] 문제 화면을 떠날 때 이어하기 지점을 자동 저장한다.
 //        (문항을 넘길 때마다 서버에 쓰면 통신이 과해지므로 떠날 때 한 번만)
@@ -8142,7 +8165,7 @@ function syncResumeFromQuiz() {
     if (!cat || !round || !questions || !questions.length) return;
     const q = questions[idx];
     if (!q) return;
-    saveResumeBookmark({
+    upsertResumeBookmark({
       cat, round,
       qIndex: idx,
       qNum: q.num || (idx + 1),
@@ -8155,17 +8178,19 @@ function syncResumeFromQuiz() {
 function setResumeBookmark() {
   const { cat, round, idx, questions } = currentQuiz;
   const q = questions[idx];
-  saveResumeBookmark({
+  upsertResumeBookmark({
     cat, round,
     qIndex: idx,
     qNum: q.num || (idx+1),
     savedAt: Date.now()
   });
-  showToast(`📌 Q${q.num || idx+1}부터 이어하기 저장!`);
+  showToast(`📌 Q${q.num || idx+1}부터 이어하기 저장! (${getResumeBookmarks().length}/2)`);
 }
 
-function goToResumeBookmark() {
-  const bm = getResumeBookmark();
+// id 를 안 주면 가장 최근 북마크로 이동한다 (딥링크 · 예전 호출부 호환)
+function goToResumeBookmark(id) {
+  const list = getResumeBookmarks();
+  const bm = id ? list.find(b => b.id === id) : list[0];
   if (!bm) return;
   const questions = [...getRound(bm.cat, bm.round)];
   if (!questions.length) { showToast('문제를 찾을 수 없어요'); return; }
@@ -8185,9 +8210,10 @@ function goToResumeBookmark() {
   renderQuestion();
 }
 
-function clearResumeBookmark(e) {
+function clearResumeBookmark(id, e) {
   if (e) e.stopPropagation();
-  saveResumeBookmark(null);
+  const list = getResumeBookmarks().filter(b => b.id !== id);
+  saveResumeBookmarks(list);
   renderDashboard();
   showToast('북마크 삭제했어요');
 }
@@ -9229,29 +9255,29 @@ function renderDashboard() {
     `;
   }
 
-  const bm = getResumeBookmark();
-  let resumeCard = '';
-  if (bm) {
-    resumeCard = `
-      <div class="home-card resume-card" onclick="goToResumeBookmark()">
-        <div class="rc-left">
-          <div class="rc-emoji"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-pin"/></svg></div>
-          <div>
-            <div class="rc-title">이어서 풀기</div>
-            <div class="rc-sub">${escHtml(bm.cat)} ${escHtml(bm.round)}회차 · Q${escHtml(bm.qNum)}부터</div>
-          </div>
+  // [수정] 이어서 풀기를 자격증당 1개가 아니라 무엇이든 최대 2개까지 개별로 보여 준다.
+  const _bms = getResumeBookmarks();
+  const renderResumeCard = (bm) => `
+    <div class="home-card resume-card" onclick="goToResumeBookmark('${escArg(bm.id)}')">
+      <div class="rc-left">
+        <div class="rc-emoji"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-pin"/></svg></div>
+        <div>
+          <div class="rc-title">이어서 풀기</div>
+          <div class="rc-sub">${escHtml(bm.cat)} ${escHtml(bm.round)}회차 · Q${escHtml(bm.qNum)}부터</div>
         </div>
-        <button class="rc-close" onclick="clearResumeBookmark(event)" aria-label="지우기"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-x"/></svg></button>
       </div>
-    `;
-  }
+      <button class="rc-close" onclick="clearResumeBookmark('${escArg(bm.id)}', event)" aria-label="지우기"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-x"/></svg></button>
+    </div>
+  `;
 
-  // [수정] 시험 일정과 이어서 풀기를 한 줄에 반반으로 놓는다
+  // [수정] 시험 일정과 (가장 최근) 이어서 풀기를 한 줄에 반반으로 놓는다
   //        (이어할 자리가 없을 땐 일정 카드가 한 줄을 다 쓴다)
-  const topRow = resumeCard
-    ? `<div class="home-duo">${ddayCard}${resumeCard}</div>`
+  const topRow = _bms.length
+    ? `<div class="home-duo">${ddayCard}${renderResumeCard(_bms[0])}</div>`
     : ddayCard;
-  main.innerHTML = topRow + '<div id="mst-panel"></div>';
+  // 두 번째 북마크는 그 아래에 한 줄로 온전히 보여 준다
+  const secondResumeRow = _bms.length > 1 ? renderResumeCard(_bms[1]) : '';
+  main.innerHTML = topRow + secondResumeRow + '<div id="mst-panel"></div>';
   // [되돌림] 다음 프레임으로 미뤘더니 한 프레임 동안 화면이 짧아져
   //          모바일에서 아래쪽에 흰 여백이 번쩍였다 → 다시 같은 프레임에 그린다
   renderMasteryPanel();
@@ -9570,8 +9596,10 @@ function _renameCatRecords(oldC, newC) {
   });
   if (wc) saveWrongAnswers(w);
 
-  const bm = getResumeBookmark();
-  if (bm && bm.cat === oldC) { bm.cat = newC; saveResumeBookmark(bm); }
+  const bms = getResumeBookmarks();
+  let bmChanged = false;
+  bms.forEach(bm => { if (bm.cat === oldC) { bm.cat = newC; bmChanged = true; } });
+  if (bmChanged) saveResumeBookmarks(bms);
 }
 
 function renameCatInline(oldC) {
@@ -12294,8 +12322,10 @@ function renameCategory() {
   if (wChanged) saveWrongAnswers(wrongs);
 
   // 7) 이어하기 북마크 · 메모 링크
-  const bm = getResumeBookmark();
-  if (bm && bm.cat === oldC) { bm.cat = newC; saveResumeBookmark(bm); }
+  const bms = getResumeBookmarks();
+  let bmChanged = false;
+  bms.forEach(bm => { if (bm.cat === oldC) { bm.cat = newC; bmChanged = true; } });
+  if (bmChanged) saveResumeBookmarks(bms);
   if (typeof getMemoLinks === 'function') {
     const links = getMemoLinks(); let lChanged = false;
     links.forEach(l => { if (l.cat === oldC) { l.cat = newC; l.id = newC + l.id.slice(oldC.length); lChanged = true; } });
@@ -12407,8 +12437,9 @@ function _purgeRoundRecords(cat, round) {
   const kept = wrongs.filter(w => !(w.cat === cat && String(w.round) === String(round)));
   if (kept.length !== wrongs.length) saveWrongAnswers(kept);
 
-  const bm = getResumeBookmark();
-  if (bm && bm.cat === cat && String(bm.round) === String(round)) saveResumeBookmark(null);
+  const bms = getResumeBookmarks();
+  const keptBms = bms.filter(bm => !(bm.cat === cat && String(bm.round) === String(round)));
+  if (keptBms.length !== bms.length) saveResumeBookmarks(keptBms);
 
   try {
     const memos = getQMemos();
@@ -12481,11 +12512,14 @@ function _relocateRound(cat, oldR, newC, newR) {
   if (wrongChanged) saveWrongAnswers(wrongs);
 
   // 7) 이어하기 북마크
-  const bm = getResumeBookmark();
-  if (bm && bm.cat === cat && String(bm.round) === String(oldR)) {
-    bm.cat = newC; bm.round = newR;
-    saveResumeBookmark(bm);
-  }
+  const bms = getResumeBookmarks();
+  let bmChanged = false;
+  bms.forEach(bm => {
+    if (bm.cat === cat && String(bm.round) === String(oldR)) {
+      bm.cat = newC; bm.round = newR; bmChanged = true;
+    }
+  });
+  if (bmChanged) saveResumeBookmarks(bms);
 
   // 8) 주석 (cat||round||qid)
   try {
@@ -16494,7 +16528,7 @@ try { restoreLastSpot(); } catch (_) {}
     const go = new URLSearchParams(location.search).get('go');
     if (!go) return;
     if (go === 'resume') {
-      if (getResumeBookmark()) { goToResumeBookmark(); return; }
+      if (getResumeBookmarks().length) { goToResumeBookmark(); return; }
       goPage('home'); return;
     }
     if (go === 'calendar') { goPage('dashboard'); setTimeout(() => toggleCalendar(), 260); return; }
@@ -16679,6 +16713,9 @@ applyRenderFlags();
 //   k: 'new'(새 기능) · 'fix'(고침) · 'chg'(바뀜)
 // ══════════════════════════════════════════════════════════════════════
 const PATCH_NOTES = [
+  { v: '260729-0330', at: '2026-07-29', items: [
+    { k: 'new', t: '<b>이어서 풀기를 2개까지</b> — 자격증당 1개가 아니라, 무엇이든 최대 2개를 개별로 남겨둘 수 있습니다' },
+  ]},
   { v: '260729-0300', at: '2026-07-29', items: [
     { k: 'fix', t: '<b>별표만 풀기</b> 진행바가 다시 너무 짧고 안 움직이던 문제 (스크러버를 늘려주는 CSS와, 스와이프 넘기기 제외 목록에 별표 풀기 진행바가 빠져 있었습니다)' },
   ]},
@@ -16776,7 +16813,7 @@ function closePatchNotes() {
 // ── 앱 버전 ──
 // 폰이 옛 파일을 캐시해 두고 있는지 바로 확인할 수 있도록 화면에 표시한다.
 // (설정 맨 아래 · 개발자 도구 콘솔에도 찍힘)
-const APP_VERSION = '260729-0300';
+const APP_VERSION = '260729-0330';
 console.log('%c양진웅 Note 버전 ' + APP_VERSION, 'font-weight:bold');
 
 // PWA 서비스워커 등록
