@@ -10471,7 +10471,7 @@ function judgeSubj(result) {
   } else {
     saveWrongAnswer(cat, round, q, -1);
   }
-  saveQuizProgress();
+  saveQuizProgress(true);
 
   // [추가] 정답을 펼쳐 둔 채로 판정하면 판정 후 다시 접는다 (안 펼쳐져 있었다면 그대로 유지)
   if (currentQuiz.revealed && currentQuiz.revealed[idx]) {
@@ -10515,7 +10515,7 @@ function selectAnswer(chosen) {
   document.getElementById('quiz-next-btn').innerHTML =
     idx === questions.length - 1 ? '결과 보기' : '다음<svg class="ic" viewBox="0 0 24 24"><use href="#ic-arrow-right"/></svg>';
 
-  saveQuizProgress();
+  saveQuizProgress(true);
 }
 
 function quizNext() {
@@ -10611,17 +10611,16 @@ function setupQuizScrubber() {
   makeScrubber('sq',   () => (sqState && sqState.questions) || [],       i => sqGoTo(i));
 }
 
-function saveQuizProgress() {
+function saveQuizProgress(justAnswered) {
   const { cat, round, answered } = currentQuiz;
   const progress = getProgress();
   const key = cat + '_' + round;
-  // [수정] "OO 풀었어요" 시각은 실제로 새로 답했을 때만 갱신한다.
-  //        예전엔 화면을 열었다 나가기만 해도(답을 하나도 안 바꿔도) 지금 시각으로 갱신돼,
-  //        그냥 들여다보기만 한 회차도 전부 "오늘 풀었어요"로 보이는 문제가 있었다.
   const prev = progress[key];
-  const prevCount = prev ? Object.keys(prev.answered || {}).length : 0;
-  const newCount = Object.keys(answered).length;
-  const at = newCount > prevCount ? Date.now() : (prev ? prev.at : 0);
+  // [수정] "OO 풀었어요" 시각은 실제로 방금 답(채점)했을 때만 갱신한다 — 호출한 쪽에서 명시적으로 알려준다.
+  //        예전엔 "답한 개수가 늘었는지"로 판단했는데, 이미 다 푼 회차를 다시 들어가
+  //        주관식을 재채점하면 개수는 그대로라 시각이 영영 안 바뀌는 문제가 있었다.
+  //        그냥 화면만 열었다 나가는 경우(justAnswered 없이 호출)엔 이전 시각을 그대로 둔다.
+  const at = justAnswered ? Date.now() : (prev ? prev.at : 0);
   progress[key] = { answered: { ...answered }, at, idx: currentQuiz.idx };
   saveProgress(progress);
 }
@@ -17090,6 +17089,9 @@ applyRenderFlags();
 //   k: 'new'(새 기능) · 'fix'(고침) · 'chg'(바뀜)
 // ══════════════════════════════════════════════════════════════════════
 const PATCH_NOTES = [
+  { v: '260731-0727', at: '2026-07-31', items: [
+    { k: 'fix', t: '이미 다 푼 회차를 다시 들어가 주관식을 재채점해도 <b>"오늘 풀었어요"</b>가 안 바뀌던 문제 — 답한 개수로 판단하던 방식이라 개수가 그대로면(재채점만 해도) 시각이 안 갱신됐습니다. 이제 실제로 채점한 그 순간에 바로 시각을 남깁니다' },
+  ]},
   { v: '260731-0250', at: '2026-07-31', items: [
     { k: 'fix', t: '<b>Orb(WebGL) 데모</b>가 아예 안 보이던 문제 — ①외부 CDN(esm.sh)에서 <code>ogl</code>을 불러오는 방식이라 네트워크 상황에 따라 실패할 수 있었던 것을 이 파일 안에 번들링해 없앴고, ②설정 탭이 처음엔 숨겨진 상태(0×0 크기)라 캔버스가 크기를 못 잡던 것을 고쳤고, ③위쪽 React 데모와 이름이 겹쳐(useRef 등) 문법 오류가 나던 것도 격리해 고쳤습니다' },
   ]},
@@ -17262,7 +17264,7 @@ function closePatchNotes() {
 // ── 앱 버전 ──
 // 폰이 옛 파일을 캐시해 두고 있는지 바로 확인할 수 있도록 화면에 표시한다.
 // (설정 맨 아래 · 개발자 도구 콘솔에도 찍힘)
-const APP_VERSION = '260731-0250';
+const APP_VERSION = '260731-0727';
 console.log('%c양진웅 Note 버전 ' + APP_VERSION, 'font-weight:bold');
 
 // PWA 서비스워커 등록
