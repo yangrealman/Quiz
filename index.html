@@ -4712,6 +4712,34 @@
     transition: width 0.25s cubic-bezier(0.22,1,0.36,1);
   }
   .rt.open::after { width: 46%; }
+
+  /* ══ 글로우 테두리 (React Bits "BorderGlow" 컴포넌트를 바닐라 JS로 포팅) ══
+     PC에서 마우스가 카드 가장자리 가까이 가면 커서 방향 쪽으로 색빛이 번진다.
+     회차 칸이 수십 개일 수 있어 카드마다 리스너를 달지 않고 델리게이션으로 처리한다
+     (JS는 setupBorderGlow 참고). .rt 는 밑줄(::after)이 이미 있어 ::before 를 쓴다. */
+  .bglow { position: relative; isolation: isolate; }
+  .bglow::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    z-index: 3;
+    mix-blend-mode: plus-lighter;
+    background:
+      radial-gradient(circle at 88% 12%, #c084fc 0%, transparent 55%),
+      radial-gradient(circle at 12% 88%, #f472b6 0%, transparent 55%),
+      radial-gradient(circle at 50% 50%, #38bdf8 0%, transparent 62%);
+    -webkit-mask-image: conic-gradient(from var(--bg-angle, 45deg) at center,
+      black 0%, transparent 28%, transparent 72%, black 100%);
+    mask-image: conic-gradient(from var(--bg-angle, 45deg) at center,
+      black 0%, transparent 28%, transparent 72%, black 100%);
+    opacity: calc((var(--bg-edge, 0) - 55) / 45);
+    transition: opacity 0.25s ease-out;
+  }
+  .bglow:not(:hover)::before { opacity: 0; transition: opacity 0.6s ease-in-out; }
+  body.reduce-motion .bglow::before, body.rf-noTilt .bglow::before { display: none; }
+
   /* [추가] 업데이트 내역 */
   .pn-back {
     position: fixed; inset: 0; z-index: 620;
@@ -15748,6 +15776,38 @@ function startClock() {
   }, { passive: true });
 })();
 
+// ── PC 전용: 글로우 테두리 (React Bits "BorderGlow" 컴포넌트 포팅) ──
+//    홈 카드·회차 칸 가장자리 가까이 마우스가 가면 커서 방향으로 색빛이 번진다.
+//    회차 칸이 수십 개일 수 있어 카드마다 리스너를 달지 않고 델리게이션 하나로 처리한다.
+(function setupBorderGlow() {
+  const fine = window.matchMedia('(hover: hover) and (pointer: fine)').matches;
+  const calm = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (!fine || calm) return;
+
+  const SEL = '.rt, .dday-card, .dday-empty, .resume-card';
+  let _rafPending = false, _lastCard = null, _lastRect = null;
+
+  document.addEventListener('pointermove', (e) => {
+    if (_rafPending) return;
+    const card = e.target.closest && e.target.closest(SEL);
+    if (!card) { _lastCard = null; return; }
+    card.classList.add('bglow');   // 처음 닿을 때 한 번만 붙이면 됨 (그 뒤론 :hover 로 여닫힘)
+    _rafPending = true;
+    requestAnimationFrame(() => { _rafPending = false; });
+    if (card !== _lastCard) { _lastCard = card; _lastRect = card.getBoundingClientRect(); }
+    const r = _lastRect;
+    const cx = r.width / 2, cy = r.height / 2;
+    const dx = (e.clientX - r.left) - cx, dy = (e.clientY - r.top) - cy;
+    let kx = Infinity, ky = Infinity;
+    if (dx !== 0) kx = cx / Math.abs(dx);
+    if (dy !== 0) ky = cy / Math.abs(dy);
+    const edge = Math.min(Math.max(1 / Math.min(kx, ky), 0), 1) * 100;
+    const angle = (dx === 0 && dy === 0) ? 0 : ((Math.atan2(dy, dx) * 180 / Math.PI + 90) + 360) % 360;
+    card.style.setProperty('--bg-edge', edge.toFixed(1));
+    card.style.setProperty('--bg-angle', angle.toFixed(1) + 'deg');
+  }, { passive: true });
+})();
+
 // ── 스크롤 리빌: 카드가 회전하며 등장 ──
 (function setupScrollReveal() {
   if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
@@ -16798,6 +16858,9 @@ applyRenderFlags();
 //   k: 'new'(새 기능) · 'fix'(고침) · 'chg'(바뀜)
 // ══════════════════════════════════════════════════════════════════════
 const PATCH_NOTES = [
+  { v: '260730-1154', at: '2026-07-30', items: [
+    { k: 'new', t: '<b>글로우 테두리</b> — PC에서 홈 카드·회차 칸 가장자리 가까이 마우스를 가져가면 커서 방향으로 색빛이 번집니다 (설정 > 카드 입체 효과를 끄면 함께 꺼집니다)' },
+  ]},
   { v: '260730-0851', at: '2026-07-30', items: [
     { k: 'new', t: '주관식 <b>정답 보기</b>를 펼쳐둔 채로 맞았어요·틀렸어요를 누르면 판정 후 자동으로 다시 접힙니다 (문제풀기·오답풀기·별표풀기·모의고사 오답풀기 전부 동일) — 안 펼쳐져 있었다면 그대로예요' },
   ]},
@@ -16933,7 +16996,7 @@ function closePatchNotes() {
 // ── 앱 버전 ──
 // 폰이 옛 파일을 캐시해 두고 있는지 바로 확인할 수 있도록 화면에 표시한다.
 // (설정 맨 아래 · 개발자 도구 콘솔에도 찍힘)
-const APP_VERSION = '260730-0851';
+const APP_VERSION = '260730-1154';
 console.log('%c양진웅 Note 버전 ' + APP_VERSION, 'font-weight:bold');
 
 // PWA 서비스워커 등록
