@@ -4716,10 +4716,11 @@
   /* ══ 글로우 테두리 (React Bits "BorderGlow" 컴포넌트를 바닐라 JS로 포팅) ══
      PC에서 마우스가 카드 가장자리 가까이 가면 커서 방향 쪽으로 색빛이 번진다.
      회차 칸이 수십 개일 수 있어 카드마다 리스너를 달지 않고 델리게이션으로 처리한다
-     (JS는 setupBorderGlow 참고). .rt 는 밑줄(::after)이 이미 있어 ::before 를 쓴다. */
+     (JS는 setupBorderGlow 참고). ::before/::after 의사요소는 카드마다 이미 다른 용도로
+     쓰이는 곳이 있어(밑줄, 그림자, 반사광 등) 겹치지 않도록 실제 자식 요소(.bglow-glow)를
+     하나 끼워 넣는 방식을 쓴다 (JS에서 처음 닿을 때 한 번만 추가). */
   .bglow { position: relative; isolation: isolate; }
-  .bglow::before {
-    content: "";
+  .bglow-glow {
     position: absolute;
     inset: 0;
     border-radius: inherit;
@@ -4739,15 +4740,15 @@
     opacity: calc((var(--bg-edge, 0) - 55) / 45 * 0.9);
     transition: opacity 0.25s ease-out;
   }
-  body.dark .bglow::before {
+  body.dark .bglow-glow {
     background:
       radial-gradient(circle at 88% 12%, rgba(192,132,252,0.55) 0%, transparent 55%),
       radial-gradient(circle at 12% 88%, rgba(244,114,182,0.55) 0%, transparent 55%),
       radial-gradient(circle at 50% 50%, rgba(56,189,248,0.5) 0%, transparent 62%);
     mix-blend-mode: plus-lighter;
   }
-  .bglow:not(:hover)::before { opacity: 0; transition: opacity 0.6s ease-in-out; }
-  body.reduce-motion .bglow::before, body.rf-noTilt .bglow::before { display: none; }
+  .bglow:not(:hover) > .bglow-glow { opacity: 0; transition: opacity 0.6s ease-in-out; }
+  body.reduce-motion .bglow-glow, body.rf-noTilt .bglow-glow { display: none; }
 
   /* [추가] 업데이트 내역 */
   .pn-back {
@@ -15808,14 +15809,19 @@ function startClock() {
   const calm = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   if (!fine || calm) return;
 
-  const SEL = '.rt, .dday-card, .dday-empty, .resume-card';
+  const SEL = '.rt, .dday-card, .dday-empty, .resume-card, .exam-item';
   let _rafPending = false, _lastCard = null, _lastRect = null;
 
   document.addEventListener('pointermove', (e) => {
     if (_rafPending) return;
     const card = e.target.closest && e.target.closest(SEL);
     if (!card) { _lastCard = null; return; }
-    card.classList.add('bglow');   // 처음 닿을 때 한 번만 붙이면 됨 (그 뒤론 :hover 로 여닫힘)
+    if (!card.classList.contains('bglow')) {
+      card.classList.add('bglow');
+      const glow = document.createElement('span');
+      glow.className = 'bglow-glow';
+      card.appendChild(glow);   // 처음 닿을 때 한 번만 붙이면 됨 (그 뒤론 :hover 로 여닫힘)
+    }
     _rafPending = true;
     requestAnimationFrame(() => { _rafPending = false; });
     if (card !== _lastCard) { _lastCard = card; _lastRect = card.getBoundingClientRect(); }
@@ -16882,6 +16888,9 @@ applyRenderFlags();
 //   k: 'new'(새 기능) · 'fix'(고침) · 'chg'(바뀜)
 // ══════════════════════════════════════════════════════════════════════
 const PATCH_NOTES = [
+  { v: '260730-1225', at: '2026-07-30', items: [
+    { k: 'fix', t: '<b>글로우 테두리</b>가 자격증 카드(문제풀기 목록)에는 아예 안 붙어 있던 문제 — 이미 밑줄·그림자·반사광이 그 자리를 쓰고 있던 카드들과 겹치지 않도록 만드는 방식을 바꿔 이제 자격증·회차·홈 카드 전부에 붙습니다' },
+  ]},
   { v: '260730-1215', at: '2026-07-30', items: [
     { k: 'fix', t: '홈 카드·회차 칸의 <b>글로우 테두리</b>가 거의 안 보이던 문제 — 밝은 카드 배경에서 흰색으로 씻겨 나가던 합성 방식을 고쳐 밝은/어두운 배경 모두에서 또렷하게 보입니다' },
   ]},
@@ -17026,7 +17035,7 @@ function closePatchNotes() {
 // ── 앱 버전 ──
 // 폰이 옛 파일을 캐시해 두고 있는지 바로 확인할 수 있도록 화면에 표시한다.
 // (설정 맨 아래 · 개발자 도구 콘솔에도 찍힘)
-const APP_VERSION = '260730-1215';
+const APP_VERSION = '260730-1225';
 console.log('%c양진웅 Note 버전 ' + APP_VERSION, 'font-weight:bold');
 
 // PWA 서비스워커 등록
