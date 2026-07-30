@@ -4720,9 +4720,9 @@
      (JS는 setupBorderGlow 참고). ::before/::after 의사요소는 카드마다 이미 다른 용도로
      쓰이는 곳이 있어(밑줄, 그림자, 반사광 등) 겹치지 않도록 실제 자식 요소(.bglow-glow)를
      하나 끼워 넣는 방식을 쓴다 (JS에서 처음 닿을 때 한 번만 추가).
-     [수정] 처음엔 카드 안쪽 대부분을 색색으로 채웠는데(무지개색으로 크게 보임), 요청대로
-     "테두리만" 얇게 빛나도록 다시 만들었다 — padding 두께만큼만 보이게 마스킹하고(테두리 고리),
-     색도 앱 테마색(--primary) 하나로 통일해 차분하게 했다. */
+     [수정] 설정 화면의 React 데모(BorderGlow)와 같은 색 구성(보라·분홍·파랑 3색 메시)으로
+     맞추되, 카드 안쪽을 채우지는 않고 테두리 고리(padding 두께)에만 보이도록 한다.
+     회차 칸처럼 overflow:hidden 인 카드는 바깥으로 번지는 후광은 어차피 잘리므로 생략한다. */
   .bglow { position: relative; isolation: isolate; }
   .bglow-glow {
     position: absolute;
@@ -4732,16 +4732,35 @@
     pointer-events: none;
     z-index: 3;
     background: conic-gradient(from var(--bg-angle, 0deg),
-      var(--primary) 0deg, transparent 70deg, transparent 290deg, var(--primary) 360deg);
+      #818cf8 0deg, #f472b6 45deg, transparent 90deg, transparent 270deg, #38bdf8 315deg, #818cf8 360deg);
     -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
     -webkit-mask-composite: xor;
     mask-composite: exclude;
     filter: blur(0.5px);
-    opacity: calc((var(--bg-edge, 0) - 60) / 40 * 0.75);
+    opacity: calc((var(--bg-edge, 0) - 60) / 40 * 0.85);
     transition: opacity 0.25s ease-out;
   }
   .bglow:not(:hover) > .bglow-glow { opacity: 0; transition: opacity 0.6s ease-in-out; }
   body.reduce-motion .bglow-glow, body.rf-noTilt .bglow-glow { display: none; }
+
+  /* 바깥으로 살짝 번지는 후광 — box-shadow 는 카드 밖으로 자연히 번지지만,
+     overflow:hidden 인 카드(회차 칸 등)에서는 그 카드에서만 잘려 안 보이고, 그 외엔 잘 보인다. */
+  .bglow-halo {
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    z-index: 2;
+    -webkit-mask-image: conic-gradient(from var(--bg-angle, 0deg) at center,
+      black 0%, transparent 22%, transparent 78%, black 100%);
+    mask-image: conic-gradient(from var(--bg-angle, 0deg) at center,
+      black 0%, transparent 22%, transparent 78%, black 100%);
+    box-shadow: 0 0 14px 2px rgba(129,140,248,0.45), 0 0 28px 4px rgba(244,114,182,0.25);
+    opacity: calc((var(--bg-edge, 0) - 60) / 40 * 0.8);
+    transition: opacity 0.25s ease-out;
+  }
+  .bglow:not(:hover) > .bglow-halo { opacity: 0; transition: opacity 0.6s ease-in-out; }
+  body.reduce-motion .bglow-halo, body.rf-noTilt .bglow-halo { display: none; }
 
   /* [추가] 업데이트 내역 */
   .pn-back {
@@ -15811,10 +15830,13 @@ function startClock() {
     const card = e.target.closest && e.target.closest(SEL);
     if (!card) { _lastCard = null; return; }
     if (!card.classList.contains('bglow')) {
-      card.classList.add('bglow');
+      card.classList.add('bglow');   // 처음 닿을 때 한 번만 붙이면 됨 (그 뒤론 :hover 로 여닫힘)
+      const halo = document.createElement('span');
+      halo.className = 'bglow-halo';
+      card.appendChild(halo);
       const glow = document.createElement('span');
       glow.className = 'bglow-glow';
-      card.appendChild(glow);   // 처음 닿을 때 한 번만 붙이면 됨 (그 뒤론 :hover 로 여닫힘)
+      card.appendChild(glow);
     }
     _rafPending = true;
     requestAnimationFrame(() => { _rafPending = false; });
@@ -16882,6 +16904,9 @@ applyRenderFlags();
 //   k: 'new'(새 기능) · 'fix'(고침) · 'chg'(바뀜)
 // ══════════════════════════════════════════════════════════════════════
 const PATCH_NOTES = [
+  { v: '260730-1658', at: '2026-07-30', items: [
+    { k: 'chg', t: '<b>글로우 테두리</b>를 설정 화면의 React 데모와 같은 3색(보라·분홍·파랑) 구성으로 맞추고, 바깥으로 살짝 번지는 후광도 더했습니다 (회차 칸처럼 잘리는 카드는 후광만 생략)' },
+  ]},
   { v: '260730-1308', at: '2026-07-30', items: [
     { k: 'fix', t: '<b>글로우 테두리</b>를 요청대로 다시 만들었습니다 — 카드 안쪽이 무지개색으로 크게 빛나던 것을, 테두리만 얇게·한 가지 테마색으로 은은하게 빛나도록 바꿨습니다' },
     { k: 'chg', t: '자격증·홈 카드에서 <b>기존 기울기·반사광 효과</b>를 뺐습니다 (글로우 테두리와 겹쳐 지저분해 보여서) — 다른 카드들은 그대로입니다' },
@@ -17033,7 +17058,7 @@ function closePatchNotes() {
 // ── 앱 버전 ──
 // 폰이 옛 파일을 캐시해 두고 있는지 바로 확인할 수 있도록 화면에 표시한다.
 // (설정 맨 아래 · 개발자 도구 콘솔에도 찍힘)
-const APP_VERSION = '260730-1308';
+const APP_VERSION = '260730-1658';
 console.log('%c양진웅 Note 버전 ' + APP_VERSION, 'font-weight:bold');
 
 // PWA 서비스워커 등록
