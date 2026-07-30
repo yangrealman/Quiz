@@ -6641,7 +6641,8 @@
       </div>
       <button class="btn btn-primary" id="wrong-quiz-btn" onclick="startWrongQuiz()" style="display:none">오답만 풀기</button>
     </div>
-    <div id="wrong-filter" style="margin-bottom:16px; display:flex; gap:8px; flex-wrap:wrap;"></div>
+    <div id="wrong-filter" style="margin-bottom:8px; display:flex; gap:8px; flex-wrap:wrap;"></div>
+    <div id="wrong-round-filter" style="margin-bottom:16px; display:flex; gap:6px; flex-wrap:wrap;"></div>
     <div id="wrong-toolbar"></div>
     <div id="wrong-list"></div>
   </div>
@@ -6687,7 +6688,8 @@
       </div>
       <button class="btn btn-primary" id="star-quiz-btn" onclick="startStarQuiz()" style="display:none; background:var(--warning)">★ 별표만 풀기</button>
     </div>
-    <div id="star-filter" style="margin-bottom:16px; display:flex; gap:8px; flex-wrap:wrap;"></div>
+    <div id="star-filter" style="margin-bottom:8px; display:flex; gap:8px; flex-wrap:wrap;"></div>
+    <div id="star-round-filter" style="margin-bottom:16px;"></div>
     <div id="star-list"></div>
   </div>
 </div>
@@ -11833,7 +11835,7 @@ function removeWrongAnswer(cat, round, qId) {
 // 오답 노트 화면
 // ══════════════════════════════════════════════════════════════════════
 
-let wrongFilter = { cat: null };
+let wrongFilter = { cat: null, round: null };
 
 // ── 오답노트: 정렬 · 선택 삭제 ──
 let wrongSort = 'recent';
@@ -11853,9 +11855,16 @@ function toggleWrongSel(id) {
   renderWrongNote();
 }
 
+// 자격증·회차 필터를 함께 적용한 목록 (선택·삭제·목록 표시에서 공통으로 쓴다)
+function _wrongFiltered(wrongs) {
+  let list = wrongFilter.cat ? wrongs.filter(w => w.cat === wrongFilter.cat) : wrongs;
+  if (wrongFilter.round) list = list.filter(w => w.round === wrongFilter.round);
+  return list;
+}
+
 function selectAllWrong() {
   const wrongs = getWrongAnswers();
-  const list = wrongFilter.cat ? wrongs.filter(w => w.cat === wrongFilter.cat) : wrongs;
+  const list = _wrongFiltered(wrongs);
   const allSelected = list.every(w => _wrongSel.has(w.id));
   if (allSelected) _wrongSel.clear();
   else list.forEach(w => _wrongSel.add(w.id));
@@ -11876,11 +11885,14 @@ function deleteSelectedWrong() {
 
 function deleteAllWrong() {
   const wrongs = getWrongAnswers();
-  const target = wrongFilter.cat ? wrongs.filter(w => w.cat === wrongFilter.cat) : wrongs;
+  const target = _wrongFiltered(wrongs);
   if (!target.length) { showToast('삭제할 오답이 없어요'); return; }
-  const label = wrongFilter.cat ? `"${wrongFilter.cat}" 오답 ${target.length}개` : `전체 오답 ${target.length}개`;
+  const label = wrongFilter.cat
+    ? `"${wrongFilter.cat}"${wrongFilter.round ? ' ' + wrongFilter.round + '회차' : ''} 오답 ${target.length}개`
+    : `전체 오답 ${target.length}개`;
   if (!confirm(`${label}를 모두 삭제할까요?\n되돌릴 수 없습니다.`)) return;
-  const kept = wrongFilter.cat ? wrongs.filter(w => w.cat !== wrongFilter.cat) : [];
+  const targetIds = new Set(target.map(w => w.id));
+  const kept = wrongs.filter(w => !targetIds.has(w.id));
   saveWrongAnswers(kept);
   _wrongSel.clear();
   _wrongSelectMode = false;
@@ -11905,7 +11917,22 @@ function renderWrongNote() {
     }).join('')}
   `;
 
-  let filtered = wrongFilter.cat ? wrongs.filter(w => w.cat === wrongFilter.cat) : wrongs;
+  // [추가] 자격증을 고르면 그 안에서 회차를 직접 골라 더 좁힐 수 있다
+  const roundFilterEl = document.getElementById('wrong-round-filter');
+  if (roundFilterEl) {
+    const inCat = wrongFilter.cat ? wrongs.filter(w => w.cat === wrongFilter.cat) : [];
+    const rounds = [...new Set(inCat.map(w => w.round))]
+      .sort((a, b) => String(a).localeCompare(String(b), 'ko', { numeric: true }));
+    roundFilterEl.innerHTML = (wrongFilter.cat && rounds.length > 1) ? `
+      <button class="btn ${wrongFilter.round === null ? 'btn-primary' : 'btn-secondary'}" onclick="setWrongRound(null)" style="font-size:12px; padding:5px 12px">전체 회차</button>
+      ${rounds.map(r => {
+        const cnt = inCat.filter(w => w.round === r).length;
+        return `<button class="btn ${wrongFilter.round === r ? 'btn-primary' : 'btn-secondary'}" onclick="setWrongRound('${escArg(r)}')" style="font-size:12px; padding:5px 12px">${escHtml(r)}회차 (${cnt})</button>`;
+      }).join('')}
+    ` : '';
+  }
+
+  let filtered = _wrongFiltered(wrongs);
 
   // 정렬
   // [수정] 저장할 때 쓰는 이름은 addedAt 인데 여기서는 ts 를 읽고 있었다.
@@ -11996,6 +12023,13 @@ function renderWrongNote() {
 
 function setWrongFilter(cat) {
   wrongFilter.cat = cat;
+  wrongFilter.round = null;   // 자격증이 바뀌면 회차 필터는 의미가 없어지니 초기화
+  renderWrongNote();
+}
+
+// [추가] 회차 직접 선택 필터 — 같은 회차를 다시 누르면 해제
+function setWrongRound(round) {
+  wrongFilter.round = (wrongFilter.round === round) ? null : round;
   renderWrongNote();
 }
 
@@ -12947,7 +12981,7 @@ function toggleStarFromWrong(id, btn) {
   _toggleStarEntry(w.cat, w.round, w.q, btn);
 }
 
-let starFilter = { cat: null, lv: 0 };
+let starFilter = { cat: null, lv: 0, round: null };
 
 function renderStarNote() {
   const starred = getStarred();
@@ -12977,7 +13011,22 @@ function renderStarNote() {
     </div>
   `;
 
-  let filtered = byCat;
+  // [추가] 자격증을 고르면 그 안에서 회차를 직접 골라 더 좁힐 수 있다
+  const starRoundEl = document.getElementById('star-round-filter');
+  if (starRoundEl) {
+    const rounds = [...new Set(byCat.map(w => w.round))]
+      .sort((a, b) => String(a).localeCompare(String(b), 'ko', { numeric: true }));
+    starRoundEl.innerHTML = (starFilter.cat && rounds.length > 1) ? `
+      <div class="sch-cats">
+        <button class="sch-chip${starFilter.round === null ? ' on' : ''}" onclick="setStarRound(null)">전체 회차</button>
+        ${rounds.map(r => {
+          const cnt = byCat.filter(w => w.round === r).length;
+          return `<button class="sch-chip${starFilter.round === r ? ' on' : ''}" onclick="setStarRound('${escArg(r)}')">${escHtml(r)}회차<small>${cnt}</small></button>`;
+        }).join('')}
+      </div>` : '';
+  }
+
+  let filtered = starFilter.round ? byCat.filter(w => w.round === starFilter.round) : byCat;
   if (starFilter.lv) filtered = filtered.filter(w => starLevelOf(w) === starFilter.lv);
   // 중요도가 높은 것부터
   filtered = filtered.slice().sort((a, b) => starLevelOf(b) - starLevelOf(a) || (b.addedAt || 0) - (a.addedAt || 0));
@@ -13036,11 +13085,18 @@ function sendStarToMemo(key) {
 
 function setStarFilter(cat) {
   starFilter.cat = cat;
+  starFilter.round = null;   // 자격증이 바뀌면 회차 필터는 의미가 없어지니 초기화
   renderStarNote();
 }
 
 function setStarLv(lv) {
   starFilter.lv = lv;
+  renderStarNote();
+}
+
+// [추가] 회차 직접 선택 필터 — 같은 회차를 다시 누르면 해제
+function setStarRound(round) {
+  starFilter.round = (starFilter.round === round) ? null : round;
   renderStarNote();
 }
 
@@ -16904,6 +16960,9 @@ applyRenderFlags();
 //   k: 'new'(새 기능) · 'fix'(고침) · 'chg'(바뀜)
 // ══════════════════════════════════════════════════════════════════════
 const PATCH_NOTES = [
+  { v: '260730-1713', at: '2026-07-30', items: [
+    { k: 'new', t: '오답노트·별표 노트에 <b>회차 필터</b>를 추가했습니다 — 자격증을 고르면 그 안의 회차를 직접 골라 더 좁혀 볼 수 있습니다' },
+  ]},
   { v: '260730-1658', at: '2026-07-30', items: [
     { k: 'chg', t: '<b>글로우 테두리</b>를 설정 화면의 React 데모와 같은 3색(보라·분홍·파랑) 구성으로 맞추고, 바깥으로 살짝 번지는 후광도 더했습니다 (회차 칸처럼 잘리는 카드는 후광만 생략)' },
   ]},
@@ -17058,7 +17117,7 @@ function closePatchNotes() {
 // ── 앱 버전 ──
 // 폰이 옛 파일을 캐시해 두고 있는지 바로 확인할 수 있도록 화면에 표시한다.
 // (설정 맨 아래 · 개발자 도구 콘솔에도 찍힘)
-const APP_VERSION = '260730-1658';
+const APP_VERSION = '260730-1713';
 console.log('%c양진웅 Note 버전 ' + APP_VERSION, 'font-weight:bold');
 
 // PWA 서비스워커 등록
