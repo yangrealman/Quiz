@@ -4880,6 +4880,22 @@
     line-height: 1.4; word-break: keep-all;
   }
   .imgpick-foot { font-size: 11.5px; color: var(--gray-400); text-align: center; flex-shrink: 0; }
+
+  /* [추가] 회차 선택 팝업 */
+  .rpick-actions { display: flex; gap: 8px; flex-shrink: 0; }
+  .rpick-list {
+    flex: 1 1 auto; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch;
+    display: flex; flex-direction: column; gap: 2px;
+  }
+  .rpick-row {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 8px; border-radius: var(--r-sm); cursor: pointer;
+    font-size: 14px; color: var(--text);
+  }
+  .rpick-row:hover { background: var(--option-hover); }
+  .rpick-row input { width: 18px; height: 18px; flex-shrink: 0; accent-color: var(--primary); }
+  .rpick-row small { margin-left: auto; color: var(--gray-400); font-size: 12px; flex-shrink: 0; }
+  .rpick-empty { text-align: center; color: var(--gray-400); font-size: 13px; padding: 24px 0; }
   .imgpick-count { font-size: 11.5px; color: var(--gray-400); flex-shrink: 0; }
   .ip-more {
     grid-column: 1 / -1; padding: 12px; border: 1px dashed var(--card-border);
@@ -11925,13 +11941,19 @@ function renderWrongNote() {
     const inCat = wrongFilter.cat ? wrongs.filter(w => w.cat === wrongFilter.cat) : [];
     const rounds = [...new Set(inCat.map(w => w.round))]
       .sort((a, b) => String(a).localeCompare(String(b), 'ko', { numeric: true }));
-    roundFilterEl.innerHTML = (wrongFilter.cat && rounds.length > 1) ? `
-      <button class="btn ${wrongFilter.rounds.size === 0 ? 'btn-primary' : 'btn-secondary'}" onclick="clearWrongRounds()" style="font-size:12px; padding:5px 12px">전체 회차</button>
-      ${rounds.map(r => {
-        const cnt = inCat.filter(w => w.round === r).length;
-        return `<button class="btn ${wrongFilter.rounds.has(r) ? 'btn-primary' : 'btn-secondary'}" onclick="setWrongRound('${escArg(r)}')" style="font-size:12px; padding:5px 12px">${escHtml(r)}회차 (${cnt})</button>`;
-      }).join('')}
-    ` : '';
+    // [수정] 회차가 많으면(9개 이상) 칩을 다 늘어놓지 않고 검색 팝업 버튼 하나로 바꾼다
+    roundFilterEl.innerHTML = !wrongFilter.cat || rounds.length <= 1 ? '' :
+      rounds.length > 8 ? `
+        <button class="btn btn-secondary" onclick="openRoundPicker('wrong')" style="font-size:12px; padding:6px 14px">
+          🔍 회차 선택 ${wrongFilter.rounds.size ? `(${wrongFilter.rounds.size}개 선택됨)` : `(전체 ${rounds.length}개)`}
+        </button>
+      ` : `
+        <button class="btn ${wrongFilter.rounds.size === 0 ? 'btn-primary' : 'btn-secondary'}" onclick="clearWrongRounds()" style="font-size:12px; padding:5px 12px">전체 회차</button>
+        ${rounds.map(r => {
+          const cnt = inCat.filter(w => w.round === r).length;
+          return `<button class="btn ${wrongFilter.rounds.has(r) ? 'btn-primary' : 'btn-secondary'}" onclick="setWrongRound('${escArg(r)}')" style="font-size:12px; padding:5px 12px">${escHtml(r)}회차 (${cnt})</button>`;
+        }).join('')}
+      `;
   }
 
   let filtered = _wrongFiltered(wrongs);
@@ -13031,14 +13053,22 @@ function renderStarNote() {
   if (starRoundEl) {
     const rounds = [...new Set(byCat.map(w => w.round))]
       .sort((a, b) => String(a).localeCompare(String(b), 'ko', { numeric: true }));
-    starRoundEl.innerHTML = (starFilter.cat && rounds.length > 1) ? `
-      <div class="sch-cats">
-        <button class="sch-chip${starFilter.rounds.size === 0 ? ' on' : ''}" onclick="clearStarRounds()">전체 회차</button>
-        ${rounds.map(r => {
-          const cnt = byCat.filter(w => w.round === r).length;
-          return `<button class="sch-chip${starFilter.rounds.has(r) ? ' on' : ''}" onclick="setStarRound('${escArg(r)}')">${escHtml(r)}회차<small>${cnt}</small></button>`;
-        }).join('')}
-      </div>` : '';
+    // [수정] 회차가 많으면(9개 이상) 칩을 다 늘어놓지 않고 검색 팝업 버튼 하나로 바꾼다
+    starRoundEl.innerHTML = !starFilter.cat || rounds.length <= 1 ? '' :
+      rounds.length > 8 ? `
+        <div class="sch-cats">
+          <button class="sch-chip" onclick="openRoundPicker('star')">
+            🔍 회차 선택 ${starFilter.rounds.size ? `(${starFilter.rounds.size}개 선택됨)` : `(전체 ${rounds.length}개)`}
+          </button>
+        </div>
+      ` : `
+        <div class="sch-cats">
+          <button class="sch-chip${starFilter.rounds.size === 0 ? ' on' : ''}" onclick="clearStarRounds()">전체 회차</button>
+          ${rounds.map(r => {
+            const cnt = byCat.filter(w => w.round === r).length;
+            return `<button class="sch-chip${starFilter.rounds.has(r) ? ' on' : ''}" onclick="setStarRound('${escArg(r)}')">${escHtml(r)}회차<small>${cnt}</small></button>`;
+          }).join('')}
+        </div>`;
   }
 
   // 중요도가 높은 것부터
@@ -13116,6 +13146,72 @@ function setStarRound(round) {
 function clearStarRounds() {
   starFilter.rounds = new Set();
   renderStarNote();
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// 회차 여러 개 고르기 팝업 (오답노트·별표 공용)
+//  · 회차가 수십 개면 칩으로 다 늘어놓기 어려워, 검색 + 체크박스 목록으로 뺐다.
+//  · wrongFilter.rounds / starFilter.rounds 를 직접 채워 넣고, 닫을 때 화면을 다시 그린다.
+// ══════════════════════════════════════════════════════════════════════
+let _rpickKind = null;   // 'wrong' | 'star'
+
+function _rpickData() {
+  if (_rpickKind === 'star') {
+    const items = starFilter.cat ? Object.values(getStarred()).filter(w => w.cat === starFilter.cat) : [];
+    return { items, filterObj: starFilter };
+  }
+  const items = wrongFilter.cat ? getWrongAnswers().filter(w => w.cat === wrongFilter.cat) : [];
+  return { items, filterObj: wrongFilter };
+}
+
+function openRoundPicker(kind) {
+  _rpickKind = kind;
+  const search = document.getElementById('rpick-search');
+  if (search) search.value = '';
+  renderRoundPickerList();
+  document.getElementById('rpick-back').classList.add('open');
+}
+function closeRoundPicker() {
+  document.getElementById('rpick-back').classList.remove('open');
+  if (_rpickKind === 'wrong') renderWrongNote();
+  else if (_rpickKind === 'star') renderStarNote();
+  _rpickKind = null;
+}
+function _rpickVisibleRounds() {
+  const { items } = _rpickData();
+  const q = (document.getElementById('rpick-search').value || '').trim().toLowerCase();
+  return [...new Set(items.map(w => w.round))]
+    .sort((a, b) => String(a).localeCompare(String(b), 'ko', { numeric: true }))
+    .filter(r => !q || String(r).toLowerCase().includes(q));
+}
+function renderRoundPickerList() {
+  const { items, filterObj } = _rpickData();
+  const rounds = _rpickVisibleRounds();
+  document.getElementById('rpick-list').innerHTML = rounds.length ? rounds.map(r => {
+    const cnt = items.filter(w => w.round === r).length;
+    return `
+      <label class="rpick-row">
+        <input type="checkbox" ${filterObj.rounds.has(r) ? 'checked' : ''} onchange="rpickToggle('${escArg(r)}')">
+        <span>${escHtml(r)}회차</span><small>${cnt}</small>
+      </label>`;
+  }).join('') : `<div class="rpick-empty">검색 결과가 없어요</div>`;
+  document.getElementById('rpick-count').textContent = filterObj.rounds.size;
+}
+function rpickToggle(round) {
+  const { filterObj } = _rpickData();
+  if (filterObj.rounds.has(round)) filterObj.rounds.delete(round);
+  else filterObj.rounds.add(round);
+  renderRoundPickerList();
+}
+function rpickSelectAll() {
+  const { filterObj } = _rpickData();
+  _rpickVisibleRounds().forEach(r => filterObj.rounds.add(r));
+  renderRoundPickerList();
+}
+function rpickClearAll() {
+  const { filterObj } = _rpickData();
+  filterObj.rounds.clear();
+  renderRoundPickerList();
 }
 
 // 목록에서 중요도만 올린다 (★→★★→★★★→★ · 해제는 옆의 '별표 해제')
@@ -16976,6 +17072,9 @@ applyRenderFlags();
 //   k: 'new'(새 기능) · 'fix'(고침) · 'chg'(바뀜)
 // ══════════════════════════════════════════════════════════════════════
 const PATCH_NOTES = [
+  { v: '260730-1819', at: '2026-07-30', items: [
+    { k: 'new', t: '오답노트·별표의 회차가 <b>9개 이상</b>이면 칩을 다 늘어놓지 않고, <b>검색 + 체크박스 팝업</b> 하나로 골라 볼 수 있게 했습니다 (8개 이하면 예전처럼 칩 그대로)' },
+  ]},
   { v: '260730-1729', at: '2026-07-30', items: [
     { k: 'fix', t: '<b>오답만 풀기·별표만 풀기</b>가 자격증 필터만 보고 회차·중요도 필터는 무시하던 문제 — 이제 화면에 보이는 것만 그대로 풉니다' },
   ]},
@@ -17139,7 +17238,7 @@ function closePatchNotes() {
 // ── 앱 버전 ──
 // 폰이 옛 파일을 캐시해 두고 있는지 바로 확인할 수 있도록 화면에 표시한다.
 // (설정 맨 아래 · 개발자 도구 콘솔에도 찍힘)
-const APP_VERSION = '260730-1729';
+const APP_VERSION = '260730-1819';
 console.log('%c양진웅 Note 버전 ' + APP_VERSION, 'font-weight:bold');
 
 // PWA 서비스워커 등록
@@ -17262,6 +17361,24 @@ if (location.search.includes('reset')) {
     <input type="text" class="form-input imgpick-q" id="imgpick-q" placeholder="문제 내용·회차·문항·파일 이름으로 찾기" oninput="onImgReuseSearch()">
     <div class="imgpick-grid" id="imgpick-grid"></div>
     <div class="imgpick-foot">고른 그림은 새로 올리지 않고 함께 씁니다 · 용량이 늘지 않아요</div>
+  </div>
+</div>
+
+<!-- [추가] 회차 여러 개 고르기 — 오답노트·별표의 회차 필터가 칩으로 다 나열되면
+     회차가 많을 때(수십 개) 보기 힘들어서, 검색 + 체크박스 팝업으로 뺐다. -->
+<div class="imgpick-back" id="rpick-back" onclick="if(event.target===this) closeRoundPicker()">
+  <div class="imgpick">
+    <div class="imgpick-head">
+      <div class="imgpick-title">회차 선택</div>
+      <button class="imgpick-x" onclick="closeRoundPicker()" aria-label="닫기">✕</button>
+    </div>
+    <input type="text" class="form-input imgpick-q" id="rpick-search" placeholder="회차 검색" oninput="renderRoundPickerList()">
+    <div class="rpick-actions">
+      <button class="wn-tool-btn" onclick="rpickSelectAll()">보이는 것 전체 선택</button>
+      <button class="wn-tool-btn" onclick="rpickClearAll()">전체 해제</button>
+    </div>
+    <div class="rpick-list" id="rpick-list"></div>
+    <button class="btn btn-primary" style="width:100%" onclick="closeRoundPicker()">적용 (<span id="rpick-count">0</span>개 선택)</button>
   </div>
 </div>
 
