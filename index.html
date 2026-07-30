@@ -3447,7 +3447,8 @@
     z-index: 2;
   }
   @media (hover: hover) and (pointer: fine) {
-    .exam-item:hover::after, .review-card:hover::after,
+    /* [수정] .exam-item 은 이제 글로우 테두리를 쓰므로 예전 반사광은 뺐다 */
+    .review-card:hover::after,
     .home-hero:hover::after, .weather-chip:hover::after { opacity: 1; }
   }
   body.dark .exam-item::after, body.dark .review-card::after,
@@ -4714,38 +4715,30 @@
   .rt.open::after { width: 46%; }
 
   /* ══ 글로우 테두리 (React Bits "BorderGlow" 컴포넌트를 바닐라 JS로 포팅) ══
-     PC에서 마우스가 카드 가장자리 가까이 가면 커서 방향 쪽으로 색빛이 번진다.
+     PC에서 마우스가 카드 가장자리 가까이 가면 커서가 있는 쪽 "테두리만" 은은하게 빛난다.
      회차 칸이 수십 개일 수 있어 카드마다 리스너를 달지 않고 델리게이션으로 처리한다
      (JS는 setupBorderGlow 참고). ::before/::after 의사요소는 카드마다 이미 다른 용도로
      쓰이는 곳이 있어(밑줄, 그림자, 반사광 등) 겹치지 않도록 실제 자식 요소(.bglow-glow)를
-     하나 끼워 넣는 방식을 쓴다 (JS에서 처음 닿을 때 한 번만 추가). */
+     하나 끼워 넣는 방식을 쓴다 (JS에서 처음 닿을 때 한 번만 추가).
+     [수정] 처음엔 카드 안쪽 대부분을 색색으로 채웠는데(무지개색으로 크게 보임), 요청대로
+     "테두리만" 얇게 빛나도록 다시 만들었다 — padding 두께만큼만 보이게 마스킹하고(테두리 고리),
+     색도 앱 테마색(--primary) 하나로 통일해 차분하게 했다. */
   .bglow { position: relative; isolation: isolate; }
   .bglow-glow {
     position: absolute;
     inset: 0;
     border-radius: inherit;
+    padding: 2px;                 /* 이 두께만큼만 테두리 고리로 남는다 */
     pointer-events: none;
     z-index: 3;
-    /* [수정] plus-lighter(가산 합성)는 원본 컴포넌트의 어두운 배경 기준이라,
-       이 앱의 밝은 카드 배경 위에서는 거의 흰색으로 씻겨 나가 안 보였다.
-       → 합성 모드 없이, 색 자체에 알파를 줘서 배경 밝기와 무관하게 보이게 한다. */
-    background:
-      radial-gradient(circle at 88% 12%, rgba(192,132,252,0.75) 0%, transparent 55%),
-      radial-gradient(circle at 12% 88%, rgba(244,114,182,0.75) 0%, transparent 55%),
-      radial-gradient(circle at 50% 50%, rgba(56,189,248,0.65) 0%, transparent 62%);
-    -webkit-mask-image: conic-gradient(from var(--bg-angle, 45deg) at center,
-      black 0%, transparent 28%, transparent 72%, black 100%);
-    mask-image: conic-gradient(from var(--bg-angle, 45deg) at center,
-      black 0%, transparent 28%, transparent 72%, black 100%);
-    opacity: calc((var(--bg-edge, 0) - 55) / 45 * 0.9);
+    background: conic-gradient(from var(--bg-angle, 0deg),
+      var(--primary) 0deg, transparent 70deg, transparent 290deg, var(--primary) 360deg);
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    filter: blur(0.5px);
+    opacity: calc((var(--bg-edge, 0) - 60) / 40 * 0.75);
     transition: opacity 0.25s ease-out;
-  }
-  body.dark .bglow-glow {
-    background:
-      radial-gradient(circle at 88% 12%, rgba(192,132,252,0.55) 0%, transparent 55%),
-      radial-gradient(circle at 12% 88%, rgba(244,114,182,0.55) 0%, transparent 55%),
-      radial-gradient(circle at 50% 50%, rgba(56,189,248,0.5) 0%, transparent 62%);
-    mix-blend-mode: plus-lighter;
   }
   .bglow:not(:hover) > .bglow-glow { opacity: 0; transition: opacity 0.6s ease-in-out; }
   body.reduce-motion .bglow-glow, body.rf-noTilt .bglow-glow { display: none; }
@@ -15770,7 +15763,8 @@ function startClock() {
   const calm = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   if (!fine || calm) return;
 
-  const SEL = '.exam-item, .review-card, .hero, .hero-mini, .weather-chip, .dday-card, .dday-empty, .resume-card, .mst-card';
+  // [수정] 글로우 테두리를 새로 넣은 카드(자격증·홈 카드)는 기울기+반사광과 겹쳐 지저분해 보여서 뺐다.
+  const SEL = '.review-card, .hero, .hero-mini, .weather-chip, .mst-card';
   const MAX = 9; // 기울기 강화
 
   let _rafPending = false, _lastCard = null, _lastRect = null;
@@ -16888,6 +16882,10 @@ applyRenderFlags();
 //   k: 'new'(새 기능) · 'fix'(고침) · 'chg'(바뀜)
 // ══════════════════════════════════════════════════════════════════════
 const PATCH_NOTES = [
+  { v: '260730-1308', at: '2026-07-30', items: [
+    { k: 'fix', t: '<b>글로우 테두리</b>를 요청대로 다시 만들었습니다 — 카드 안쪽이 무지개색으로 크게 빛나던 것을, 테두리만 얇게·한 가지 테마색으로 은은하게 빛나도록 바꿨습니다' },
+    { k: 'chg', t: '자격증·홈 카드에서 <b>기존 기울기·반사광 효과</b>를 뺐습니다 (글로우 테두리와 겹쳐 지저분해 보여서) — 다른 카드들은 그대로입니다' },
+  ]},
   { v: '260730-1225', at: '2026-07-30', items: [
     { k: 'fix', t: '<b>글로우 테두리</b>가 자격증 카드(문제풀기 목록)에는 아예 안 붙어 있던 문제 — 이미 밑줄·그림자·반사광이 그 자리를 쓰고 있던 카드들과 겹치지 않도록 만드는 방식을 바꿔 이제 자격증·회차·홈 카드 전부에 붙습니다' },
   ]},
@@ -17035,7 +17033,7 @@ function closePatchNotes() {
 // ── 앱 버전 ──
 // 폰이 옛 파일을 캐시해 두고 있는지 바로 확인할 수 있도록 화면에 표시한다.
 // (설정 맨 아래 · 개발자 도구 콘솔에도 찍힘)
-const APP_VERSION = '260730-1225';
+const APP_VERSION = '260730-1308';
 console.log('%c양진웅 Note 버전 ' + APP_VERSION, 'font-weight:bold');
 
 // PWA 서비스워커 등록
