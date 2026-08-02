@@ -3350,11 +3350,7 @@
     --tint-danger:  #FDF6F6;
     --tint-danger-edge: #F2D8D8;
 
-    /* [추가] 암기도 단계 색 — 가운데는 확실한 노랑으로
-       (예전엔 --warning 을 썼는데 그 값이 어두운 황토색이라 갈색으로 보였음) */
-    --mst-low:  #E05252;
-    --mst-mid:  #EAB308;
-    --mst-high: #2F9E63;
+    /* [삭제] 암기도 단계 색은 mstColor()가 6단계 hex를 직접 반환하므로 여기 필요 없음 */
   }
   body.dark {
     --lit: rgba(255,255,255,0.14);
@@ -3371,10 +3367,6 @@
     --tint-warning-edge: #3A3320;
     --tint-danger:  #241B1E;
     --tint-danger-edge: #3D2830;
-
-    --mst-low:  var(--danger);
-    --mst-mid:  #FACC15;
-    --mst-high: var(--success);
   }
 
   /* [1] 내비 탭 = 물리 키 */
@@ -8970,16 +8962,17 @@ function renderMasteryPanel() {
 
   const n = items.length;
   const avg = n ? Math.round(items.reduce((s, i) => s + i.v, 0) / n) : 0;
-  const b = [0, 0, 0, 0, 0]; // 완벽 / 거의 / 절반 / 시작 / 아직
+  const b = [0, 0, 0, 0, 0, 0]; // 완벽 / 거의 / 절반 / 부족 / 많이부족 / 아직
   items.forEach(i => {
-    b[i.v >= 90 ? 0 : i.v >= 70 ? 1 : i.v >= 50 ? 2 : i.v > 0 ? 3 : 4]++;
+    b[i.v >= 90 ? 0 : i.v >= 70 ? 1 : i.v >= 50 ? 2 : i.v >= 21 ? 3 : i.v > 0 ? 4 : 5]++;
   });
   const seg = [
     { c: '#16A34A', n: b[0], label: '완벽 90%+' },
     { c: '#4ADE80', n: b[1], label: '거의 70–89%' },
     { c: '#FBBF24', n: b[2], label: '절반 50–69%' },
-    { c: '#F87171', n: b[3], label: '시작 1–49%' },
-    { c: '#CBD5E1', n: b[4], label: '아직 0%' }
+    { c: '#F87171', n: b[3], label: '부족 21–49%' },
+    { c: '#DC2626', n: b[4], label: '많이부족 1–20%' },
+    { c: '#CBD5E1', n: b[5], label: '아직 0%' }
   ];
   const pctOf = x => (x / n * 100).toFixed(2);
 
@@ -9488,8 +9481,15 @@ function splitRoundName(r) {
 }
 
 // [수정] 같은 이름의 함수가 두 곳에 있어 앞의 것이 죽은 코드였음 → 하나로 통합
+// [수정] 3단계(빨강/노랑/초록)는 구간이 넓어 서로 비슷해 보였다 → 6단계로 세분화.
+//        극단(0%, 90%+)일수록 색이 진해지도록 초록·빨강 양쪽을 대칭으로 맞췄다.
 function mstColor(pct) {
-  return pct < 30 ? 'var(--mst-low)' : pct < 70 ? 'var(--mst-mid)' : 'var(--mst-high)';
+  if (pct <= 0) return '#CBD5E1';    // 아직 — 회색 (0%, 아예 안 건드림)
+  if (pct <= 20) return '#DC2626';   // 진한 빨강 — 많이 부족
+  if (pct <= 49) return '#F87171';   // 연한 빨강 — 부족
+  if (pct <= 69) return '#FBBF24';   // 호박색 — 절반
+  if (pct <= 89) return '#4ADE80';   // 연한 초록 — 거의 다 됨
+  return '#16A34A';                  // 진한 초록 — 완벽
 }
 
 function _roundStats(cat, r, qs) {
@@ -17064,6 +17064,9 @@ applyRenderFlags();
 //   k: 'new'(새 기능) · 'fix'(고침) · 'chg'(바뀜)
 // ══════════════════════════════════════════════════════════════════════
 const PATCH_NOTES = [
+  { v: '260803-0228', at: '2026-08-03', items: [
+    { k: 'chg', t: '<b>암기도 색상</b>을 3단계(빨강·노랑·초록)에서 6단계로 세분화했습니다 — 완벽(90%+)·거의(70–89%)·절반(50–69%)·부족(21–49%)·많이부족(1–20%)·아직(0%). 극단으로 갈수록 색이 진해집니다' },
+  ]},
   { v: '260802-2006', at: '2026-08-02', items: [
     { k: 'chg', t: '설정 > 모드 전환에서 <b>"새 디자인"(Beta)</b>과 <b>"모노크롬 스킨"</b>을 제거했습니다 — 기존 화면 그대로 쓰시면 됩니다. 학습 기록에는 영향 없습니다' },
   ]},
@@ -17260,7 +17263,7 @@ function closePatchNotes() {
 // ── 앱 버전 ──
 // 폰이 옛 파일을 캐시해 두고 있는지 바로 확인할 수 있도록 화면에 표시한다.
 // (설정 맨 아래 · 개발자 도구 콘솔에도 찍힘)
-const APP_VERSION = '260802-2006';
+const APP_VERSION = '260803-0228';
 console.log('%c양진웅 Note 버전 ' + APP_VERSION, 'font-weight:bold');
 
 // PWA 서비스워커 등록
