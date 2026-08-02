@@ -269,6 +269,7 @@
   body.nova-mode .scroll-top,
   body.nova-mode .app-footer,
   body.nova-mode .calc-popup,
+  body.nova-mode .admin-panel,
   body.nova-mode #page-veil { display: none; }
   body.nova-mode .nova-root { display: block; }
   /* 버튼, 카드 인터랙션 트랜지션 */
@@ -16743,6 +16744,9 @@ function novaNavHtml() {
       <div class="flex items-center gap-1 rounded-full border border-zinc-200/80 bg-white/70 p-1.5 shadow-[0_1px_2px_rgba(0,0,0,0.04)] backdrop-blur-xl dark:border-white/10 dark:bg-zinc-900/60">
         <div class="pl-3 pr-2 text-sm font-semibold tracking-tight">양진웅 Note</div>
         ${tabs}
+        <button onclick="novaGo('settings')" class="rounded-full p-2 ${novaView === 'settings' || novaView === 'patchnotes' ? 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-900' : 'text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200'}" title="설정" aria-label="설정">
+          <svg class="ic" viewBox="0 0 24 24" style="width:16px;height:16px"><use href="#ic-gear"/></svg>
+        </button>
         <button onclick="toggleNovaMode()" class="ml-1 rounded-full px-4 py-2 text-sm text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200" title="기존 디자인으로">기존 디자인</button>
       </div>
     </nav>
@@ -16755,8 +16759,14 @@ function novaMobileNavHtml() {
       <svg class="ic" viewBox="0 0 24 24" style="width:20px;height:20px"><use href="#${t.icon}"/></svg>${escHtml(t.label)}
     </button>
   `).join('');
+  const settingsActive = novaView === 'settings' || novaView === 'patchnotes';
   return `
-    <div class="fixed inset-x-0 bottom-0 z-20 flex border-t border-zinc-200/80 bg-white/85 backdrop-blur-xl dark:border-white/10 dark:bg-zinc-950/85 sm:hidden">${tabs}</div>
+    <div class="fixed inset-x-0 bottom-0 z-20 flex border-t border-zinc-200/80 bg-white/85 backdrop-blur-xl dark:border-white/10 dark:bg-zinc-950/85 sm:hidden">
+      ${tabs}
+      <button onclick="novaGo('settings')" class="flex flex-1 flex-col items-center gap-1 py-2.5 text-[11px] font-medium ${settingsActive ? 'text-zinc-900 dark:text-white' : 'text-zinc-400'}">
+        <svg class="ic" viewBox="0 0 24 24" style="width:20px;height:20px"><use href="#ic-gear"/></svg>설정
+      </button>
+    </div>
   `;
 }
 
@@ -16774,6 +16784,8 @@ function novaScreenHtml(view) {
   if (view === 'starquiz') return novaMiniQuizHtml('sq');
   if (view === 'search') return novaSearchHtml();
   if (view === 'memo') return novaMemoHtml();
+  if (view === 'settings') return novaSettingsHtml();
+  if (view === 'patchnotes') return novaPatchNotesHtml();
   const tab = NOVA_TABS.find(t => t.id === view);
   return novaComingSoonHtml(tab ? tab.label : view);
 }
@@ -17672,6 +17684,163 @@ function novaMemoHtml() {
   `;
 }
 
+// ══════════════════════════════════════════════════════════════════════
+// 설정 탭 — 기존 getSettings()/toggleSetting() 등을 그대로 호출해 저장하고,
+// 화면만 새로 그린다(novaXxx 래퍼가 실제 함수를 부른 뒤 renderNova()만 추가).
+// V1 범위: 화면·기능·데이터·모드전환·정보는 전부, "움직임"은 전체 on/off까지만
+// (기기별 세부 진단·효과 하나씩 끄기는 아직 기존 화면에서), "관리"(문제 등록)는
+// 무거운 관리자 패널이라 기존 화면으로 폴백한다.
+// ══════════════════════════════════════════════════════════════════════
+function novaToggleSetting(key) { toggleSetting(key); renderNova(); }
+function novaSetTheme(key) { setTheme(key); renderNova(); }
+function novaToggleDark() { toggleDarkFromSettings(); renderNova(); }
+function novaSetCalSize(v) { setCalSize(v); renderNova(); }
+function novaToggleAllAnim() { toggleAllAnim(); renderNova(); }
+function novaToggleTransEffect() { toggleTransEffect(); renderNova(); }
+function novaToggleLiveSync() { toggleLiveSync(); renderNova(); }
+function novaToggleSkinMono() { toggleSkinMono(); renderNova(); }
+function novaResetAppCache() { resetAppCache(); }
+
+function novaSwitch(on, onclick) {
+  return `<button onclick="${onclick}" role="switch" aria-checked="${on}" class="relative h-7 w-12 shrink-0 rounded-full transition-colors ${on ? 'bg-zinc-900 dark:bg-white' : 'bg-zinc-200 dark:bg-white/15'}">
+    <span class="absolute top-0.5 h-6 w-6 rounded-full bg-white shadow transition-transform dark:bg-zinc-900 ${on ? 'translate-x-[22px]' : 'translate-x-0.5'}"></span>
+  </button>`;
+}
+function novaSettingsRow(title, desc, right) {
+  return `
+    <div class="flex items-center justify-between gap-3 py-3">
+      <div class="min-w-0"><div class="text-sm font-medium">${title}</div>${desc ? `<div class="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400 [word-break:keep-all]">${desc}</div>` : ''}</div>
+      ${right}
+    </div>`;
+}
+function novaSettingsGroup(label, rowsHtml) {
+  return `
+    <div class="mb-5">
+      <div class="mb-2 px-1 text-xs font-semibold uppercase tracking-wide text-zinc-400">${label}</div>
+      <div class="divide-y divide-zinc-100 rounded-2xl bg-white px-4 ring-1 ring-zinc-200 dark:divide-white/10 dark:bg-zinc-900 dark:ring-white/10">${rowsHtml}</div>
+    </div>`;
+}
+
+function novaSettingsHtml() {
+  const s = getSettings();
+  const dark = document.body.classList.contains('dark');
+
+  // 화면
+  const themeSwatches = Object.keys(THEMES).map(k => `
+    <button onclick="novaSetTheme('${k}')" title="${escHtml(THEMES[k].name)}" class="h-8 w-8 shrink-0 rounded-full ring-2 ${s.theme === k ? 'ring-zinc-900 dark:ring-white' : 'ring-transparent'}" style="background:${THEMES[k].main}"></button>
+  `).join('');
+  const calSeg = ['sm', 'md', 'lg'].map(v => `<button onclick="novaSetCalSize('${v}')" class="rounded-full px-3 py-1.5 text-xs font-medium ${(s.calSize || 'md') === v ? 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-900' : 'text-zinc-500'}">${v === 'sm' ? '작게' : v === 'md' ? '보통' : '크게'}</button>`).join('');
+  const screenGroup = novaSettingsGroup('화면', `
+    ${novaSettingsRow('테마 색상', '앱 전체의 포인트 색을 바꿉니다', `<div class="flex flex-wrap gap-2">${themeSwatches}</div>`)}
+    ${novaSettingsRow('다크 모드', '어두운 배경으로 전환합니다', novaSwitch(dark, 'novaToggleDark()'))}
+    ${novaSettingsRow('캘린더 크기', '팝업 달력이 잘리면 작게 조절하세요', `<div class="flex gap-1 rounded-full bg-zinc-100 p-1 dark:bg-white/10">${calSeg}</div>`)}
+  `);
+
+  // 움직임
+  const motionGroup = novaSettingsGroup('움직임', `
+    ${novaSettingsRow('전체 애니메이션', '화면 전환·카드 효과·버튼 반응까지 전부', novaSwitch(!s.reduceMotion, 'novaToggleAllAnim()'))}
+    ${novaSettingsRow('화면 전환 효과', '탭을 바꿀 때 얇은 막이 걷히는 연출', novaSwitch(getTransMode() === 'light', 'novaToggleTransEffect()'))}
+    <div class="py-3 text-xs text-zinc-400 [word-break:keep-all]">기기별 세부 진단·효과 하나씩 끄기는 기존 디자인의 설정에 있어요.</div>
+  `);
+
+  // 관리
+  const manageGroup = novaSettingsGroup('관리', `
+    <button onclick="novaFallback('문제·자격증 관리', () => openAdmin())" class="flex w-full items-center justify-between py-3 text-left">
+      <div><div class="text-sm font-medium">문제 · 자격증 관리</div><div class="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">문제 등록/수정, 자격증·회차 이름 변경</div></div>
+      <svg class="ic text-zinc-300" viewBox="0 0 24 24" style="width:16px;height:16px"><use href="#ic-chevron-right"/></svg>
+    </button>
+  `);
+
+  // 기능
+  const featureGroup = novaSettingsGroup('기능', `
+    ${novaSettingsRow('스와이프로 문항 이동', '모바일에서 좌우로 밀어 문제를 넘깁니다', novaSwitch(!!s.swipeNav, "novaToggleSetting('swipeNav')"))}
+    ${novaSettingsRow('정답 효과', '정답을 맞히면 작은 축하 효과가 나타납니다', novaSwitch(!!s.particles, "novaToggleSetting('particles')"))}
+    ${novaSettingsRow('진동 피드백', '정답·저장 등에 짧은 진동을 줍니다 (모바일)', novaSwitch(!!s.haptic, "novaToggleSetting('haptic')"))}
+    ${novaSettingsRow('효과음', '정답·완료 시 아주 짧은 소리가 납니다', novaSwitch(!!s.sound, "novaToggleSetting('sound')"))}
+  `);
+
+  // 데이터
+  const idx = getQdIndex();
+  const cats = Object.keys(idx.cats);
+  let qn = 0, biggest = { name: '', bytes: 0 };
+  cats.forEach(c => {
+    Object.keys(idx.cats[c]).forEach(r => {
+      const b = qDataBytes(getRound(c, r));
+      qn += (idx.cats[c][r].n || 0);
+      if (b > biggest.bytes) biggest = { name: `${c} ${r}회차`, bytes: b };
+    });
+  });
+  const dsPct = Math.min(100, Math.round(biggest.bytes / QDATA_LIMIT * 100));
+  const dataGroup = novaSettingsGroup('데이터', `
+    <div class="py-3">
+      <div class="text-sm font-medium">문제 데이터 크기</div>
+      <div class="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400 [word-break:keep-all]">회차마다 따로 저장됩니다 · 한도(1MB)는 회차 하나에 걸리므로 가장 큰 회차만 보면 됩니다</div>
+      <div class="mt-2 flex items-center justify-between text-xs text-zinc-400"><span>${_kb(biggest.bytes)} / 1MB · ${escHtml(biggest.name || '-')}</span><span>${dsPct}%</span></div>
+      <div class="mt-1 h-1.5 overflow-hidden rounded-full bg-zinc-100 dark:bg-white/10"><i class="block h-full bg-zinc-900 dark:bg-white" style="width:${Math.max(dsPct, 1)}%"></i></div>
+      <div class="mt-1 text-xs text-zinc-400">자격증 ${cats.length}종 · ${qn.toLocaleString()}문항</div>
+    </div>
+    <button onclick="exportBackup()" class="flex w-full items-center justify-between py-3 text-left">
+      <div><div class="text-sm font-medium">데이터 내보내기</div><div class="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">모든 문제와 기록을 파일로 저장합니다</div></div>
+      <svg class="ic text-zinc-300" viewBox="0 0 24 24" style="width:16px;height:16px"><use href="#ic-chevron-right"/></svg>
+    </button>
+    <button onclick="document.getElementById('nova-import-file').click()" class="flex w-full items-center justify-between py-3 text-left">
+      <div><div class="text-sm font-medium">데이터 가져오기</div><div class="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">백업 파일에서 복원합니다</div></div>
+      <svg class="ic text-zinc-300" viewBox="0 0 24 24" style="width:16px;height:16px"><use href="#ic-chevron-right"/></svg>
+    </button>
+    <input type="file" id="nova-import-file" accept=".json" class="hidden" onchange="importBackup(this)">
+    <button onclick="novaResetAppCache()" class="flex w-full items-center justify-between py-3 text-left">
+      <div><div class="text-sm font-medium">최신 버전으로 새로고침</div><div class="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">캐시를 정리합니다 · 학습 기록은 유지됩니다</div></div>
+      <svg class="ic text-zinc-300" viewBox="0 0 24 24" style="width:16px;height:16px"><use href="#ic-refresh"/></svg>
+    </button>
+  `);
+
+  // 모드 전환
+  const modeGroup = novaSettingsGroup('모드 전환', `
+    <button onclick="openPaperHome()" class="flex w-full items-center justify-between py-3 text-left">
+      <div><div class="text-sm font-medium">원페이지 스크롤형</div><div class="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400 [word-break:keep-all]">화면을 내리며 한 장씩 펼쳐 보는 홈 <span class="text-amber-500">· Beta</span></div></div>
+      <svg class="ic text-zinc-300" viewBox="0 0 24 24" style="width:16px;height:16px"><use href="#ic-chevron-right"/></svg>
+    </button>
+    <button onclick="openLightHome()" class="flex w-full items-center justify-between py-3 text-left">
+      <div><div class="text-sm font-medium">라이트 버전</div><div class="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">아주 가벼운 화면 · 문제 풀기와 오답노트만</div></div>
+      <svg class="ic text-zinc-300" viewBox="0 0 24 24" style="width:16px;height:16px"><use href="#ic-chevron-right"/></svg>
+    </button>
+    ${novaSettingsRow('실시간 동기화', '다른 기기에서 바뀌면 이 화면도 바로 따라옵니다', novaSwitch(liveEnabled(), 'novaToggleLiveSync()'))}
+    ${novaSettingsRow('모노크롬 스킨', '흑백과 넓은 여백으로 겉모습만 바꿉니다 (기존 디자인 화면에 적용)', novaSwitch(isSkinMono(), 'novaToggleSkinMono()'))}
+    ${novaSettingsRow('새 디자인', '지금 보고 있는 이 화면이에요', novaSwitch(true, 'toggleNovaMode()'))}
+  `);
+
+  // 정보
+  const infoGroup = novaSettingsGroup('정보', `
+    <button onclick="novaGo('patchnotes')" class="flex w-full items-center justify-between py-3 text-left">
+      <div><div class="text-sm font-medium">패치 노트</div><div class="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">현재 버전 ${escHtml(typeof APP_VERSION !== 'undefined' ? APP_VERSION : '—')}</div></div>
+      <svg class="ic text-zinc-300" viewBox="0 0 24 24" style="width:16px;height:16px"><use href="#ic-chevron-right"/></svg>
+    </button>
+  `);
+
+  return `<div>${screenGroup}${motionGroup}${manageGroup}${featureGroup}${dataGroup}${modeGroup}${infoGroup}</div>`;
+}
+
+function novaPatchNotesHtml() {
+  const rows = (typeof PATCH_NOTES !== 'undefined' ? PATCH_NOTES : []).map((r, i) => `
+    <div class="rounded-2xl bg-white p-4 ring-1 ring-zinc-200 dark:bg-zinc-900 dark:ring-white/10">
+      <div class="flex items-center gap-2">
+        <div class="text-sm font-semibold">${escHtml(r.v)}</div>
+        ${i === 0 ? `<span class="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400">지금</span>` : ''}
+        <div class="ml-auto text-xs text-zinc-400">${escHtml(r.at)}</div>
+      </div>
+      <ul class="mt-2 space-y-1 text-sm text-zinc-600 dark:text-zinc-300 [word-break:keep-all]">
+        ${r.items.map(it => `<li>${it.t}</li>`).join('')}
+      </ul>
+    </div>`).join('');
+  return `
+    <div>
+      <button onclick="novaGo('settings')" class="mb-3 inline-flex items-center gap-1 text-sm text-zinc-500 hover:text-zinc-900 dark:hover:text-white"><svg class="ic" viewBox="0 0 24 24" style="width:16px;height:16px"><use href="#ic-arrow-left"/></svg>설정</button>
+      <div class="mb-3 text-lg font-bold">패치 노트</div>
+      <div class="space-y-2.5">${rows}</div>
+    </div>
+  `;
+}
+
 // ── 문제 데이터가 서버 한도(문서 하나 1MB)의 어디쯤인지 ────────────────
 // 그림은 한 장씩 따로 저장되므로 여기 포함되지 않는다. 문항 글자만 센다.
 const QDATA_LIMIT = 1048576;            // 1 MiB
@@ -18111,6 +18280,9 @@ applyRenderFlags();
 //   k: 'new'(새 기능) · 'fix'(고침) · 'chg'(바뀜)
 // ══════════════════════════════════════════════════════════════════════
 const PATCH_NOTES = [
+  { v: '260802-1956', at: '2026-08-02', items: [
+    { k: 'new', t: '<b>새 디자인(Beta)</b>에 설정 탭이 추가되며 전체 화면 리디자인이 마무리됐습니다 — 화면·움직임·기능·데이터·모드전환·정보까지 전부 새 디자인 안에서 바꿀 수 있어요. 문제·자격증 관리와 애니메이션 세부 진단은 아직 기존 화면에서 하도록 되어 있습니다' },
+  ]},
   { v: '260802-1943', at: '2026-08-02', items: [
     { k: 'new', t: '<b>새 디자인(Beta)</b>에 검색 탭과 메모 탭이 추가됐습니다. 암기칸·메모는 기존 화면과 내용이 그대로 이어집니다' },
   ]},
@@ -18301,7 +18473,7 @@ function closePatchNotes() {
 // ── 앱 버전 ──
 // 폰이 옛 파일을 캐시해 두고 있는지 바로 확인할 수 있도록 화면에 표시한다.
 // (설정 맨 아래 · 개발자 도구 콘솔에도 찍힘)
-const APP_VERSION = '260802-1943';
+const APP_VERSION = '260802-1956';
 console.log('%c양진웅 Note 버전 ' + APP_VERSION, 'font-weight:bold');
 
 // PWA 서비스워커 등록
