@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>CertLab — 자격증 문제풀이 데모</title>
+<meta name="description" content="Supanova Design Skill 스타일을 적용한 국가기술자격 문제풀이 테스트 사이트">
+<link rel="preconnect" href="https://cdn.jsdelivr.net">
+<link rel="stylesheet" as="style" crossorigin
+      href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css">
+<script src="https://code.iconify.design/iconify-icon/2.1.0/iconify-icon.min.js" defer></script>
+<style>
+  :root{
+    --ink:#14121F;
+    --muted:#6B6478;
+    --faint:#A6A0B4;
+    --bg:#F6F5FB;
+    --surface:#FFFFFF;
+    --line:rgba(20,18,31,0.09);
+    --primary:#5B4FE8;
+    --primary-dark:#4238C7;
+    --primary-ink:#EFEDFF;
+    --accent:#FF6B4A;
+    --success:#16A34A;
+    --success-ink:#E7F8ED;
+    --danger:#E4483C;
+    --danger-ink:#FDEBEA;
+    --radius-lg:26px;
+    --radius-md:18px;
+    --radius-sm:12px;
+    --shadow-ring:0 1px 2px rgba(20,18,31,0.04), 0 20px 40px -20px rgba(20,18,31,0.18);
+    --shadow-float:0 12px 32px -12px rgba(91,79,232,0.35);
+    --spring:cubic-bezier(.34,1.56,.64,1);
+    --ease:cubic-bezier(.22,1,.36,1);
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{
+    margin:0;
+    min-height:100vh;
+    background:
+      radial-gradient(1100px 620px at 82% -10%, rgba(91,79,232,0.14), transparent 60%),
+      radial-gradient(900px 500px at -10% 20%, rgba(255,107,74,0.10), transparent 55%),
+      var(--bg);
+    color:var(--ink);
+    font-family:'Pretendard', -apple-system, BlinkMacSystemFont, 'Malgun Gothic', sans-serif;
+    word-break:keep-all;
+    -webkit-font-smoothing:antialiased;
+    line-height:1.5;
+    padding-bottom:80px;
+  }
+  a{color:inherit;text-decoration:none;}
+  button{font-family:inherit;}
+
+  .demo-tag{
+    position:fixed;left:50%;bottom:18px;transform:translateX(-50%);
+    z-index:60;font-size:12px;color:var(--faint);
+    background:rgba(255,255,255,0.7);backdrop-filter:blur(8px);
+    padding:6px 14px;border-radius:999px;border:1px solid var(--line);
+    letter-spacing:.02em;
+  }
+
+  /* ---------- Floating glass nav ---------- */
+  .nav-wrap{
+    position:fixed;top:16px;left:0;right:0;z-index:50;
+    display:flex;justify-content:center;padding:0 16px;
+  }
+  .nav{
+    width:100%;max-width:920px;
+    display:flex;align-items:center;justify-content:space-between;
+    gap:12px;padding:10px 12px 10px 18px;
+    background:rgba(255,255,255,0.66);
+    backdrop-filter:blur(18px) saturate(160%);
+    -webkit-backdrop-filter:blur(18px) saturate(160%);
+    border:1px solid rgba(255,255,255,0.6);
+    border-radius:999px;
+    box-shadow:var(--shadow-ring);
+  }
+  .brand{display:flex;align-items:center;gap:8px;font-weight:800;font-size:15px;letter-spacing:-.01em;}
+  .brand iconify-icon{font-size:20px;color:var(--primary);}
+  .nav-links{display:flex;gap:2px;background:rgba(20,18,31,0.04);border-radius:999px;padding:4px;}
+  .nav-links button{
+    border:0;background:transparent;padding:8px 14px;border-radius:999px;
+    font-size:13px;font-weight:600;color:var(--muted);cursor:pointer;
+    transition:background .25s var(--ease), color .25s var(--ease);
+  }
+  .nav-links button.active{background:var(--ink);color:#fff;}
+  .nav-cta{
+    border:0;background:var(--primary);color:#fff;font-weight:700;font-size:13px;
+    padding:10px 16px;border-radius:999px;cursor:pointer;
+    box-shadow:var(--shadow-float);
+    transition:transform .2s var(--spring), background .2s var(--ease);
+  }
+  .nav-cta:hover{background:var(--primary-dark);transform:translateY(-1px);}
+  @media (max-width:640px){ .nav-links{display:none;} }
+
+  main{max-width:920px;margin:0 auto;padding:112px 20px 40px;}
+  .view{display:none;}
+  .view.active{display:block;animation:rise .5s var(--ease);}
+  @keyframes rise{from{opacity:0;transform:translateY(14px);}to{opacity:1;transform:translateY(0);}}
+
+  /* ---------- Hero ---------- */
+  .badge{
+    display:inline-flex;align-items:center;gap:6px;
+    font-size:12px;font-weight:700;color:var(--primary-dark);
+    background:var(--primary-ink);border:1px solid rgba(91,79,232,0.18);
+    padding:6px 12px;border-radius:999px;margin-bottom:18px;
+  }
+  h1.hero{font-size:clamp(30px,5.2vw,48px);line-height:1.18;letter-spacing:-.02em;margin:0 0 14px;font-weight:800;}
+  h1.hero em{font-style:normal;color:var(--primary);}
+  .hero-sub{font-size:16px;color:var(--muted);max-width:520px;margin:0 0 30px;}
+  .hero-actions{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:44px;}
+  .btn{
+    border:0;cursor:pointer;font-weight:700;border-radius:14px;padding:14px 22px;font-size:14.5px;
+    transition:transform .2s var(--spring), box-shadow .2s var(--ease), background .2s var(--ease);
+  }
+  .btn-primary{background:var(--ink);color:#fff;box-shadow:0 10px 24px -10px rgba(20,18,31,0.45);}
+  .btn-primary:hover{transform:translateY(-2px);}
+  .btn-ghost{background:var(--surface);color:var(--ink);border:1px solid var(--line);}
+  .btn-ghost:hover{border-color:rgba(20,18,31,0.22);transform:translateY(-2px);}
+
+  .stat-row{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--line);
+    border:1px solid var(--line);border-radius:var(--radius-md);overflow:hidden;max-width:520px;}
+  .stat{background:var(--surface);padding:16px 18px;}
+  .stat b{display:block;font-size:22px;letter-spacing:-.02em;}
+  .stat span{font-size:12px;color:var(--muted);}
+
+  /* ---------- Double-bezel cards ---------- */
+  .section-head{display:flex;align-items:flex-end;justify-content:space-between;margin:64px 0 20px;gap:12px;flex-wrap:wrap;}
+  .section-head h2{font-size:22px;margin:0 0 4px;letter-spacing:-.01em;}
+  .section-head p{margin:0;color:var(--muted);font-size:13.5px;}
+
+  .cat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px;}
+  .bezel{padding:6px;border-radius:calc(var(--radius-lg) + 6px);
+    background:linear-gradient(160deg, rgba(255,255,255,0.9), rgba(255,255,255,0.35));
+    box-shadow:var(--shadow-ring);
+    transition:transform .35s var(--spring), box-shadow .35s var(--ease);}
+  .bezel:hover{transform:translateY(-4px);box-shadow:0 1px 2px rgba(20,18,31,.05), 0 30px 50px -18px rgba(20,18,31,.24);}
+  .cat-card{
+    background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-lg);
+    padding:22px;display:flex;flex-direction:column;gap:14px;height:100%;
+  }
+  .cat-icon{
+    width:44px;height:44px;border-radius:14px;display:flex;align-items:center;justify-content:center;
+    background:var(--primary-ink);color:var(--primary);font-size:22px;
+  }
+  .cat-card h3{margin:0;font-size:17px;letter-spacing:-.01em;}
+  .cat-card p{margin:0;color:var(--muted);font-size:13px;flex:1;}
+  .tag-row{display:flex;gap:6px;flex-wrap:wrap;}
+  .tag{font-size:11px;font-weight:700;color:var(--muted);background:rgba(20,18,31,0.05);
+    padding:4px 9px;border-radius:999px;}
+  .cat-start{
+    border:0;background:var(--ink);color:#fff;font-weight:700;font-size:13px;
+    padding:11px 14px;border-radius:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;
+    transition:background .2s var(--ease), transform .2s var(--spring);
+  }
+  .cat-start:hover{background:var(--primary);transform:translateY(-1px);}
+
+  /* ---------- Quiz view ---------- */
+  .quiz-top{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:18px;flex-wrap:wrap;}
+  .quiz-meta{display:flex;align-items:center;gap:10px;font-size:13px;color:var(--muted);font-weight:600;}
+  .quiz-meta .pill{background:var(--surface);border:1px solid var(--line);padding:6px 12px;border-radius:999px;}
+  .progress-track{height:8px;border-radius:999px;background:rgba(20,18,31,0.06);overflow:hidden;flex:1;min-width:140px;}
+  .progress-fill{height:100%;background:linear-gradient(90deg,var(--primary),var(--accent));border-radius:999px;
+    transition:width .5s var(--ease);}
+  .score-pill{display:flex;align-items:center;gap:6px;font-weight:800;font-size:13px;background:var(--ink);color:#fff;
+    padding:8px 14px;border-radius:999px;}
+
+  .q-bezel{padding:6px;border-radius:calc(var(--radius-lg) + 6px);
+    background:linear-gradient(160deg, rgba(255,255,255,0.9), rgba(255,255,255,0.35));box-shadow:var(--shadow-ring);}
+  .q-card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-lg);padding:30px;}
+  .q-num{font-size:12px;font-weight:800;color:var(--primary);letter-spacing:.04em;text-transform:uppercase;margin-bottom:10px;}
+  .q-text{font-size:19px;font-weight:700;line-height:1.5;letter-spacing:-.01em;margin:0 0 22px;}
+
+  .opt-list{display:flex;flex-direction:column;gap:10px;}
+  .opt{
+    display:flex;align-items:center;gap:12px;text-align:left;
+    border:1.5px solid var(--line);background:var(--surface);border-radius:var(--radius-sm);
+    padding:14px 16px;cursor:pointer;font-size:14.5px;font-weight:600;color:var(--ink);
+    transition:border-color .2s var(--ease), background .2s var(--ease), transform .15s var(--spring);
+  }
+  .opt:hover:not(:disabled){border-color:var(--primary);transform:translateX(2px);}
+  .opt .opt-letter{
+    width:26px;height:26px;flex:none;border-radius:8px;background:rgba(20,18,31,0.06);
+    display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:var(--muted);
+  }
+  .opt:disabled{cursor:default;}
+  .opt.correct{border-color:var(--success);background:var(--success-ink);}
+  .opt.correct .opt-letter{background:var(--success);color:#fff;}
+  .opt.wrong{border-color:var(--danger);background:var(--danger-ink);}
+  .opt.wrong .opt-letter{background:var(--danger);color:#fff;}
+  .opt.wrong .opt-label{text-decoration:line-through;color:var(--muted);}
+  .opt .result-icon{margin-left:auto;font-size:18px;}
+
+  .explain{
+    margin-top:18px;padding:16px 18px;border-radius:var(--radius-sm);
+    background:rgba(20,18,31,0.035);border:1px solid var(--line);font-size:13.5px;color:var(--muted);
+    display:none;animation:rise .35s var(--ease);
+  }
+  .explain.show{display:block;}
+  .explain b{color:var(--ink);}
+
+  .q-actions{display:flex;justify-content:flex-end;margin-top:22px;}
+  .q-actions .btn-primary:disabled{opacity:.35;cursor:not-allowed;transform:none;}
+
+  /* ---------- Results view ---------- */
+  .result-hero{display:flex;gap:28px;align-items:center;flex-wrap:wrap;padding:32px;
+    background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-lg);box-shadow:var(--shadow-ring);}
+  .score-ring{position:relative;width:132px;height:132px;flex:none;}
+  .score-ring svg{transform:rotate(-90deg);}
+  .score-ring .track{fill:none;stroke:rgba(20,18,31,0.08);stroke-width:10;}
+  .score-ring .fill{fill:none;stroke:var(--primary);stroke-width:10;stroke-linecap:round;
+    transition:stroke-dashoffset 1s var(--ease);}
+  .score-ring .num{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;}
+  .score-ring .num b{font-size:28px;letter-spacing:-.02em;}
+  .score-ring .num span{font-size:11px;color:var(--muted);}
+  .result-copy h2{margin:0 0 6px;font-size:22px;}
+  .result-copy p{margin:0;color:var(--muted);font-size:14px;}
+  .result-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:22px;}
+  .result-stat{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-md);padding:16px;text-align:center;}
+  .result-stat b{display:block;font-size:20px;}
+  .result-stat.ok b{color:var(--success);}
+  .result-stat.no b{color:var(--danger);}
+  .result-stat span{font-size:12px;color:var(--muted);}
+
+  .review-list{margin-top:26px;display:flex;flex-direction:column;gap:10px;}
+  .review-item{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-md);padding:16px 18px;}
+  .review-item .rq{font-weight:700;font-size:14px;margin-bottom:8px;display:flex;gap:8px;align-items:flex-start;}
+  .review-item .rq iconify-icon{flex:none;margin-top:2px;font-size:16px;}
+  .review-item.miss .rq iconify-icon{color:var(--danger);}
+  .review-item .ra{font-size:13px;color:var(--muted);padding-left:24px;}
+  .review-item .ra b{color:var(--ink);}
+
+  .result-actions{display:flex;gap:10px;margin-top:26px;flex-wrap:wrap;}
+
+  footer.foot{max-width:920px;margin:70px auto 0;padding:0 20px;color:var(--faint);font-size:12px;
+    display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;}
+</style>
+</head>
+<body>
+
+  <div class="nav-wrap">
+    <nav class="nav">
+      <div class="brand"><iconify-icon icon="solar:notebook-bold-duotone"></iconify-icon>CertLab</div>
+      <div class="nav-links">
+        <button data-nav="home" class="active">홈</button>
+        <button data-nav="quiz">문제풀이</button>
+        <button data-nav="result">결과</button>
+      </div>
+      <button class="nav-cta" id="ctaStart">바로 시작</button>
+    </nav>
+  </div>
+
+  <main>
+
+    <!-- HOME -->
+    <section class="view active" id="view-home">
+      <span class="badge"><iconify-icon icon="solar:magic-stick-3-bold"></iconify-icon> TEST DEMO · Supanova Design Skill 적용</span>
+      <h1 class="hero">국가기술자격 대비,<br><em>가장 정교한</em> 문제풀이 경험</h1>
+      <p class="hero-sub">위험물 · 고압가스 · 화공안전 3개 분야 샘플 문제로 만든 테스트용 데모 사이트입니다. 기존 학습노트와 별도로 동작해요.</p>
+      <div class="hero-actions">
+        <button class="btn btn-primary" id="heroStart"><iconify-icon icon="solar:play-bold" style="vertical-align:-2px;margin-right:6px;"></iconify-icon>문제풀이 시작</button>
+        <button class="btn btn-ghost" id="heroScroll">분야 둘러보기</button>
+      </div>
+      <div class="stat-row">
+        <div class="stat"><b>15</b><span>샘플 문제</span></div>
+        <div class="stat"><b>3</b><span>자격 분야</span></div>
+        <div class="stat"><b>~5분</b><span>평균 소요</span></div>
+      </div>
+
+      <div class="section-head" id="categories">
+        <div><h2>분야 선택</h2><p>원하는 분야를 골라 바로 풀어보세요.</p></div>
+      </div>
+      <div class="cat-grid" id="catGrid"></div>
+    </section>
+
+    <!-- QUIZ -->
+    <section class="view" id="view-quiz">
+      <div class="quiz-top">
+        <div class="quiz-meta">
+          <span class="pill" id="quizCatLabel">위험물산업기사</span>
+          <div class="progress-track"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
+          <span id="quizIndexLabel">1 / 5</span>
+        </div>
+        <div class="score-pill"><iconify-icon icon="solar:star-bold"></iconify-icon><span id="liveScore">0</span> 점</div>
+      </div>
+
+      <div class="q-bezel">
+        <div class="q-card">
+          <div class="q-num" id="qNum">QUESTION 01</div>
+          <p class="q-text" id="qText"></p>
+          <div class="opt-list" id="optList"></div>
+          <div class="explain" id="explainBox"><b>해설</b> · <span id="explainText"></span></div>
+          <div class="q-actions">
+            <button class="btn btn-primary" id="nextBtn" disabled>다음 문제</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- RESULT -->
+    <section class="view" id="view-result">
+      <div class="result-hero">
+        <div class="score-ring">
+          <svg width="132" height="132" viewBox="0 0 132 132">
+            <circle class="track" cx="66" cy="66" r="56"></circle>
+            <circle class="fill" id="ringFill" cx="66" cy="66" r="56" stroke-dasharray="352" stroke-dashoffset="352"></circle>
+          </svg>
+          <div class="num"><b id="ringPct">0%</b><span>정답률</span></div>
+        </div>
+        <div class="result-copy">
+          <h2 id="resultHeadline">수고하셨습니다!</h2>
+          <p id="resultSub">채점 결과를 확인하고 오답을 복습해 보세요.</p>
+        </div>
+      </div>
+      <div class="result-grid">
+        <div class="result-stat ok"><b id="statCorrect">0</b><span>정답</span></div>
+        <div class="result-stat no"><b id="statWrong">0</b><span>오답</span></div>
+        <div class="result-stat"><b id="statTotal">0</b><span>전체 문항</span></div>
+      </div>
+      <div class="review-list" id="reviewList"></div>
+      <div class="result-actions">
+        <button class="btn btn-primary" id="retryBtn"><iconify-icon icon="solar:refresh-bold" style="vertical-align:-2px;margin-right:6px;"></iconify-icon>다시 도전하기</button>
+        <button class="btn btn-ghost" id="homeBtn">분야 다시 선택</button>
+      </div>
+    </section>
+
+  </main>
+
+  <footer class="foot">
+    <span>CertLab Test Demo</span>
+    <span>Design ref: Supanova Design Skill</span>
+  </footer>
+
+  <div class="demo-tag"><iconify-icon icon="solar:flask-bold" style="vertical-align:-2px;"></iconify-icon>&nbsp;독립 테스트 페이지 — 기존 학습노트와 무관합니다</div>
+
+<script>
+(function(){
+  "use strict";
+
+  const BANK = {
+    hazmat: {
+      label: "위험물산업기사", icon: "solar:flame-bold-duotone", tag: ["위험물","실무"],
+      desc: "위험물의 유별 분류, 소화방식, 취급 기준을 다루는 샘플 문항.",
+      questions: [
+        { q:"다음 중 제1류 위험물(산화성고체)에 해당하지 않는 것은?",
+          opts:["과망간산칼륨","질산나트륨","황린","아염소산나트륨"], answer:2,
+          explain:"황린은 물속에 저장하는 제3류(자연발화성 물질)에 해당합니다. 나머지는 모두 산화성고체인 제1류입니다." },
+        { q:"유류화재(B급 화재) 진압에 가장 부적합한 소화방법은?",
+          opts:["포소화기","이산화탄소소화기","봉상주수(물줄기 직사)","분말소화기"], answer:2,
+          explain:"물을 직사로 뿌리면 기름이 물 위로 퍼져 화재가 확산될 수 있어 유류화재에는 부적합합니다." },
+        { q:"위험물의 인화점이 낮을수록 일반적으로 위험도는 어떻게 되는가?",
+          opts:["낮아진다","변화 없다","높아진다","저장온도에 따라 다르다"], answer:2,
+          explain:"인화점이 낮을수록 상온에서도 쉽게 인화되므로 위험도는 높아집니다." },
+        { q:"제4류 위험물(인화성액체)의 일반적 성질로 옳지 않은 것은?",
+          opts:["대부분 물보다 가볍다","증기는 공기보다 무거운 경우가 많다","대부분 전기 부도체이다","모두 물에 잘 녹는다"], answer:3,
+          explain:"제4류 위험물은 대부분 비수용성이며 물에 잘 녹지 않는 것이 일반적입니다." },
+        { q:"위험물 저장탱크 주위에 방유제를 설치하는 주된 목적은?",
+          opts:["소음 차단","누출 시 확산 방지","단열 효과","경관 개선"], answer:1,
+          explain:"방유제는 탱크 파손 등으로 위험물이 누출되었을 때 주변으로 확산되는 것을 막기 위한 설비입니다." }
+      ]
+    },
+    hpgas: {
+      label: "고압가스기능사", icon: "solar:cylinder-bold-duotone", tag: ["고압가스","설비"],
+      desc: "가스 용기 표시, 저장·취급 안전기준을 확인하는 샘플 문항.",
+      questions: [
+        { q:"고압가스 용기 중 산소용기의 도색 색상은?",
+          opts:["회색","녹색","황색","청색"], answer:1,
+          explain:"국내 기준상 산소용기는 녹색으로 도색합니다(의료용 제외 일반 산업용 기준)." },
+        { q:"가연성가스와 조연성가스를 동일 저장실에 두지 않는 가장 큰 이유는?",
+          opts:["보관 비용 절감","화재·폭발 위험 방지","부피 절약","색상 구분 편의"], answer:1,
+          explain:"가연성가스와 조연성가스가 함께 누출되면 연소·폭발 위험이 급격히 커지기 때문에 분리 저장이 원칙입니다." },
+        { q:"압력용기에 안전밸브를 설치하는 주된 목적은?",
+          opts:["내부 압력을 자동으로 낮춰 파열 방지","가스 냄새 제거","용기 무게 감소","도색 보호"], answer:0,
+          explain:"설정압력 초과 시 안전밸브가 작동하여 가스를 방출함으로써 용기 파열 사고를 예방합니다." },
+        { q:"LPG(액화석유가스)의 주성분으로 옳은 것은?",
+          opts:["메탄, 에탄","프로판, 부탄","수소, 헬륨","아세틸렌, 질소"], answer:1,
+          explain:"LPG는 주로 프로판과 부탄을 액화하여 만든 가스입니다." }
+      ]
+    },
+    chemsafe: {
+      label: "화공안전기사", icon: "solar:shield-warning-bold-duotone", tag: ["화공안전","공정"],
+      desc: "MSDS, 폭발한계, 방폭구조 등 공정안전 기본 개념 샘플 문항.",
+      questions: [
+        { q:"물질안전보건자료(MSDS)에 일반적으로 포함되지 않는 항목은?",
+          opts:["유해성·위험성","응급조치 요령","제품의 판매 가격","취급 및 저장방법"], answer:2,
+          explain:"MSDS는 물질의 유해성, 취급·저장, 응급조치 등 안전 정보를 담으며 판매 가격은 포함하지 않습니다." },
+        { q:"폭발하한계(LEL)의 의미로 가장 옳은 것은?",
+          opts:["폭발이 발생할 수 있는 최저 농도","폭발이 발생할 수 있는 최고 농도","연소가 끝나는 온도","최소 점화에너지"], answer:0,
+          explain:"폭발하한계는 가연성 가스가 공기 중에서 폭발을 일으킬 수 있는 최저 농도를 의미합니다." },
+        { q:"정전기 방지 대책으로 옳지 않은 것은?",
+          opts:["접지 실시","제전기 사용","작업장 습도를 낮게 유지","도전성 재료 사용"], answer:2,
+          explain:"습도가 낮으면 정전기가 축적되기 쉬우므로, 정전기 방지를 위해서는 오히려 적정 습도를 유지해야 합니다." },
+        { q:"방폭구조 표시 중 '압력방폭구조'를 나타내는 기호는?",
+          opts:["d","p","e","ia"], answer:1,
+          explain:"압력방폭구조는 용기 내부를 보호가스로 가압하여 가연성 가스 유입을 막는 방식으로 기호 'p'로 표시합니다." },
+        { q:"화학설비 위험성 평가 기법으로 옳지 않은 것은?",
+          opts:["HAZOP","FMEA","JSA","BOM"], answer:3,
+          explain:"BOM(자재명세서)은 위험성 평가 기법이 아니라 제품 구성 부품 목록입니다. HAZOP, FMEA, JSA는 대표적 위험성 평가 기법입니다." },
+        { q:"인화성 액체를 취급하는 밀폐 공간 작업 전 가장 먼저 확인해야 할 것은?",
+          opts:["작업자 복장 색상","가스농도 측정","작업 소요시간","조명 밝기"], answer:1,
+          explain:"밀폐공간 작업 전에는 가연성·유해가스 농도와 산소농도를 반드시 측정하여 안전을 확인해야 합니다." }
+      ]
+    }
+  };
+
+  const state = { catKey:null, order:[], idx:0, score:0, answers:[] };
+
+  const $ = (sel, el=document) => el.querySelector(sel);
+  const $$ = (sel, el=document) => Array.from(el.querySelectorAll(sel));
+
+  function showView(name){
+    $$('.view').forEach(v => v.classList.remove('active'));
+    $('#view-' + name).classList.add('active');
+    $$('.nav-links button').forEach(b => b.classList.toggle('active', b.dataset.nav === name));
+    window.scrollTo({top:0, behavior:'smooth'});
+  }
+
+  function buildCatalog(){
+    const grid = $('#catGrid');
+    grid.innerHTML = '';
+    Object.entries(BANK).forEach(([key, cat]) => {
+      const el = document.createElement('div');
+      el.className = 'bezel';
+      el.innerHTML = `
+        <div class="cat-card">
+          <div class="cat-icon"><iconify-icon icon="${cat.icon}"></iconify-icon></div>
+          <h3>${cat.label}</h3>
+          <p>${cat.desc}</p>
+          <div class="tag-row">
+            ${cat.tag.map(t => `<span class="tag">${t}</span>`).join('')}
+            <span class="tag">문제 ${cat.questions.length}개</span>
+          </div>
+          <button class="cat-start" data-cat="${key}">시작하기 <iconify-icon icon="solar:arrow-right-bold"></iconify-icon></button>
+        </div>`;
+      grid.appendChild(el);
+    });
+    grid.addEventListener('click', e => {
+      const btn = e.target.closest('.cat-start');
+      if (btn) startQuiz(btn.dataset.cat);
+    });
+  }
+
+  function startQuiz(key){
+    state.catKey = key;
+    state.order = BANK[key].questions.map((_, i) => i);
+    state.idx = 0;
+    state.score = 0;
+    state.answers = [];
+    $('#quizCatLabel').textContent = BANK[key].label;
+    showView('quiz');
+    renderQuestion();
+  }
+
+  function currentQuestion(){
+    const cat = BANK[state.catKey];
+    return cat.questions[state.order[state.idx]];
+  }
+
+  function renderQuestion(){
+    const cat = BANK[state.catKey];
+    const q = currentQuestion();
+    const total = state.order.length;
+
+    $('#qNum').textContent = 'QUESTION ' + String(state.idx + 1).padStart(2, '0');
+    $('#qText').textContent = q.q;
+    $('#quizIndexLabel').textContent = (state.idx + 1) + ' / ' + total;
+    $('#progressFill').style.width = Math.round((state.idx / total) * 100) + '%';
+    $('#liveScore').textContent = state.score;
+
+    const list = $('#optList');
+    list.innerHTML = '';
+    const letters = ['A','B','C','D'];
+    q.opts.forEach((opt, i) => {
+      const b = document.createElement('button');
+      b.className = 'opt';
+      b.innerHTML = `<span class="opt-letter">${letters[i]}</span><span class="opt-label">${opt}</span>`;
+      b.addEventListener('click', () => selectAnswer(i));
+      list.appendChild(b);
+    });
+
+    $('#explainBox').classList.remove('show');
+    $('#nextBtn').disabled = true;
+    $('#nextBtn').textContent = (state.idx === total - 1) ? '결과 보기' : '다음 문제';
+  }
+
+  function selectAnswer(i){
+    const q = currentQuestion();
+    const opts = $$('.opt');
+    const correct = q.answer;
+    opts.forEach((el, idx) => {
+      el.disabled = true;
+      if (idx === correct) {
+        el.classList.add('correct');
+        el.insertAdjacentHTML('beforeend', '<iconify-icon class="result-icon" icon="solar:check-circle-bold"></iconify-icon>');
+      } else if (idx === i) {
+        el.classList.add('wrong');
+        el.insertAdjacentHTML('beforeend', '<iconify-icon class="result-icon" icon="solar:close-circle-bold"></iconify-icon>');
+      }
+    });
+
+    const isCorrect = i === correct;
+    if (isCorrect) state.score++;
+    state.answers.push({ q: q.q, opts: q.opts, correct, picked: i, isCorrect, explain: q.explain });
+
+    $('#explainText').textContent = q.explain;
+    $('#explainBox').classList.add('show');
+    $('#liveScore').textContent = state.score;
+    $('#nextBtn').disabled = false;
+  }
+
+  function nextQuestion(){
+    const total = state.order.length;
+    if (state.idx < total - 1) {
+      state.idx++;
+      renderQuestion();
+    } else {
+      $('#progressFill').style.width = '100%';
+      renderResult();
+    }
+  }
+
+  function renderResult(){
+    const total = state.answers.length;
+    const correct = state.answers.filter(a => a.isCorrect).length;
+    const wrong = total - correct;
+    const pct = total ? Math.round((correct / total) * 100) : 0;
+
+    $('#statCorrect').textContent = correct;
+    $('#statWrong').textContent = wrong;
+    $('#statTotal').textContent = total;
+    $('#ringPct').textContent = pct + '%';
+
+    const circumference = 352;
+    const offset = circumference - (circumference * pct / 100);
+    $('#ringFill').style.strokeDashoffset = offset;
+
+    let headline = '아쉬워요, 다시 도전해봐요';
+    let sub = '오답을 확인하고 개념을 다시 짚어보세요.';
+    if (pct === 100) { headline = '완벽해요! 만점입니다'; sub = '모든 문제를 정확히 풀었어요.'; }
+    else if (pct >= 80) { headline = '훌륭해요, 합격권이에요'; sub = '실전 감각이 잘 잡혀 있어요.'; }
+    else if (pct >= 50) { headline = '조금만 더 다듬으면 돼요'; sub = '오답노트를 확인해 약한 부분을 보강하세요.'; }
+    $('#resultHeadline').textContent = headline;
+    $('#resultSub').textContent = sub;
+
+    const list = $('#reviewList');
+    list.innerHTML = '';
+    const letters = ['A','B','C','D'];
+    state.answers.forEach((a, i) => {
+      const div = document.createElement('div');
+      div.className = 'review-item ' + (a.isCorrect ? 'ok' : 'miss');
+      div.innerHTML = `
+        <div class="rq"><iconify-icon icon="${a.isCorrect ? 'solar:check-circle-bold' : 'solar:close-circle-bold'}"></iconify-icon>
+          ${i+1}. ${a.q}</div>
+        <div class="ra">정답: <b>${letters[a.correct]}. ${a.opts[a.correct]}</b>
+          ${a.isCorrect ? '' : ` · 선택: ${letters[a.picked]}. ${a.opts[a.picked]}`}<br>${a.explain}</div>`;
+      list.appendChild(div);
+    });
+
+    showView('result');
+  }
+
+  // wiring
+  buildCatalog();
+  $('#nextBtn').addEventListener('click', nextQuestion);
+  $('#retryBtn').addEventListener('click', () => startQuiz(state.catKey));
+  $('#homeBtn').addEventListener('click', () => showView('home'));
+  $('#ctaStart').addEventListener('click', () => startQuiz(state.catKey || 'hazmat'));
+  $('#heroStart').addEventListener('click', () => startQuiz('hazmat'));
+  $('#heroScroll').addEventListener('click', () => $('#categories').scrollIntoView({behavior:'smooth', block:'start'}));
+  $$('.nav-links button').forEach(b => b.addEventListener('click', () => {
+    if (b.dataset.nav === 'home') showView('home');
+    if (b.dataset.nav === 'quiz') startQuiz(state.catKey || 'hazmat');
+    if (b.dataset.nav === 'result') { if (state.answers.length) showView('result'); }
+  }));
+})();
+</script>
+</body>
+</html>
