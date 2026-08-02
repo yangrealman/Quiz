@@ -259,6 +259,18 @@
   /* ── 페이지 공통 ── */
   .page { display: none; }
   .page.active { display: block; }
+
+  /* [추가] 새 디자인(nova) 모드 — 켜지면 기존 화면을 감추고 #nova-root만 보인다.
+     nova.css(Tailwind, disabled 상태로 로드)가 별도로 .nova-root 안쪽만 스타일링한다. */
+  .nova-root { display: none; }
+  body.nova-mode .page.active,
+  body.nova-mode nav,
+  body.nova-mode .nav-mobile-tabs,
+  body.nova-mode .scroll-top,
+  body.nova-mode .app-footer,
+  body.nova-mode .calc-popup,
+  body.nova-mode #page-veil { display: none; }
+  body.nova-mode .nova-root { display: block; }
   /* 버튼, 카드 인터랙션 트랜지션 */
   .btn, .quiz-option, .wrong-note-item,
   .stat-card, .nav-tab, .star-btn {
@@ -6415,11 +6427,21 @@
 
 <!-- 모노크롬 스킨 — 설정에서 켤 때만 적용된다. 파일이 없어도 앱은 정상 동작한다. -->
 <link id="skin-mono" rel="stylesheet" href="skin-mono.css" disabled>
+
+<!-- [추가] 새 디자인(nova) — Tailwind를 CDN에서 실시간으로 불러오지 않고, 미리 빌드해
+     이 파일 하나로 자체 호스팅한다 (오프라인에서도 그대로 동작 · 외부 CDN 장애에 영향 안 받음).
+     설정에서 켤 때만 적용된다. 파일이 없어도 앱은 정상 동작한다. -->
+<link id="nova-style" rel="stylesheet" href="nova.css" disabled>
   <!-- [수정] 위 head 로 통합, 중복 meta 제거 -->
   <link rel="preload" href="fonts/AppleSDGothicNeoR.ttf" as="font" type="font/ttf" crossorigin>
   <link rel="preload" href="fonts/AppleSDGothicNeoB.ttf" as="font" type="font/ttf" crossorigin>
 </head>
 <body>
+
+<!-- [추가] 새 디자인(nova) 루트 — 기존 .page들과 완전히 분리된 새 DOM 트리.
+     끄면 hidden, 켜면 body.nova-mode CSS가 기존 nav·.page들을 감추고 이게 보인다.
+     내부 라우팅은 novaGo()/renderNova()가 담당하며 기존 goPage()는 건드리지 않는다. -->
+<div id="nova-root" class="nova-root" hidden></div>
 
 <!-- 네비게이션 -->
 <svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true">
@@ -7085,6 +7107,16 @@
             <div class="set-row-desc">흑백과 넓은 여백으로 겉모습만 완전히 바꿉니다 · 기능과 데이터는 그대로<br><span class="beta-tag">Beta</span> 껐다 켜면 즉시 원래 모습으로 돌아옵니다</div>
           </div>
           <button class="set-switch" id="sw-skin" aria-label="모노크롬 스킨" title="모노크롬 스킨" onclick="toggleSkinMono()" role="switch"><span></span></button>
+        </div>
+
+        <!-- [추가] 새 디자인(nova) — supanova-design-skill 기반으로 전체 화면을 새로 그린 버전.
+             기존 화면과 완전히 같은 데이터를 쓰며, 이 스위치는 화면만 갈아끼운다. -->
+        <div class="set-row">
+          <div class="set-row-main">
+            <div class="set-row-title">새 디자인</div>
+            <div class="set-row-desc">전체 화면을 새 스타일로 다시 그립니다 · 데이터는 완전히 같습니다<br><span class="beta-tag">Beta</span> 아직 일부 화면만 준비됐고, 나머지는 순서대로 채워집니다</div>
+          </div>
+          <button class="set-switch" id="sw-nova" aria-label="새 디자인" title="새 디자인" onclick="toggleNovaMode()" role="switch"><span></span></button>
         </div>
 
         <div class="set-row set-row-note">
@@ -16652,6 +16684,113 @@ function toggleSkinMono() {
   showToast(isSkinMono() ? '모노크롬으로 바꿨어요' : '원래 모습으로 돌렸어요');
 }
 
+// ══════════════════════════════════════════════════════════════════════
+// 새 디자인(nova) — supanova-design-skill 기반 전체 리스킨
+// 기존 goPage()/.page 시스템과 완전히 분리된 자체 미니 라우터(novaGo/renderNova).
+// 데이터는 기존 getX()/saveX() 함수를 그대로 호출해 기존 화면과 100% 공유한다.
+// nova.css(Tailwind 사전 빌드본, preflight 꺼짐)가 #nova-root 안쪽만 스타일링한다.
+// ══════════════════════════════════════════════════════════════════════
+function isNovaMode() { return localStorage.getItem('novaMode') === '1'; }
+function applyNovaMode() {
+  const link = document.getElementById('nova-style');
+  if (link) link.disabled = !isNovaMode();
+  document.body.classList.toggle('nova-mode', isNovaMode());
+  const root = document.getElementById('nova-root');
+  if (root) root.hidden = !isNovaMode();
+  if (isNovaMode()) renderNova();
+}
+function toggleNovaMode() {
+  localStorage.setItem('novaMode', isNovaMode() ? '0' : '1');
+  applyNovaMode();
+  renderSettings();
+  showToast(isNovaMode() ? '새 디자인으로 바꿨어요' : '기존 디자인으로 돌렸어요');
+}
+
+let novaView = 'home';
+function novaGo(view) { novaView = view; renderNova(); }
+
+const NOVA_TABS = [
+  { id: 'home', label: '홈', icon: 'ic-home' },
+  { id: 'practice', label: '문제', icon: 'ic-book' },
+  { id: 'review', label: '복습', icon: 'ic-layers' },
+  { id: 'search', label: '검색', icon: 'ic-search' },
+  { id: 'memo', label: '메모', icon: 'ic-note' },
+];
+
+function renderNova() {
+  const root = document.getElementById('nova-root');
+  if (!root) return;
+  root.innerHTML = `
+    <div class="min-h-[100dvh] bg-zinc-50 text-zinc-900 dark:bg-zinc-950 dark:text-zinc-100">
+      ${novaNavHtml()}
+      <main class="mx-auto max-w-3xl px-4 pb-28 pt-8 sm:px-6">${novaScreenHtml(novaView)}</main>
+      ${novaMobileNavHtml()}
+    </div>
+  `;
+}
+
+function novaNavHtml() {
+  const tabs = NOVA_TABS.map(t => `
+    <button onclick="novaGo('${t.id}')"
+      class="rounded-full px-4 py-2 text-sm font-medium transition-all duration-300 ${novaView === t.id ? 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-900' : 'text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white'}">${escHtml(t.label)}</button>
+  `).join('');
+  return `
+    <nav class="sticky top-0 z-20 hidden justify-center pt-4 sm:flex">
+      <div class="flex items-center gap-1 rounded-full border border-zinc-200/80 bg-white/70 p-1.5 shadow-[0_1px_2px_rgba(0,0,0,0.04)] backdrop-blur-xl dark:border-white/10 dark:bg-zinc-900/60">
+        <div class="pl-3 pr-2 text-sm font-semibold tracking-tight">양진웅 Note</div>
+        ${tabs}
+        <button onclick="toggleNovaMode()" class="ml-1 rounded-full px-4 py-2 text-sm text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200" title="기존 디자인으로">기존 디자인</button>
+      </div>
+    </nav>
+  `;
+}
+
+function novaMobileNavHtml() {
+  const tabs = NOVA_TABS.map(t => `
+    <button onclick="novaGo('${t.id}')" class="flex flex-1 flex-col items-center gap-1 py-2.5 text-[11px] font-medium ${novaView === t.id ? 'text-zinc-900 dark:text-white' : 'text-zinc-400'}">
+      <svg class="ic" viewBox="0 0 24 24" style="width:20px;height:20px"><use href="#${t.icon}"/></svg>${escHtml(t.label)}
+    </button>
+  `).join('');
+  return `
+    <div class="fixed inset-x-0 bottom-0 z-20 flex border-t border-zinc-200/80 bg-white/85 backdrop-blur-xl dark:border-white/10 dark:bg-zinc-950/85 sm:hidden">${tabs}</div>
+  `;
+}
+
+function novaScreenHtml(view) {
+  if (view === 'home') return novaHomeHtml();
+  const tab = NOVA_TABS.find(t => t.id === view);
+  return novaComingSoonHtml(tab ? tab.label : view);
+}
+
+function novaComingSoonHtml(label) {
+  return `
+    <div class="flex min-h-[50vh] flex-col items-center justify-center gap-3 text-center">
+      <div class="text-xs font-semibold uppercase tracking-[0.15em] text-emerald-600 dark:text-emerald-400">준비 중</div>
+      <div class="text-2xl font-bold tracking-tight [word-break:keep-all]">${escHtml(label)} 화면은 곧 채워집니다</div>
+      <div class="max-w-xs text-sm leading-relaxed text-zinc-500 dark:text-zinc-400 [word-break:keep-all]">기존 디자인에서는 그대로 쓰실 수 있어요. 이 화면도 순서대로 새로 그려집니다.</div>
+      <button onclick="toggleNovaMode()" class="mt-2 rounded-full bg-zinc-900 px-6 py-3 text-sm font-semibold text-white transition-transform duration-300 hover:scale-[1.02] dark:bg-white dark:text-zinc-900">기존 디자인으로 가기</button>
+    </div>
+  `;
+}
+
+function novaHomeHtml() {
+  const cats = (typeof getCategories === 'function' ? getCategories() : []).filter(c => getRoundList(c).length);
+  const totalRounds = cats.reduce((s, c) => s + getRoundList(c).length, 0);
+  return `
+    <div class="rounded-[2rem] bg-white/5 p-1.5 ring-1 ring-zinc-200 dark:ring-white/10">
+      <div class="rounded-[calc(2rem-0.375rem)] bg-white p-8 shadow-[inset_0_1px_1px_rgba(255,255,255,0.4)] dark:bg-zinc-900 sm:p-12">
+        <div class="mb-2 inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.15em] text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400">새 디자인 · Beta</div>
+        <h1 class="mt-3 text-3xl font-bold leading-tight tracking-tight [word-break:keep-all] sm:text-4xl">같은 기록, 새로운 화면</h1>
+        <p class="mt-3 max-w-md text-[15px] leading-relaxed text-zinc-500 dark:text-zinc-400 [word-break:keep-all]">지금 풀고 있는 문제, 오답노트, 별표 전부 기존 화면과 똑같이 이어집니다. 화면만 새로 그리는 중이에요.</p>
+        <div class="mt-8 flex flex-wrap gap-6">
+          <div><div class="text-2xl font-bold tracking-tight">${cats.length}</div><div class="text-xs text-zinc-400">등록된 자격증</div></div>
+          <div><div class="text-2xl font-bold tracking-tight">${totalRounds}</div><div class="text-xs text-zinc-400">전체 회차</div></div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
 // ── 문제 데이터가 서버 한도(문서 하나 1MB)의 어디쯤인지 ────────────────
 // 그림은 한 장씩 따로 저장되므로 여기 포함되지 않는다. 문항 글자만 센다.
 const QDATA_LIMIT = 1048576;            // 1 MiB
@@ -16785,6 +16924,7 @@ function renderSettings() {
   sw('sw-haptic', s.haptic);
   sw('sw-sound', s.sound);
   sw('sw-skin', isSkinMono());
+  sw('sw-nova', isNovaMode());
   sw('sw-live', liveEnabled());
 
   const seg = document.getElementById('cal-size-seg');
@@ -16889,6 +17029,7 @@ function importBackup(input) {
 
 initDarkMode();
 try { applySkinMono(); } catch (_) {}
+try { applyNovaMode(); } catch (_) {}
 try { applyRtSize(); } catch (_) {}
 if (typeof _syncThemeColorMeta === 'function') _syncThemeColorMeta();
 if (typeof applySettings === 'function') applySettings();
@@ -17089,6 +17230,9 @@ applyRenderFlags();
 //   k: 'new'(새 기능) · 'fix'(고침) · 'chg'(바뀜)
 // ══════════════════════════════════════════════════════════════════════
 const PATCH_NOTES = [
+  { v: '260802-1911', at: '2026-08-02', items: [
+    { k: 'new', t: '설정 > 모드 전환에 <b>"새 디자인"(Beta)</b>을 추가했습니다 — 전체 화면을 새 스타일로 다시 그리는 실험 모드예요. 지금은 홈 화면만 준비됐고, 데이터는 기존 화면과 완전히 같습니다. 나머지 화면은 순서대로 채워질 예정이에요' },
+  ]},
   { v: '260731-0727', at: '2026-07-31', items: [
     { k: 'fix', t: '이미 다 푼 회차를 다시 들어가 주관식을 재채점해도 <b>"오늘 풀었어요"</b>가 안 바뀌던 문제 — 답한 개수로 판단하던 방식이라 개수가 그대로면(재채점만 해도) 시각이 안 갱신됐습니다. 이제 실제로 채점한 그 순간에 바로 시각을 남깁니다' },
   ]},
@@ -17264,7 +17408,7 @@ function closePatchNotes() {
 // ── 앱 버전 ──
 // 폰이 옛 파일을 캐시해 두고 있는지 바로 확인할 수 있도록 화면에 표시한다.
 // (설정 맨 아래 · 개발자 도구 콘솔에도 찍힘)
-const APP_VERSION = '260731-0727';
+const APP_VERSION = '260802-1911';
 console.log('%c양진웅 Note 버전 ' + APP_VERSION, 'font-weight:bold');
 
 // PWA 서비스워커 등록
