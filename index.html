@@ -16717,6 +16717,10 @@ const NOVA_TABS = [
   { id: 'memo', label: '메모', icon: 'ic-note' },
 ];
 
+let novaMstCat = null;      // 홈의 암기 현황 패널에서 고른 자격증
+let novaPracticeCat = null; // 문제 탭에서 고른 자격증 (null이면 자격증 목록)
+let novaRoundPanel = null;  // { cat, round } — 회차 상세 패널이 열려있으면
+
 function renderNova() {
   const root = document.getElementById('nova-root');
   if (!root) return;
@@ -16758,8 +16762,18 @@ function novaMobileNavHtml() {
 
 function novaScreenHtml(view) {
   if (view === 'home') return novaHomeHtml();
+  if (view === 'practice') return novaPracticeHtml();
   const tab = NOVA_TABS.find(t => t.id === view);
   return novaComingSoonHtml(tab ? tab.label : view);
+}
+
+// [추가] 아직 새 디자인으로 안 옮겨진 기능(문제풀이 등)을 누르면, 기존 디자인으로
+// 넘어가서 이어서 처리한다 — 안 만들어진 화면에서 멈추는 것보다 훨씬 낫다.
+function novaFallback(label, fn) {
+  localStorage.setItem('novaMode', '0');
+  applyNovaMode();
+  showToast(`${label}은(는) 아직 새 디자인에 없어서 기존 화면으로 이동해요`);
+  fn();
 }
 
 function novaComingSoonHtml(label) {
@@ -16774,18 +16788,187 @@ function novaComingSoonHtml(label) {
 }
 
 function novaHomeHtml() {
-  const cats = (typeof getCategories === 'function' ? getCategories() : []).filter(c => getRoundList(c).length);
-  const totalRounds = cats.reduce((s, c) => s + getRoundList(c).length, 0);
+  const evs = typeof mainEvents === 'function' ? mainEvents() : [];
+  const ddayCards = evs.length
+    ? evs.map(ev => {
+        const at = new Date(ev.at);
+        return `
+          <button onclick="toggleCalendar()" class="w-full rounded-2xl bg-zinc-900 p-5 text-left text-white transition-transform duration-300 hover:scale-[1.01] dark:bg-white dark:text-zinc-900">
+            <div class="text-xs font-medium text-zinc-400 dark:text-zinc-500">${escHtml(ev.name)}까지 남은 일정</div>
+            <div class="mt-1 flex items-end justify-between gap-3">
+              <div class="text-3xl font-bold tracking-tight">${escHtml(ddayLabel(ev.at))}</div>
+              <div class="text-right text-xs leading-snug text-zinc-400 dark:text-zinc-500">${_ymd(at).replace(/-/g, '. ')}<br>${String(at.getHours()).padStart(2, '0')}:${String(at.getMinutes()).padStart(2, '0')}</div>
+            </div>
+          </button>`;
+      }).join('')
+    : `<button onclick="toggleCalendar()" class="w-full rounded-2xl border border-dashed border-zinc-300 p-5 text-left text-sm text-zinc-400 transition-colors hover:border-zinc-400 dark:border-white/15">시험 날짜를 설정해보세요</button>`;
+
+  const bms = getResumeBookmarks();
+  const resumeCards = bms.map(bm => `
+    <div onclick="novaOpenResume('${escArg(bm.id)}')" class="flex w-full cursor-pointer items-center justify-between gap-3 rounded-2xl bg-white p-4 ring-1 ring-zinc-200 transition-transform duration-300 hover:scale-[1.01] dark:bg-zinc-900 dark:ring-white/10">
+      <div class="min-w-0">
+        <div class="text-sm font-semibold">이어서 풀기</div>
+        <div class="mt-0.5 truncate text-xs text-zinc-500 dark:text-zinc-400">${escHtml(bm.cat)} ${escHtml(bm.round)}회차 · Q${escHtml(bm.qNum)}부터</div>
+      </div>
+      <button onclick="novaClearResume('${escArg(bm.id)}', event)" class="shrink-0 rounded-full p-1.5 text-zinc-300 hover:bg-zinc-100 hover:text-zinc-600 dark:hover:bg-white/10" aria-label="지우기">
+        <svg class="ic" viewBox="0 0 24 24" style="width:16px;height:16px"><use href="#ic-x"/></svg>
+      </button>
+    </div>`).join('');
+
   return `
-    <div class="rounded-[2rem] bg-white/5 p-1.5 ring-1 ring-zinc-200 dark:ring-white/10">
-      <div class="rounded-[calc(2rem-0.375rem)] bg-white p-8 shadow-[inset_0_1px_1px_rgba(255,255,255,0.4)] dark:bg-zinc-900 sm:p-12">
-        <div class="mb-2 inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.15em] text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400">새 디자인 · Beta</div>
-        <h1 class="mt-3 text-3xl font-bold leading-tight tracking-tight [word-break:keep-all] sm:text-4xl">같은 기록, 새로운 화면</h1>
-        <p class="mt-3 max-w-md text-[15px] leading-relaxed text-zinc-500 dark:text-zinc-400 [word-break:keep-all]">지금 풀고 있는 문제, 오답노트, 별표 전부 기존 화면과 똑같이 이어집니다. 화면만 새로 그리는 중이에요.</p>
-        <div class="mt-8 flex flex-wrap gap-6">
-          <div><div class="text-2xl font-bold tracking-tight">${cats.length}</div><div class="text-xs text-zinc-400">등록된 자격증</div></div>
-          <div><div class="text-2xl font-bold tracking-tight">${totalRounds}</div><div class="text-xs text-zinc-400">전체 회차</div></div>
+    <div class="space-y-4">
+      ${ddayCards}
+      ${resumeCards ? `<div class="grid gap-3 sm:grid-cols-2">${resumeCards}</div>` : ''}
+      ${novaMasteryHtml()}
+    </div>
+  `;
+}
+
+function novaMasteryHtml() {
+  const cats = getCategories().filter(c => getRoundList(c).length);
+  if (!cats.length) return '';
+  if (!novaMstCat || !cats.includes(novaMstCat)) novaMstCat = cats[0];
+  const cat = novaMstCat;
+  const mst = getMastery();
+  const items = getRoundList(cat).map(r => mst[cat + '||' + r] || 0);
+  const n = items.length;
+  const avg = n ? Math.round(items.reduce((s, v) => s + v, 0) / n) : 0;
+  const tiers = [
+    { label: '완벽 90%+', color: '#16A34A', n: items.filter(v => v >= 90).length },
+    { label: '거의 70–89%', color: '#4ADE80', n: items.filter(v => v >= 70 && v < 90).length },
+    { label: '절반 50–69%', color: '#FBBF24', n: items.filter(v => v >= 50 && v < 70).length },
+    { label: '시작 1–49%', color: '#F87171', n: items.filter(v => v > 0 && v < 50).length },
+    { label: '아직 0%', color: '#CBD5E1', n: items.filter(v => v === 0).length },
+  ];
+  const options = cats.map(c => `<option value="${escHtml(c)}" ${c === cat ? 'selected' : ''}>${escHtml(c)}</option>`).join('');
+  const bars = tiers.filter(t => t.n).map(t => `<i class="block h-full" style="width:${(t.n / n * 100).toFixed(2)}%; background:${t.color}"></i>`).join('');
+  const legend = tiers.filter(t => t.n).map(t => `<span class="inline-flex items-center gap-1"><i class="inline-block h-2 w-2 rounded-full" style="background:${t.color}"></i>${t.label} · ${t.n}</span>`).join('');
+  return `
+    <div class="rounded-2xl bg-white p-5 ring-1 ring-zinc-200 dark:bg-zinc-900 dark:ring-white/10">
+      <div class="flex items-center justify-between gap-3">
+        <div class="text-sm font-semibold">암기 현황</div>
+        <select onchange="novaChangeMstCat(this.value)" class="rounded-full border border-zinc-200 bg-transparent px-3 py-1 text-xs dark:border-white/15 dark:bg-zinc-900">${options}</select>
+      </div>
+      <div class="mt-3 flex items-baseline gap-1.5 text-sm">
+        <span class="text-2xl font-bold tracking-tight">${avg}%</span><span class="text-zinc-400">평균 암기도</span>
+      </div>
+      <div class="mt-2 flex h-2 overflow-hidden rounded-full bg-zinc-100 dark:bg-white/10">${bars}</div>
+      <div class="mt-3 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-zinc-500 dark:text-zinc-400">${legend}</div>
+    </div>
+  `;
+}
+function novaChangeMstCat(cat) { novaMstCat = cat; renderNova(); }
+
+function novaOpenResume(id) { novaFallback('이어서 풀기', () => goToResumeBookmark(id)); }
+function novaClearResume(id, e) { clearResumeBookmark(id, e); renderNova(); }
+
+// ── 문제 탭: 자격증 목록 → 회차 목록 → 회차 상세 패널 ──────────────────
+function novaPracticeHtml() {
+  return novaPracticeCat ? novaRoundListHtml(novaPracticeCat) : novaCatListHtml();
+}
+
+function novaCatListHtml() {
+  const cats = getCategories();
+  if (!cats.length) {
+    return `
+      <div class="flex min-h-[40vh] flex-col items-center justify-center gap-3 text-center">
+        <div class="text-lg font-semibold [word-break:keep-all]">아직 등록된 자격증이 없어요</div>
+        <button onclick="novaFallback('자격증 추가', () => openAdmin())" class="mt-1 rounded-full bg-zinc-900 px-5 py-2.5 text-sm font-semibold text-white dark:bg-white dark:text-zinc-900">자격증 추가하기</button>
+      </div>`;
+  }
+  const progress = getProgress();
+  const cards = cats.map(cat => {
+    const roundNames = getRoundList(cat);
+    const rounds = roundNames.length;
+    let totalQ = 0, doneRounds = 0;
+    roundNames.forEach(r => {
+      const rn = getRoundCount(cat, r);
+      totalQ += rn;
+      const k = cat + '_' + r;
+      if (rn && progress[k] && Object.keys(progress[k].answered || {}).length === rn) doneRounds++;
+    });
+    const badge = rounds === 0 ? '' : doneRounds === rounds
+      ? `<span class="rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400">완료</span>`
+      : `<span class="rounded-full bg-zinc-100 px-2.5 py-1 text-[11px] font-semibold text-zinc-600 dark:bg-white/10 dark:text-zinc-300">${doneRounds}/${rounds} 회차</span>`;
+    return `
+      <button onclick="novaSelectCat('${escArg(cat)}')" class="flex w-full items-center justify-between gap-3 rounded-2xl bg-white p-4 text-left ring-1 ring-zinc-200 transition-transform duration-300 hover:scale-[1.01] dark:bg-zinc-900 dark:ring-white/10">
+        <div class="min-w-0">
+          <div class="truncate text-sm font-semibold">${escHtml(cat)}</div>
+          <div class="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">${rounds}회차 · ${totalQ}문제</div>
         </div>
+        ${badge}
+      </button>`;
+  }).join('');
+  return `<div class="space-y-2.5">${cards}</div>`;
+}
+
+function novaSelectCat(cat) { novaPracticeCat = cat; renderNova(); }
+function novaBackToCats() { novaPracticeCat = null; novaRoundPanel = null; renderNova(); }
+
+function novaRoundListHtml(cat) {
+  const rounds = getRoundList(cat);
+  const mastery = getMastery();
+  const tiles = rounds.map(r => {
+    const pct = mastery[cat + '||' + r] || 0;
+    const nm = splitRoundName(r);
+    const label = nm.top && nm.bottom ? `${nm.top} ${nm.bottom}` : (nm.top || nm.bottom || r);
+    return `
+      <button onclick="novaOpenRound('${escArg(cat)}','${escArg(r)}')" class="relative flex aspect-square flex-col items-center justify-center gap-1 overflow-hidden rounded-2xl bg-white p-2 text-center ring-1 ring-zinc-200 transition-transform duration-300 hover:scale-[1.03] dark:bg-zinc-900 dark:ring-white/10">
+        <div class="px-1 text-sm font-semibold [word-break:keep-all]">${escHtml(label)}</div>
+        <div class="absolute inset-x-0 bottom-0 h-1 bg-zinc-100 dark:bg-white/10"><i class="block h-full" style="width:${pct}%; background:${mstColor(pct)}"></i></div>
+      </button>`;
+  }).join('');
+  const panel = novaRoundPanel && novaRoundPanel.cat === cat ? novaRoundPanelHtml(cat, novaRoundPanel.round) : '';
+  return `
+    <div>
+      <button onclick="novaBackToCats()" class="mb-3 inline-flex items-center gap-1 text-sm text-zinc-500 hover:text-zinc-900 dark:hover:text-white">
+        <svg class="ic" viewBox="0 0 24 24" style="width:16px;height:16px"><use href="#ic-arrow-left"/></svg>자격증 목록
+      </button>
+      <div class="mb-3 text-lg font-bold tracking-tight [word-break:keep-all]">${escHtml(cat)}</div>
+      <div class="grid grid-cols-3 gap-2.5 sm:grid-cols-4">${tiles}</div>
+    </div>
+    ${panel}
+  `;
+}
+
+function novaOpenRound(cat, round) { novaRoundPanel = { cat, round }; renderNova(); }
+function novaCloseRoundPanel() { novaRoundPanel = null; renderNova(); }
+
+function novaRoundPanelHtml(cat, round) {
+  const qs = getRound(cat, round);
+  const pct = getMastery()[cat + '||' + round] || 0;
+  const st = _roundStats(cat, round, qs);
+  const acc = _roundAccuracy(cat, round, qs);
+  return `
+    <div onclick="if(event.target===this) novaCloseRoundPanel()" class="fixed inset-0 z-30 flex items-end justify-center bg-black/30 p-0 backdrop-blur-sm sm:items-center sm:p-4">
+      <div class="w-full max-w-md rounded-t-3xl bg-white p-6 dark:bg-zinc-900 sm:rounded-3xl">
+        <div class="flex items-start justify-between gap-3">
+          <div>
+            <div class="text-lg font-bold [word-break:keep-all]">${escHtml(round)}회차 <span class="text-sm font-normal text-zinc-400">${qs.length}문제</span></div>
+            <div class="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">${_agoText(st.at)}</div>
+          </div>
+          <button onclick="novaCloseRoundPanel()" class="rounded-full p-1.5 text-zinc-400 hover:bg-zinc-100 dark:hover:bg-white/10" aria-label="닫기">
+            <svg class="ic" viewBox="0 0 24 24" style="width:18px;height:18px"><use href="#ic-x"/></svg>
+          </button>
+        </div>
+
+        <div class="mt-5 space-y-4">
+          <div>
+            <div class="flex items-center justify-between text-xs text-zinc-500 dark:text-zinc-400"><span>암기도</span><b style="color:${mstColor(pct)}">${pct}%</b></div>
+            <div class="mt-1.5 h-2 overflow-hidden rounded-full bg-zinc-100 dark:bg-white/10"><i class="block h-full" style="width:${pct}%; background:${mstColor(pct)}"></i></div>
+          </div>
+          <div>
+            <div class="flex items-center justify-between text-xs text-zinc-500 dark:text-zinc-400"><span>진행</span><b>${st.done}/${st.total}</b></div>
+            <div class="mt-1.5 h-2 overflow-hidden rounded-full bg-zinc-100 dark:bg-white/10"><i class="block h-full bg-zinc-900 dark:bg-white" style="width:${st.total ? Math.round(st.done / st.total * 100) : 0}%"></i></div>
+          </div>
+          ${acc ? `
+          <div>
+            <div class="flex items-center justify-between text-xs text-zinc-500 dark:text-zinc-400"><span>정답률</span><b>${acc.pct}%</b></div>
+            <div class="mt-1.5 h-2 overflow-hidden rounded-full bg-zinc-100 dark:bg-white/10"><i class="block h-full bg-emerald-500" style="width:${acc.pct}%"></i></div>
+          </div>` : ''}
+        </div>
+
+        <button onclick="novaFallback('문제 풀기', () => startQuiz('${escArg(cat)}', '${escArg(round)}'))" class="mt-6 w-full rounded-full bg-zinc-900 py-3 text-sm font-semibold text-white transition-transform duration-300 hover:scale-[1.01] dark:bg-white dark:text-zinc-900">문제 풀기 시작</button>
       </div>
     </div>
   `;
@@ -17230,6 +17413,9 @@ applyRenderFlags();
 //   k: 'new'(새 기능) · 'fix'(고침) · 'chg'(바뀜)
 // ══════════════════════════════════════════════════════════════════════
 const PATCH_NOTES = [
+  { v: '260802-1921', at: '2026-08-02', items: [
+    { k: 'new', t: '<b>새 디자인(Beta)</b>에 홈 대시보드(시험 일정·이어서 풀기·암기 현황)와 문제 탭(자격증목록 → 회차목록 → 회차 상세)이 추가됐습니다. 아직 없는 화면을 누르면 자동으로 기존 화면으로 이어서 넘어가요' },
+  ]},
   { v: '260802-1911', at: '2026-08-02', items: [
     { k: 'new', t: '설정 > 모드 전환에 <b>"새 디자인"(Beta)</b>을 추가했습니다 — 전체 화면을 새 스타일로 다시 그리는 실험 모드예요. 지금은 홈 화면만 준비됐고, 데이터는 기존 화면과 완전히 같습니다. 나머지 화면은 순서대로 채워질 예정이에요' },
   ]},
@@ -17408,7 +17594,7 @@ function closePatchNotes() {
 // ── 앱 버전 ──
 // 폰이 옛 파일을 캐시해 두고 있는지 바로 확인할 수 있도록 화면에 표시한다.
 // (설정 맨 아래 · 개발자 도구 콘솔에도 찍힘)
-const APP_VERSION = '260802-1911';
+const APP_VERSION = '260802-1921';
 console.log('%c양진웅 Note 버전 ' + APP_VERSION, 'font-weight:bold');
 
 // PWA 서비스워커 등록
