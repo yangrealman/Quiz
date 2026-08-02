@@ -16772,6 +16772,8 @@ function novaScreenHtml(view) {
   if (view === 'starnote') return novaStarNoteHtml();
   if (view === 'wrongquiz') return novaMiniQuizHtml('wq');
   if (view === 'starquiz') return novaMiniQuizHtml('sq');
+  if (view === 'search') return novaSearchHtml();
+  if (view === 'memo') return novaMemoHtml();
   const tab = NOVA_TABS.find(t => t.id === view);
   return novaComingSoonHtml(tab ? tab.label : view);
 }
@@ -17556,6 +17558,120 @@ function novaMiniQuizHtml(kind) {
   `;
 }
 
+// ══════════════════════════════════════════════════════════════════════
+// 검색 탭 — 기존 doSearch()/_schAll/_schCat 전역을 그대로 쓴다.
+// 입력창을 매 타이핑마다 renderNova()로 통째로 새로 그리면 포커스가 날아가므로,
+// 기존 paintSearch()와 같은 방식으로 결과 영역만 부분 갱신한다(novaPaintSearch).
+// ══════════════════════════════════════════════════════════════════════
+function novaSetSearchCat(cat) { _schCat = cat; novaPaintSearch(); }
+function novaDoSearch(kw) {
+  if (!kw) { _schAll = []; _schKw = ''; novaPaintSearch(); return; }
+  doSearch(kw);   // _schAll/_schKw 갱신 + 기존(숨겨진) paintSearch()도 같이 돌지만 무해함
+  novaPaintSearch();
+}
+function novaPaintSearch() {
+  const catsEl = document.getElementById('nova-search-cats');
+  const statusEl = document.getElementById('nova-search-status');
+  const resultsEl = document.getElementById('nova-search-results');
+  if (!catsEl || !statusEl || !resultsEl) return;   // 검색 화면이 떠있지 않으면 아무 것도 안 함
+
+  const kw = _schKw;
+  const all = _schAll;
+  const circleNums = ['①', '②', '③', '④', '⑤', '⑥'];
+
+  const cnt = {};
+  all.forEach(r => { cnt[r.cat] = (cnt[r.cat] || 0) + 1; });
+  const cats = Object.keys(cnt).sort((a, b) => cnt[b] - cnt[a]);
+  const chip = (label, active, onclick) => `<button onclick="${onclick}" class="rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${active ? 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-900' : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200 dark:bg-white/10 dark:text-zinc-300 dark:hover:bg-white/20'}">${label}</button>`;
+  catsEl.innerHTML = !all.length ? '' : (cats.length > 1 ? chip(`전체 (${all.length})`, _schCat === null, 'novaSetSearchCat(null)') : '')
+    + cats.map(c => chip(`${escHtml(c)} (${cnt[c]})`, _schCat === c, `novaSetSearchCat('${escArg(c)}')`)).join('');
+
+  const results = _schCat ? all.filter(r => r.cat === _schCat) : all;
+  statusEl.textContent = !kw ? '문제·보기·정답·해설을 검색해보세요'
+    : (all.length ? (_schCat ? `${_schCat} · ${results.length}개` : `총 ${all.length}개 문제 검색됨`) : `"${kw}" 에 대한 결과가 없어요`);
+
+  resultsEl.innerHTML = results.map(({ cat, round, q }) => {
+    const isSubj = q.type === 'subj';
+    return `
+      <div class="rounded-2xl bg-white p-4 ring-1 ring-zinc-200 dark:bg-zinc-900 dark:ring-white/10">
+        <div class="text-xs text-zinc-400">${escHtml(cat)} ${escHtml(round)}회차 Q${escHtml(q.num || '')}${isSubj ? ' · 주관식' : ''}</div>
+        <div class="mt-1 text-sm [word-break:keep-all]"${hlAttr(cat, round, q, 'q')}>${highlight(q.question, kw)}</div>
+        ${isSubj
+          ? `<div class="mt-2 rounded-xl bg-emerald-50 p-3 text-sm text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400"${hlAttr(cat, round, q, 'e')}>정답: ${highlight(renderExp(q.answer || ''), kw)}</div>`
+          : `<div class="mt-2 space-y-1">${(q.options || []).map((opt, i) => `<div class="rounded-lg px-3 py-1.5 text-sm ${i === q.correct ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400' : 'text-zinc-500 dark:text-zinc-400'}">${circleNums[i] || i + 1} ${highlight(opt, kw)}</div>`).join('')}</div>`}
+        ${q.explanation ? `<div class="mt-2 rounded-xl bg-zinc-50 p-3 text-sm leading-relaxed text-zinc-600 dark:bg-white/5 dark:text-zinc-300">${highlight(renderExp(q.explanation), kw)}</div>` : ''}
+      </div>`;
+  }).join('');
+
+  try { hlBindList('nova-search-results'); } catch (_) {}
+}
+function novaSearchHtml() {
+  setTimeout(() => {
+    novaPaintSearch();
+    const el = document.getElementById('nova-search-input');
+    if (el) { el.focus(); el.setSelectionRange(el.value.length, el.value.length); }
+  }, 0);
+  return `
+    <div>
+      <input id="nova-search-input" type="text" value="${escHtml(_schKw)}" oninput="novaDoSearch(this.value)" placeholder="문제·보기·정답·해설 검색" class="w-full rounded-full bg-white px-4 py-3 text-sm ring-1 ring-zinc-200 focus:outline-none focus:ring-zinc-400 dark:bg-zinc-900 dark:text-white dark:ring-white/10" />
+      <div id="nova-search-cats" class="mt-3 flex flex-wrap gap-2"></div>
+      <div id="nova-search-status" class="mt-2 text-xs text-zinc-400"></div>
+      <div id="nova-search-results" class="mt-3 space-y-2.5"></div>
+    </div>
+  `;
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// 메모 탭 — 암기칸/메모 자유 텍스트는 저장 함수가 따로 없고 memo-tab-top/
+// memo-tab-bottom(기존 페이지, 숨겨진 상태) DOM 값이 원본이다. nova는 새
+// textarea를 만들되 입력 시 그 원본 값도 같이 채워서(novaSyncMemo) 두 화면을
+// 오가도 내용이 그대로 이어지게 한다.
+// ══════════════════════════════════════════════════════════════════════
+function novaSyncMemo(which, value) {
+  const oldId = which === 'top' ? 'memo-tab-top' : 'memo-tab-bottom';
+  const popId = which === 'top' ? 'memo-top' : 'memo-bottom';
+  const oldEl = document.getElementById(oldId);
+  const popEl = document.getElementById(popId);
+  if (oldEl) oldEl.value = value;
+  if (popEl) popEl.value = value;
+}
+function novaClearAnki() {
+  if (!confirm('암기 칸 내용을 모두 지울까요?')) return;
+  clearAnki();
+  renderNova();
+}
+function novaRemoveMemoLink(i) {
+  removeMemoLink(i);
+  renderNova();
+}
+function novaMemoHtml() {
+  const top = (document.getElementById('memo-tab-top') || {}).value || '';
+  const bottom = (document.getElementById('memo-tab-bottom') || {}).value || '';
+  const links = getMemoLinks();
+  const linksHtml = links.length
+    ? links.map((l, i) => `
+      <span class="inline-flex items-center gap-1 rounded-full bg-zinc-100 pl-3 pr-1 py-1 text-xs text-zinc-600 dark:bg-white/10 dark:text-zinc-300">
+        <button onclick="novaFallback('문제로 이동', () => jumpToQuestion('${escArg(l.cat)}','${escArg(l.round)}','${escArg(l.num)}'))">${escHtml(l.cat)} ${escHtml(l.round)} Q${escHtml(l.num)}</button>
+        <button onclick="novaRemoveMemoLink(${i})" class="rounded-full px-1.5 text-zinc-400 hover:text-zinc-700 dark:hover:text-white" aria-label="이력 삭제">✕</button>
+      </span>`).join('')
+    : `<span class="text-xs text-zinc-400">암기칸으로 보낸 문제가 여기에 표시됩니다</span>`;
+  return `
+    <div>
+      <div class="mb-2 flex items-center justify-between">
+        <div class="text-sm font-semibold">암기칸</div>
+        <button onclick="novaClearAnki()" class="text-xs text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200">지우기</button>
+      </div>
+      <textarea id="nova-memo-top" oninput="novaSyncMemo('top', this.value)" placeholder="문제 풀이 화면에서 '암기'를 눌러 보내거나, 직접 적어보세요" class="h-40 w-full resize-none rounded-2xl bg-white p-3 text-sm leading-relaxed ring-1 ring-zinc-200 focus:outline-none focus:ring-zinc-400 dark:bg-zinc-900 dark:text-white dark:ring-white/10">${escHtml(top)}</textarea>
+
+      <div class="mb-2 mt-4 text-sm font-semibold">메모</div>
+      <textarea id="nova-memo-bottom" oninput="novaSyncMemo('bottom', this.value)" placeholder="자유롭게 메모해보세요" class="h-32 w-full resize-none rounded-2xl bg-white p-3 text-sm leading-relaxed ring-1 ring-zinc-200 focus:outline-none focus:ring-zinc-400 dark:bg-zinc-900 dark:text-white dark:ring-white/10">${escHtml(bottom)}</textarea>
+
+      <div class="mb-2 mt-4 text-sm font-semibold">최근 이동 기록</div>
+      <div class="flex flex-wrap gap-2">${linksHtml}</div>
+    </div>
+  `;
+}
+
 // ── 문제 데이터가 서버 한도(문서 하나 1MB)의 어디쯤인지 ────────────────
 // 그림은 한 장씩 따로 저장되므로 여기 포함되지 않는다. 문항 글자만 센다.
 const QDATA_LIMIT = 1048576;            // 1 MiB
@@ -17995,6 +18111,9 @@ applyRenderFlags();
 //   k: 'new'(새 기능) · 'fix'(고침) · 'chg'(바뀜)
 // ══════════════════════════════════════════════════════════════════════
 const PATCH_NOTES = [
+  { v: '260802-1943', at: '2026-08-02', items: [
+    { k: 'new', t: '<b>새 디자인(Beta)</b>에 검색 탭과 메모 탭이 추가됐습니다. 암기칸·메모는 기존 화면과 내용이 그대로 이어집니다' },
+  ]},
   { v: '260802-1936', at: '2026-08-02', items: [
     { k: 'new', t: '<b>새 디자인(Beta)</b>의 복습 탭에 오답노트·별표가 추가됐습니다 — 자격증별로 걸러보고, "오답만/별표만 풀기"도 새 디자인 안에서 바로 됩니다. 모의고사는 아직 준비 중이라 누르면 기존 화면으로 이동해요' },
   ]},
@@ -18182,7 +18301,7 @@ function closePatchNotes() {
 // ── 앱 버전 ──
 // 폰이 옛 파일을 캐시해 두고 있는지 바로 확인할 수 있도록 화면에 표시한다.
 // (설정 맨 아래 · 개발자 도구 콘솔에도 찍힘)
-const APP_VERSION = '260802-1936';
+const APP_VERSION = '260802-1943';
 console.log('%c양진웅 Note 버전 ' + APP_VERSION, 'font-weight:bold');
 
 // PWA 서비스워커 등록
