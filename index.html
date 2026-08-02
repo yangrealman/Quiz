@@ -16767,6 +16767,11 @@ function novaScreenHtml(view) {
   if (view === 'result') return novaResultHtml();
   if (view === 'quickcheck') return novaQuickCheckHtml();
   if (view === 'answersheet') return novaAnswerSheetHtml();
+  if (view === 'review') return novaReviewHtml();
+  if (view === 'wrongnote') return novaWrongNoteHtml();
+  if (view === 'starnote') return novaStarNoteHtml();
+  if (view === 'wrongquiz') return novaMiniQuizHtml('wq');
+  if (view === 'starquiz') return novaMiniQuizHtml('sq');
   const tab = NOVA_TABS.find(t => t.id === view);
   return novaComingSoonHtml(tab ? tab.label : view);
 }
@@ -17317,6 +17322,240 @@ function novaAnswerSheetHtml() {
   `;
 }
 
+// ══════════════════════════════════════════════════════════════════════
+// 복습 탭 — 오답노트 · 별표 · 모의고사(아직 기존 화면으로 폴백)
+// V1 범위: 자격증 필터까지만 (회차별 다중선택 필터·정렬·다중삭제는 아직 없음 —
+// 데이터는 wrongFilter/starFilter를 그대로 써서 기존 화면과 같은 결과를 보여준다)
+// ══════════════════════════════════════════════════════════════════════
+function novaReviewHtml() {
+  const wrongN = getWrongAnswers().length;
+  const starN = Object.keys(getStarred()).length;
+  const cards = [
+    { view: 'wrongnote', title: '오답노트', sub: `틀린 문제 다시 보기${wrongN ? ` · ${wrongN}개` : ''}` },
+    { view: 'starnote', title: '별표', sub: `표시한 문제 모아보기${starN ? ` · ${starN}개` : ''}` },
+  ];
+  const cardsHtml = cards.map(c => `
+    <button onclick="novaGo('${c.view}')" class="flex w-full items-center justify-between gap-3 rounded-2xl bg-white p-4 text-left ring-1 ring-zinc-200 transition-transform duration-300 hover:scale-[1.01] dark:bg-zinc-900 dark:ring-white/10">
+      <div><div class="text-sm font-semibold">${c.title}</div><div class="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">${c.sub}</div></div>
+      <svg class="ic text-zinc-300" viewBox="0 0 24 24" style="width:18px;height:18px"><use href="#ic-chevron-right"/></svg>
+    </button>`).join('');
+  return `
+    <div class="space-y-2.5">
+      ${cardsHtml}
+      <button onclick="novaFallback('모의고사', () => goPage('mock'))" class="flex w-full items-center justify-between gap-3 rounded-2xl bg-white p-4 text-left ring-1 ring-zinc-200 transition-transform duration-300 hover:scale-[1.01] dark:bg-zinc-900 dark:ring-white/10">
+        <div><div class="text-sm font-semibold">모의고사</div><div class="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">실전처럼 문제 풀기</div></div>
+        <svg class="ic text-zinc-300" viewBox="0 0 24 24" style="width:18px;height:18px"><use href="#ic-chevron-right"/></svg>
+      </button>
+    </div>
+  `;
+}
+
+function novaFilterChips(cats, allCount, current, counter, onSelect) {
+  const chip = (label, active, onclick) => `<button onclick="${onclick}" class="rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${active ? 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-900' : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200 dark:bg-white/10 dark:text-zinc-300 dark:hover:bg-white/20'}">${label}</button>`;
+  return `
+    <div class="flex flex-wrap gap-2">
+      ${chip(`전체 (${allCount})`, !current, `${onSelect}(null)`)}
+      ${cats.map(c => chip(`${escHtml(c)} (${counter(c)})`, current === c, `${onSelect}('${escArg(c)}')`)).join('')}
+    </div>`;
+}
+
+// ── 오답노트 ────────────────────────────────────────────────────────
+function novaSetWrongCat(cat) { wrongFilter.cat = cat; wrongFilter.rounds = new Set(); renderNova(); }
+function novaDeleteWrong(id) {
+  saveWrongAnswers(getWrongAnswers().filter(w => w.id !== id));
+  showToast('오답 삭제했어요');
+  renderNova();
+}
+function novaStartWrongQuiz() {
+  const wrongs = _wrongFiltered(getWrongAnswers());
+  if (!wrongs.length) { showToast('오답이 없어요'); return; }
+  wqState = { questions: wrongs.map(w => w.q), idx: 0, answered: {}, source: wrongs };
+  novaGo('wrongquiz');
+}
+function novaWrongNoteHtml() {
+  const wrongs = getWrongAnswers();
+  const cats = [...new Set(wrongs.map(w => w.cat))];
+  const filtered = _wrongFiltered(wrongs);
+  const list = filtered.length ? filtered.map(w => `
+    <div class="flex items-start justify-between gap-3 rounded-2xl bg-white p-4 ring-1 ring-zinc-200 dark:bg-zinc-900 dark:ring-white/10">
+      <div class="min-w-0">
+        <div class="text-xs text-zinc-400">${escHtml(w.cat)} ${escHtml(w.round)}회차</div>
+        <div class="mt-1 text-sm [word-break:keep-all]">${escHtml(w.q.question)}</div>
+      </div>
+      <button onclick="novaDeleteWrong('${escArg(w.id)}')" class="shrink-0 rounded-full p-1.5 text-zinc-300 hover:bg-zinc-100 dark:hover:bg-white/10" aria-label="삭제"><svg class="ic" viewBox="0 0 24 24" style="width:16px;height:16px"><use href="#ic-x"/></svg></button>
+    </div>`).join('') : `<div class="rounded-2xl bg-emerald-50 p-6 text-center text-sm text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400">오답이 없어요 🎉</div>`;
+  return `
+    <div>
+      <button onclick="novaGo('review')" class="mb-3 inline-flex items-center gap-1 text-sm text-zinc-500 hover:text-zinc-900 dark:hover:text-white"><svg class="ic" viewBox="0 0 24 24" style="width:16px;height:16px"><use href="#ic-arrow-left"/></svg>복습</button>
+      <div class="mb-3 text-lg font-bold">오답노트</div>
+      ${novaFilterChips(cats, wrongs.length, wrongFilter.cat, c => wrongs.filter(w => w.cat === c).length, 'novaSetWrongCat')}
+      ${filtered.length ? `<button onclick="novaStartWrongQuiz()" class="mt-3 w-full rounded-full bg-zinc-900 py-3 text-sm font-semibold text-white dark:bg-white dark:text-zinc-900">오답만 풀기 (${filtered.length})</button>` : ''}
+      <div class="mt-4 space-y-2.5">${list}</div>
+    </div>
+  `;
+}
+
+// ── 별표 ────────────────────────────────────────────────────────────
+function novaSetStarCat(cat) { starFilter.cat = cat; starFilter.rounds = new Set(); starFilter.lv = 0; renderNova(); }
+function novaDeleteStar(key) {
+  const starred = getStarred();
+  delete starred[key];
+  saveStarred(starred);
+  showToast('별표 해제했어요');
+  renderNova();
+}
+function novaStartStarQuiz() {
+  const items = _starFiltered();
+  if (!items.length) { showToast('별표 문제가 없어요'); return; }
+  sqState = { questions: items.map(w => w.q), idx: 0, answered: {}, source: items };
+  novaGo('starquiz');
+}
+function novaStarNoteHtml() {
+  const all = Object.values(getStarred());
+  const cats = [...new Set(all.map(w => w.cat))];
+  const filtered = _starFiltered();
+  const list = filtered.length ? filtered.map(w => {
+    const key = getStarKey(w.cat, w.round, (w.q && (w.q.id || w.q.num)) || 0);
+    return `
+    <div class="flex items-start justify-between gap-3 rounded-2xl bg-white p-4 ring-1 ring-zinc-200 dark:bg-zinc-900 dark:ring-white/10">
+      <div class="min-w-0">
+        <div class="text-xs text-amber-500">${escHtml(w.cat)} ${escHtml(w.round)}회차 · ${starMark(w.level)}</div>
+        <div class="mt-1 text-sm [word-break:keep-all]">${escHtml(w.q.question)}</div>
+      </div>
+      <button onclick="novaDeleteStar('${escArg(key)}')" class="shrink-0 rounded-full p-1.5 text-zinc-300 hover:bg-zinc-100 dark:hover:bg-white/10" aria-label="삭제"><svg class="ic" viewBox="0 0 24 24" style="width:16px;height:16px"><use href="#ic-x"/></svg></button>
+    </div>`;
+  }).join('') : `<div class="rounded-2xl bg-zinc-50 p-6 text-center text-sm text-zinc-500 dark:bg-white/5 dark:text-zinc-400">별표한 문제가 없어요</div>`;
+  return `
+    <div>
+      <button onclick="novaGo('review')" class="mb-3 inline-flex items-center gap-1 text-sm text-zinc-500 hover:text-zinc-900 dark:hover:text-white"><svg class="ic" viewBox="0 0 24 24" style="width:16px;height:16px"><use href="#ic-arrow-left"/></svg>복습</button>
+      <div class="mb-3 text-lg font-bold">별표</div>
+      ${novaFilterChips(cats, all.length, starFilter.cat, c => all.filter(w => w.cat === c).length, 'novaSetStarCat')}
+      ${filtered.length ? `<button onclick="novaStartStarQuiz()" class="mt-3 w-full rounded-full bg-zinc-900 py-3 text-sm font-semibold text-white dark:bg-white dark:text-zinc-900">별표만 풀기 (${filtered.length})</button>` : ''}
+      <div class="mt-4 space-y-2.5">${list}</div>
+    </div>
+  `;
+}
+
+// ── 오답/별표 풀기 화면 (공용) — wqState/sqState 구조가 같아서 한 렌더러로 처리한다.
+// 채점 시 부수효과(오답 자동 제거는 wq만, srsGrade는 wq만)는 기존 wqAnswer/wqJudge/
+// sqAnswer/sqJudge와 정확히 같게 맞췄다.
+function novaMqState(kind) { return kind === 'wq' ? wqState : sqState; }
+function novaMqToggleReveal(kind) {
+  const st = novaMqState(kind);
+  if (!st.revealed) st.revealed = {};
+  st.revealed[st.idx] = !st.revealed[st.idx];
+  renderNova();
+}
+function novaMqAnswer(kind, chosen) {
+  const st = novaMqState(kind);
+  const { questions, idx } = st;
+  if (idx in st.answered) return;
+  const q = questions[idx];
+  st.answered[idx] = chosen;
+  const src = st.source && st.source[idx];
+  if (kind === 'wq' && src) {
+    try { srsGrade(src.cat, src.round, src.q, idx, chosen === q.correct); } catch (_) {}
+    if (chosen === q.correct) saveWrongAnswers(getWrongAnswers().filter(w => w.id !== src.id));
+  }
+  renderNova();
+}
+function novaMqJudge(kind, result) {
+  const st = novaMqState(kind);
+  st.answered[st.idx] = result;
+  const src = st.source && st.source[st.idx];
+  if (kind === 'wq' && src) { try { srsGrade(src.cat, src.round, src.q, st.idx, result === 'correct'); } catch (_) {} }
+  if (st.revealed && st.revealed[st.idx]) st.revealed[st.idx] = false;
+  renderNova();
+}
+function novaMqNext(kind) {
+  const st = novaMqState(kind);
+  const { questions, idx, answered } = st;
+  if (idx >= questions.length - 1) {
+    let correct = 0;
+    questions.forEach((q, i) => { if (answered[i] === q.correct) correct++; });
+    showToast(`완료! ${correct}/${questions.length} 정답 ${kind === 'wq' ? '🎉' : '⭐'}`);
+    novaGo(kind === 'wq' ? 'wrongnote' : 'starnote');
+  } else {
+    st.idx++;
+    renderNova();
+  }
+}
+function novaMqPrev(kind) {
+  const st = novaMqState(kind);
+  if (st.idx > 0) { st.idx--; renderNova(); }
+}
+function novaMiniQuizHtml(kind) {
+  const st = novaMqState(kind);
+  const { questions, idx, answered, source } = st;
+  const q = questions && questions[idx];
+  if (!q) return novaComingSoonHtml(kind === 'wq' ? '오답 풀기' : '별표 풀기');
+  const total = questions.length;
+  const isSubj = q.type === 'subj';
+  const chosen = answered[idx];
+  const isAnswered = idx in answered;
+  const src = source && source[idx];
+  const revealed = !!(st.revealed && st.revealed[idx]);
+  const hk = src ? srsKey(src.cat, src.round, q, idx) : '';
+  const circleNums = ['①', '②', '③', '④', '⑤', '⑥'];
+  const badgeColor = kind === 'wq' ? 'text-red-500' : 'text-amber-500';
+
+  let body;
+  if (isSubj) {
+    body = `
+      <div id="nova-mq-question" class="rounded-2xl bg-white p-5 text-[15px] leading-relaxed ring-1 ring-zinc-200 dark:bg-zinc-900 dark:ring-white/10 [word-break:keep-all]">${escHtml(q.question)}</div>
+      <button onclick="novaMqToggleReveal('${kind}')" class="mt-3 inline-flex items-center gap-1 text-sm font-medium text-zinc-500 hover:text-zinc-900 dark:hover:text-white">${revealed ? '정답 접기 ▲' : '정답 보기 ▼'}</button>
+      ${revealed ? `<div id="nova-mq-explanation" class="mt-2 rounded-2xl bg-zinc-50 p-4 text-sm leading-relaxed ring-1 ring-zinc-200 dark:bg-white/5 dark:ring-white/10 [word-break:keep-all]">${renderExp(q.answer || '')}</div>` : ''}
+      <div class="mt-5 grid grid-cols-2 gap-3">
+        <button onclick="novaMqJudge('${kind}','wrong')" class="rounded-2xl py-3.5 text-sm font-semibold ring-1 transition-colors ${chosen === 'wrong' ? 'bg-red-500 text-white ring-red-500' : 'bg-white text-zinc-700 ring-zinc-200 hover:bg-zinc-50 dark:bg-zinc-900 dark:text-zinc-200 dark:ring-white/10'}">틀렸어요</button>
+        <button onclick="novaMqJudge('${kind}','correct')" class="rounded-2xl py-3.5 text-sm font-semibold ring-1 transition-colors ${chosen === 'correct' ? 'bg-emerald-500 text-white ring-emerald-500' : 'bg-white text-zinc-700 ring-zinc-200 hover:bg-zinc-50 dark:bg-zinc-900 dark:text-zinc-200 dark:ring-white/10'}">맞았어요</button>
+      </div>
+    `;
+  } else {
+    body = `
+      <div id="nova-mq-question" class="rounded-2xl bg-white p-5 text-[15px] leading-relaxed ring-1 ring-zinc-200 dark:bg-zinc-900 dark:ring-white/10 [word-break:keep-all]">${escHtml(q.question)}</div>
+      <div class="mt-3 space-y-2">
+        ${(q.options || []).map((opt, oi) => {
+          let cls = 'bg-white ring-zinc-200 hover:bg-zinc-50 dark:bg-zinc-900 dark:ring-white/10';
+          if (isAnswered) {
+            if (oi === q.correct) cls = 'bg-emerald-500 text-white ring-emerald-500';
+            else if (oi === chosen) cls = 'bg-red-500 text-white ring-red-500';
+            else cls = 'bg-white text-zinc-400 ring-zinc-200 dark:bg-zinc-900 dark:text-zinc-500 dark:ring-white/10';
+          }
+          return `
+          <button ${isAnswered ? 'disabled' : ''} onclick="novaMqAnswer('${kind}', ${oi})" class="flex w-full items-center gap-3 rounded-2xl p-4 text-left text-sm ring-1 transition-colors [word-break:keep-all] ${cls}">
+            <span class="shrink-0 font-semibold">${circleNums[oi] || oi + 1}</span><span>${escHtml(opt)}</span>
+          </button>`;
+        }).join('')}
+      </div>
+      ${isAnswered && q.explanation ? `<div id="nova-mq-explanation" class="mt-3 rounded-2xl bg-zinc-50 p-4 text-sm leading-relaxed ring-1 ring-zinc-200 dark:bg-white/5 dark:ring-white/10 [word-break:keep-all]">${renderExp(q.explanation)}</div>` : ''}
+    `;
+  }
+
+  setTimeout(() => {
+    try {
+      hlBind('nova-mq-question', hk, 'q');
+      if (document.getElementById('nova-mq-explanation')) hlBind('nova-mq-explanation', hk, 'e');
+    } catch (_) {}
+  }, 0);
+
+  return `
+    <div>
+      <div class="mb-4 flex items-center justify-between gap-3">
+        <div>
+          <div class="text-xs ${badgeColor}">${src ? `${escHtml(src.cat)} ${escHtml(src.round)}회차` : (kind === 'wq' ? '오답만 풀기' : '별표만 풀기')}</div>
+          <div class="text-sm font-semibold">Q${q.num || idx + 1} <span class="font-normal text-zinc-400">· ${idx + 1}/${total}</span></div>
+        </div>
+      </div>
+      <div class="h-1 overflow-hidden rounded-full bg-zinc-100 dark:bg-white/10"><i class="block h-full bg-zinc-900 dark:bg-white" style="width:${((idx + 1) / total * 100).toFixed(1)}%"></i></div>
+      <div class="mt-4">${body}</div>
+      <div class="mt-6 flex items-center justify-between gap-3">
+        <button onclick="novaMqPrev('${kind}')" ${idx === 0 ? 'disabled' : ''} class="rounded-full px-5 py-2.5 text-sm font-medium text-zinc-500 disabled:opacity-30 hover:text-zinc-900 dark:hover:text-white">이전</button>
+        <button onclick="novaMqNext('${kind}')" class="rounded-full bg-zinc-900 px-6 py-2.5 text-sm font-semibold text-white dark:bg-white dark:text-zinc-900">${idx === total - 1 ? '완료' : '다음'}</button>
+      </div>
+    </div>
+  `;
+}
+
 // ── 문제 데이터가 서버 한도(문서 하나 1MB)의 어디쯤인지 ────────────────
 // 그림은 한 장씩 따로 저장되므로 여기 포함되지 않는다. 문항 글자만 센다.
 const QDATA_LIMIT = 1048576;            // 1 MiB
@@ -17756,6 +17995,9 @@ applyRenderFlags();
 //   k: 'new'(새 기능) · 'fix'(고침) · 'chg'(바뀜)
 // ══════════════════════════════════════════════════════════════════════
 const PATCH_NOTES = [
+  { v: '260802-1936', at: '2026-08-02', items: [
+    { k: 'new', t: '<b>새 디자인(Beta)</b>의 복습 탭에 오답노트·별표가 추가됐습니다 — 자격증별로 걸러보고, "오답만/별표만 풀기"도 새 디자인 안에서 바로 됩니다. 모의고사는 아직 준비 중이라 누르면 기존 화면으로 이동해요' },
+  ]},
   { v: '260802-1929', at: '2026-08-02', items: [
     { k: 'new', t: '<b>새 디자인(Beta)</b>에 문제 풀이 화면이 추가됐습니다 — 객관식·주관식 풀이, 별표·암기·이어하기, 결과 화면, 문제만 보기, 정답지까지 전부 새 디자인 안에서 됩니다. 기록은 기존 화면과 완전히 같습니다' },
   ]},
@@ -17940,7 +18182,7 @@ function closePatchNotes() {
 // ── 앱 버전 ──
 // 폰이 옛 파일을 캐시해 두고 있는지 바로 확인할 수 있도록 화면에 표시한다.
 // (설정 맨 아래 · 개발자 도구 콘솔에도 찍힘)
-const APP_VERSION = '260802-1929';
+const APP_VERSION = '260802-1936';
 console.log('%c양진웅 Note 버전 ' + APP_VERSION, 'font-weight:bold');
 
 // PWA 서비스워커 등록
