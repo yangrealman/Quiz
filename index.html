@@ -1266,6 +1266,20 @@
   }
   .scroll-top-btn.show { display: flex; }
 
+  /* [수정] 계산기 — 상단바 상시 노출을 없애고 문제풀이 화면에서만 뜨는 플로팅 버튼으로 */
+  .calc-fab {
+    position: fixed; bottom: 88px; left: 16px; z-index: 99;
+    width: 40px; height: 40px; border-radius: 50%;
+    background: var(--card); color: var(--gray-500);
+    border: 1px solid var(--card-border);
+    cursor: pointer; box-shadow: var(--shadow-md);
+    display: none; align-items: center; justify-content: center;
+    transition: opacity 0.2s, transform 0.2s, color 0.15s;
+  }
+  .calc-fab.show { display: flex; }
+  .calc-fab.on { color: var(--primary); border-color: var(--primary); }
+  @media (min-width: 601px) { .calc-fab { bottom: 88px; } }
+
   /* [수정] 배경에 --gray-900 을 쓰고 있었는데, 다크모드에선 이 값이 거의 흰색으로 뒤집혀
      흰 배경 + 흰 글자가 되어 글씨가 안 보였다.
      → 테마와 무관하게 고정된 색을 쓰고, 다크에서는 앱 카드 톤에 맞춘 유리 알약으로 */
@@ -2366,6 +2380,33 @@
     .mst-row { grid-template-columns: 72px 1fr 34px; gap: 8px; }
     .mst-catsel { max-width: 100%; }
   }
+
+  /* [추가] 홈 — 학습 스트릭 / 주간 트렌드 (bumpDailyStat 기록을 처음으로 시각화) */
+  .streak-card .mst-head { margin-bottom: 14px; }
+  .streak-badge {
+    font-size: 12px; font-weight: 700; color: var(--primary);
+    background: var(--tint-primary); border-radius: 999px; padding: 4px 10px;
+  }
+  .streak-week { display: flex; justify-content: space-between; gap: 6px; }
+  .streak-day {
+    flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px;
+  }
+  .streak-count { font-size: 10px; font-weight: 700; color: var(--gray-400); min-height: 12px; }
+  .streak-bar-track {
+    width: 100%; max-width: 26px; height: 56px; border-radius: 6px;
+    background: var(--gray-100); display: flex; align-items: flex-end; overflow: hidden;
+  }
+  .streak-bar-fill {
+    display: block; width: 100%; border-radius: 6px;
+    background: linear-gradient(180deg, var(--mock), var(--primary));
+    transition: height 0.5s cubic-bezier(0.22,1,0.36,1);
+  }
+  .streak-dow { font-size: 11px; font-weight: 700; color: var(--gray-500); }
+  .streak-day.today .streak-dow { color: var(--primary); }
+  .streak-day.today .streak-bar-track { background: var(--tint-primary); }
+  body.dark .streak-bar-track { background: var(--navy-1); }
+  body.dark .streak-day.today .streak-bar-track { background: var(--tint-primary); }
+
   /* ══ 암기도 슬라이더 (손잡이만 조작 가능) ══ */
   .mst-slider {
     position: relative;
@@ -3942,7 +3983,7 @@
 
   /* 8) 인쇄 시 정리 (시험지 출력 대비) */
   @media print {
-    nav, .nav-mobile-tabs, .scroll-top, .app-footer, .calc-popup { display: none !important; }
+    nav, .nav-mobile-tabs, .scroll-top, .calc-fab, .app-footer, .calc-popup { display: none !important; }
     .page { display: block !important; }
     body { background: #fff; }
   }
@@ -5113,10 +5154,10 @@
   .calc-popup {
     display: none;
     position: fixed;
-    right: 14px;
-    top: 68px;                                  /* [수정] 상단바 계산기 버튼 바로 아래에서 열림 */
+    left: 14px;
+    bottom: calc(140px + env(safe-area-inset-bottom, 0px));   /* [수정] 문제풀이 화면 계산기 버튼 바로 위에서 열림 */
     width: min(340px, calc(100vw - 28px));
-    max-height: calc(100vh - 150px);
+    max-height: calc(100vh - 220px);
     background-color: var(--card);
     border: 1px solid var(--card-border);
     border-radius: 16px;
@@ -5126,11 +5167,10 @@
     flex-direction: column;
   }
   .calc-popup.show { display: flex; animation: calcIn 0.22s cubic-bezier(0.22,1,0.36,1); }
-  @keyframes calcIn { from { opacity: 0; transform: translateY(-12px) scale(0.97); } }
+  @keyframes calcIn { from { opacity: 0; transform: translateY(12px) scale(0.97); } }
   .calc-body { overflow-y: auto; }
-  @media (max-width: 600px) { .calc-popup { top: 60px; max-height: calc(100vh - 130px); } }
+  @media (max-width: 600px) { .calc-popup { bottom: calc(132px + env(safe-area-inset-bottom, 0px)); max-height: calc(100vh - 200px); } }
   body.reduce-motion .calc-popup.show { animation: none; }
-  #calc-toggle.on { color: var(--primary); }
   .calc-header {
     display: flex; align-items: center; justify-content: space-between;
     padding: 11px 14px;
@@ -6167,6 +6207,7 @@
   /* [디테일] 노치/홈바 있는 기기의 안전영역 확보 (탭바는 이미 처리되어 있음) */
   .app-footer { padding-bottom: calc(40px + env(safe-area-inset-bottom, 0px)); }
   .scroll-top { bottom: calc(88px + env(safe-area-inset-bottom, 0px)); }
+  .calc-fab { bottom: calc(88px + env(safe-area-inset-bottom, 0px)); }
 
   /* [디테일] 키보드로 이동할 때 초점이 어디 있는지 확실히 */
   .set-switch:focus-visible,
@@ -6526,7 +6567,6 @@
       <button class="nav-tab" data-tab="memo-tab" onclick="goPage('memo-tab')"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-note"/></svg>메모</button>
     </div>
     <div class="nav-right">
-      <button class="nav-reset" id="calc-toggle" onclick="toggleCalc()" title="계산기 (분수 계산)" aria-label="계산기"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-calc"/></svg></button>
       <button id="dark-toggle" onclick="toggleDarkMode()" title="다크모드 전환"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-moon"/></svg></button>
       <button class="nav-reset" onclick="goPage('settings')" title="설정"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-sliders"/></svg></button>
       <button id="nav-clock" onclick="toggleSchedPopup()" title="일정까지 남은 시간" aria-label="일정까지 남은 시간"></button>
@@ -7256,6 +7296,11 @@
 <div class="scroll-top">
   <button class="scroll-top-btn" id="scroll-top-btn" onclick="window.scrollTo({top:0,behavior:'smooth'})">↑</button>
 </div>
+
+<!-- [수정] 계산기 버튼 — 상단바 상시 노출에서 문제풀이 화면 전용 플로팅 버튼으로 변경 -->
+<button class="calc-fab" id="calc-fab" onclick="toggleCalc()" title="계산기 (분수 계산)" aria-label="계산기">
+  <svg class="ic" viewBox="0 0 24 24"><use href="#ic-calc"/></svg>
+</button>
 
 <!-- 토스트 -->
 <div class="toast" id="toast"></div>
@@ -8865,6 +8910,7 @@ function _goPageNow(name) {
     initMemoTab();
   }
   updateResumeFab();
+  updateCalcFab();
   if (name === 'memo-tab' && typeof renderMemoLinks === 'function') renderMemoLinks();
   if (name === 'settings' && typeof renderSettings === 'function') renderSettings();
 
@@ -9457,6 +9503,48 @@ function renderQuickLinks() {
   `).join('') + `<button class="qlink-add-btn" onclick="addQuickLink()"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-plus"/></svg> 추가</button>`;
 }
 
+// ── 홈 — 학습 스트릭 / 주간 트렌드 (bumpDailyStat이 쌓아온 quiz_daily 시각화) ──
+function renderStreakPanel() {
+  const el = document.getElementById('streak-panel');
+  if (!el) return;
+  const stats = getDailyStats();
+  const dowLabel = ['일', '월', '화', '수', '목', '금', '토'];
+
+  // 최근 7일(오늘 포함, 오래된 순)
+  const days = [];
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    const k = todayKey(d);
+    days.push({ count: stats[k] || 0, dow: dowLabel[d.getDay()], isToday: i === 0 });
+  }
+  const maxCount = Math.max(1, ...days.map(d => d.count));
+
+  // 연속 학습일 — 오늘 기록이 아직 없으면 어제부터 거슬러 올라간다
+  let streak = 0;
+  const cursor = new Date();
+  if (!(stats[todayKey(cursor)] > 0)) cursor.setDate(cursor.getDate() - 1);
+  while (stats[todayKey(cursor)] > 0) { streak++; cursor.setDate(cursor.getDate() - 1); }
+
+  el.innerHTML = `
+    <div class="mst-card streak-card">
+      <div class="mst-head">
+        <span class="mst-title">🔥 학습 스트릭</span>
+        <span class="streak-badge">${streak > 0 ? `${streak}일 연속` : '오늘부터 시작해봐요'}</span>
+      </div>
+      <div class="streak-week">
+        ${days.map(d => `
+          <div class="streak-day ${d.isToday ? 'today' : ''}" title="${d.count}문제">
+            <div class="streak-count">${d.count || ''}</div>
+            <div class="streak-bar-track"><i class="streak-bar-fill" style="height:${d.count ? Math.max(10, d.count / maxCount * 100) : 0}%"></i></div>
+            <div class="streak-dow">${d.dow}</div>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+  `;
+}
+
 function renderDashboard() {
   const main = document.getElementById('dashboard-main');
   if (!main) return;
@@ -9504,8 +9592,9 @@ function renderDashboard() {
     ? `<div class="home-duo">${_bms.map(renderResumeCard).join('')}</div>`
     : _bms.map(renderResumeCard).join('');
   const qlinksCard = `<div class="home-card qlinks-card"><div class="qlinks-row" id="qlinks-row"></div></div>`;
-  main.innerHTML = qlinksCard + ddayRows + resumeRow + '<div id="mst-panel"></div>';
+  main.innerHTML = qlinksCard + ddayRows + resumeRow + '<div id="streak-panel"></div>' + '<div id="mst-panel"></div>';
   renderQuickLinks();
+  renderStreakPanel();
   // [되돌림] 다음 프레임으로 미뤘더니 한 프레임 동안 화면이 짧아져
   //          모바일에서 아래쪽에 흰 여백이 번쩍였다 → 다시 같은 프레임에 그린다
   renderMasteryPanel();
@@ -10199,6 +10288,19 @@ function updateResumeFab() {
     && currentQuiz && currentQuiz.questions && currentQuiz.questions.length
     && currentPage !== 'quiz';
   fab.style.display = show ? 'flex' : 'none';
+}
+
+// [수정] 계산기는 상단바에 상시 노출하지 않고, 실제로 계산이 필요한 문제풀이 화면에서만 띄운다
+const CALC_FAB_PAGES = ['quiz', 'wrong-quiz', 'star-quiz', 'mock-quiz', 'mock-wrong-quiz'];
+function updateCalcFab() {
+  const fab = document.getElementById('calc-fab');
+  if (!fab) return;
+  const show = CALC_FAB_PAGES.includes(currentPage);
+  fab.classList.toggle('show', show);
+  if (!show) {
+    const p = document.getElementById('calc-popup');
+    if (p && p.classList.contains('show')) toggleCalc();
+  }
 }
 
 // ══════════════════════════════════════════════════════════════════════
@@ -11820,7 +11922,7 @@ function toggleCalc() {
   const p = document.getElementById('calc-popup');
   if (!p) return;
   const open = p.classList.toggle('show');
-  document.getElementById('calc-toggle')?.classList.toggle('on', open);
+  document.getElementById('calc-fab')?.classList.toggle('on', open);
   if (open) {
     renderCalcKeys(); renderCalcHist();
     setTimeout(() => document.getElementById('calc-input')?.focus(), 120);
@@ -11831,7 +11933,7 @@ function toggleCalc() {
 document.addEventListener('click', (e) => {
   const p = document.getElementById('calc-popup');
   if (!p || !p.classList.contains('show')) return;
-  if (e.target.closest && e.target.closest('.calc-popup, #calc-toggle')) return;
+  if (e.target.closest && e.target.closest('.calc-popup, #calc-fab')) return;
   toggleCalc();
 });
 
@@ -16249,7 +16351,7 @@ function startClock() {
     if (!swipeOn()) return;
     const t = e.target;
     // 입력/스크롤 위젯 위에서 시작한 터치만 제외 (버튼·보기 위에서도 스와이프 가능해야 함)
-    if (t && t.closest && t.closest('input, textarea, select, .mst-slider, .weather-hours, .cal-popup, .calc-popup, .hl-zone, .hl-toolbar, .q-img-box, #quiz-progress-bar, #sq-progress-bar, [data-noswipe]')) return;
+    if (t && t.closest && t.closest('input, textarea, select, .mst-slider, .weather-hours, .cal-popup, .calc-popup, .calc-fab, .hl-zone, .hl-toolbar, .q-img-box, #quiz-progress-bar, #sq-progress-bar, [data-noswipe]')) return;
     sx = mx = e.touches[0].clientX;
     sy = my = e.touches[0].clientY;
     startT = Date.now();
@@ -17094,6 +17196,7 @@ window.addEventListener('focus', () => {
 });
 setupMemoSync();
 updateResumeFab();
+updateCalcFab();
 setupQuizScrubber();
 
 
@@ -17211,6 +17314,10 @@ applyRenderFlags();
 //   k: 'new'(새 기능) · 'fix'(고침) · 'chg'(바뀜)
 // ══════════════════════════════════════════════════════════════════════
 const PATCH_NOTES = [
+  { v: '260804-0143', at: '2026-08-04', items: [
+    { k: 'new', t: '홈 화면에 <b>학습 스트릭</b>이 추가됐습니다 — 연속 학습일과 최근 7일간 푼 문제 수를 막대그래프로 보여줍니다' },
+    { k: 'chg', t: '<b>계산기</b> 아이콘을 상단바 상시 노출에서 빼고, 문제풀이 화면에서만 뜨는 버튼으로 옮겼습니다' },
+  ]},
   { v: '260804-0120', at: '2026-08-04', items: [
     { k: 'chg', t: '<b>메모 탭</b>의 Tab/Ctrl+휠 안내 문구를 없앴고, <b>문제 불러오기</b>는 암기칸·자유 메모 아래로 옮겼습니다' },
     { k: 'new', t: '메모 탭 암기칸에 <b>전체화면</b> 버튼을 추가했습니다 — 자유 메모·글자 크기 조절이 숨겨지고 암기칸만 화면 전체를 채우며, Tab 키로 가리기/보이기도 그대로 동작합니다' },
@@ -17415,7 +17522,7 @@ function closePatchNotes() {
 // ── 앱 버전 ──
 // 폰이 옛 파일을 캐시해 두고 있는지 바로 확인할 수 있도록 화면에 표시한다.
 // (설정 맨 아래 · 개발자 도구 콘솔에도 찍힘)
-const APP_VERSION = '260804-0120';
+const APP_VERSION = '260804-0143';
 console.log('%c양진웅 Note 버전 ' + APP_VERSION, 'font-weight:bold');
 
 // PWA 서비스워커 등록
