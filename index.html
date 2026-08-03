@@ -1576,8 +1576,11 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 6px 0;
     flex-shrink: 0;
   }
+  .memo-tab-label > span:last-child { flex-wrap: wrap; justify-content: flex-end; }
   .memo-tab-textarea {
     flex: 1;
     width: 100%;
@@ -1610,6 +1613,16 @@
     gap: 8px;
     padding: 0 4px;
   }
+  body.memo-fs nav,
+  body.memo-fs .nav-mobile-tabs,
+  body.memo-fs .scroll-top,
+  body.memo-fs .app-footer { display: none !important; }
+  #page-memo-tab.memo-fullscreen .memo-fs-hide { display: none !important; }
+  #page-memo-tab.memo-fullscreen .memo-tab-outer { padding: 8px; }
+  #page-memo-tab.memo-fullscreen .memo-tab-container { height: calc(100vh - 16px); }
+  #page-memo-tab.memo-fullscreen .memo-tab-pane { margin-bottom: 0; }
+  #page-memo-tab.memo-fullscreen .memo-tab-label { flex-wrap: wrap; }
+  #memo-tab-fullscreen-btn.active { background: var(--primary); color: #fff; border-color: var(--primary); }
   body.dark .memo-tab-pane { background: var(--gray-100); border-color: var(--gray-200); }
   body.dark .memo-tab-label { background: var(--gray-50); border-color: var(--gray-200); }
   body.dark .memo-tab-textarea { background: var(--gray-100); color: var(--gray-700); }
@@ -5476,6 +5489,45 @@
   .rc-close:hover { color: var(--danger); background: var(--danger-light); }
   body.dark .resume-card { background-color: var(--card); }
 
+  /* [추가] 홈 배너 바로가기 링크 — 사용자가 직접 추가/수정/삭제 */
+  .qlinks-card {
+    background-color: var(--card);
+    border: 1px solid var(--card-border);
+    padding: 10px 12px;
+    cursor: default;
+  }
+  .qlinks-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .qlink-wrap {
+    display: inline-flex; align-items: stretch;
+    border-radius: 999px; overflow: hidden;
+    border: 1px solid var(--card-border);
+    background: var(--tint-primary);
+  }
+  .qlink-wrap:hover { border-color: var(--primary); }
+  .qlink-btn {
+    font-size: 12px; font-weight: 700;
+    padding: 6px 12px; border: none; background: none; color: var(--primary);
+    cursor: pointer; font-family: inherit; white-space: nowrap;
+  }
+  .qlink-edit, .qlink-x {
+    border: none; border-left: 1px solid var(--card-border);
+    background: none; color: var(--gray-400);
+    padding: 0 7px; cursor: pointer; font-family: inherit;
+    display: flex; align-items: center;
+    transition: color 0.14s, background 0.14s;
+  }
+  .qlink-edit:hover { color: var(--primary); background: var(--card); }
+  .qlink-x:hover { color: var(--danger); background: var(--danger-light); }
+  .qlink-add-btn {
+    display: inline-flex; align-items: center; gap: 4px;
+    font-size: 12px; font-weight: 700;
+    padding: 6px 12px; border-radius: 999px;
+    border: 1px dashed var(--card-border);
+    background: none; color: var(--text-sub);
+    cursor: pointer; font-family: inherit;
+  }
+  .qlink-add-btn:hover { border-color: var(--primary); color: var(--primary); }
+
   /* ═══════════════════════════════════════════════════════════
      [추가] 접힌 소개 줄 (B안) — 카드 어법의 얇은 바
      ═══════════════════════════════════════════════════════════ */
@@ -6456,6 +6508,8 @@
     <g id="ic-package"><path d="M12 3.5l8 4v9l-8 4-8-4v-9z"/><path d="M4 7.5l8 4 8-4"/><path d="M12 11.5v9"/></g>
     <g id="ic-pin"><path d="M12 21v-6.5"/><path d="M8 3.5h8l-1 5 2.5 2.5v1.5H6.5V11L9 8.5z"/></g>
     <g id="ic-target"><circle cx="12" cy="12" r="8.2"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="0.9" fill="currentColor" stroke="none"/></g>
+    <g id="ic-expand"><path d="M9 4.5H4.5V9"/><path d="M15 4.5h4.5V9"/><path d="M9 19.5H4.5V15"/><path d="M15 19.5h4.5V15"/></g>
+    <g id="ic-shrink"><path d="M4.5 9V4.5H9"/><path d="M19.5 9V4.5H15"/><path d="M4.5 15v4.5H9"/><path d="M19.5 15v4.5H15"/></g>
   </defs>
 </svg>
 
@@ -7133,7 +7187,7 @@
 </div>
 
 <div id="page-memo-tab" class="page">
-  <div class="container" style="padding-top:12px;">
+  <div class="container memo-fs-hide" style="padding-top:12px;">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
       <div class="page-title" style="margin-bottom:0;">📒 메모장</div>
       <div class="font-size-bar">
@@ -7143,17 +7197,9 @@
         <button onclick="changeMemoTabFontSize(1)" style="background:var(--gray-100);border:1px solid var(--gray-200);border-radius:6px;padding:3px 10px;cursor:pointer;font-size:14px;font-weight:700;color:var(--gray-700);">A+</button>
       </div>
     </div>
-    <div style="font-size:11px;color:var(--gray-400);margin-bottom:12px;"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-bulb"/></svg> 아래 칸에서 <b>Tab 키</b>를 누르면 위 칸 가리기/보이기 · Ctrl+휠로도 글자 크기 조절 가능</div>
-
-    <div class="memo-loader">
-      <span class="memo-loader-label"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-download"/></svg> 문제 불러오기</span>
-      <select id="memo-load-cat" class="memo-load-sel" onchange="onMemoLoadCat()"></select>
-      <select id="memo-load-round" class="memo-load-sel" onchange="onMemoLoadRound()"></select>
-      <select id="memo-load-num" class="memo-load-sel"></select>
-      <button class="memo-load-btn" onclick="loadQuestionToMemo()">암기칸에 불러오기</button>
-    </div>
-
-    <div class="memo-tab-container">
+  </div>
+  <div class="container memo-tab-outer" id="memo-tab-outer" style="padding-top:0;">
+    <div class="memo-tab-container" id="memo-tab-container">
       <!-- 위 칸: 암기용 -->
       <div class="memo-tab-pane">
         <div class="memo-tab-label">
@@ -7161,6 +7207,7 @@
           <span style="display:flex; gap:6px;">
             <button onclick="clearAnki()" style="background:none;border:1px solid var(--gray-300);border-radius:6px;padding:2px 10px;font-size:11px;cursor:pointer;color:var(--gray-600);" title="암기칸 비우기"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-trash"/></svg> 지우기</button>
             <button id="memo-tab-hide-btn" onclick="toggleMemoTabHide()" style="background:none;border:1px solid var(--gray-300);border-radius:6px;padding:2px 10px;font-size:11px;cursor:pointer;color:var(--gray-600);">가리기 👁</button>
+            <button id="memo-tab-fullscreen-btn" onclick="toggleMemoFullscreen()" style="background:none;border:1px solid var(--gray-300);border-radius:6px;padding:2px 10px;font-size:11px;cursor:pointer;color:var(--gray-600);" title="암기칸 전체화면"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-expand"/></svg> 전체화면</button>
           </span>
         </div>
         <div class="memo-links" id="memo-links-tab"></div>
@@ -7172,13 +7219,21 @@
       </div>
 
       <!-- 아래 칸: 자유 메모 -->
-      <div class="memo-tab-pane">
+      <div class="memo-tab-pane memo-fs-hide">
         <div class="memo-tab-label">
           <span>🗒 자유 메모</span>
           <button onclick="document.getElementById('memo-tab-bottom').value=''" style="background:none;border:1px solid var(--gray-300);border-radius:6px;padding:2px 10px;font-size:11px;cursor:pointer;color:var(--gray-600);">지우기</button>
         </div>
         <textarea class="memo-tab-textarea" id="memo-tab-bottom" spellcheck="false" placeholder="자유롭게 타이핑하세요..."></textarea>
       </div>
+    </div>
+
+    <div class="memo-loader memo-fs-hide">
+      <span class="memo-loader-label"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-download"/></svg> 문제 불러오기</span>
+      <select id="memo-load-cat" class="memo-load-sel" onchange="onMemoLoadCat()"></select>
+      <select id="memo-load-round" class="memo-load-sel" onchange="onMemoLoadRound()"></select>
+      <select id="memo-load-num" class="memo-load-sel"></select>
+      <button class="memo-load-btn" onclick="loadQuestionToMemo()">암기칸에 불러오기</button>
     </div>
   </div>
 </div>
@@ -7653,7 +7708,7 @@ async function syncFromFirebase() {
   _syncing = true;
   showSyncStatus('☁️ 동기화 중...'); setSyncDot('busy');
   try {
-    const keys = ['quiz_progress','quiz_wrong','quiz_categories','quiz_starred','mock_records','mock_wrong','cal_data','quiz_checks','resume_bookmark','quiz_mastery','quiz_daily','quiz_qmemo','quiz_memo_links','quiz_img_index','quiz_srs','quiz_hl','quiz_imgw'];
+    const keys = ['quiz_progress','quiz_wrong','quiz_categories','quiz_starred','mock_records','mock_wrong','cal_data','quiz_checks','resume_bookmark','quiz_mastery','quiz_daily','quiz_qmemo','quiz_memo_links','quiz_img_index','quiz_srs','quiz_hl','quiz_imgw','quiz_quick_links'];
     // [추가] 문제 데이터는 회차별 구조라 따로 맞춘다 (색인 먼저 → 바뀐 회차만)
     await syncQuizData();
 
@@ -8766,6 +8821,7 @@ function _goPageNow(name) {
     // 문제 화면을 떠날 때는 다른 기기에서도 이어할 수 있게 서버에도 남긴다
     if (currentPage === 'quiz' && typeof syncResumeFromQuiz === 'function') syncResumeFromQuiz();
   }
+  if (currentPage === 'memo-tab' && name !== 'memo-tab' && typeof exitMemoFullscreen === 'function') exitMemoFullscreen();
   const target = document.getElementById('page-' + name);
   if (!target) { console.warn('페이지 없음:', name); return; }
 
@@ -9336,6 +9392,71 @@ function renderHeroBanner() {
   `;
 }
 
+// ── 홈 배너 바로가기 링크 — 사용자가 직접 추가·수정·삭제 ──
+function getQuickLinks() { return _getCache('quiz_quick_links', [{ id: 'ql_qnet', label: '큐넷', url: 'https://www.q-net.or.kr/' }]); }
+function saveQuickLinks(list) { syncToFirebase('quiz_quick_links', list); }
+
+function _normalizeLinkUrl(u) {
+  u = (u || '').trim();
+  if (!u) return '';
+  if (!/^https?:\/\//i.test(u)) u = 'https://' + u;
+  return u;
+}
+
+function addQuickLink() {
+  const label = prompt('바로가기 이름을 입력하세요 (예: 큐넷)', '');
+  if (label == null || !label.trim()) return;
+  const url = _normalizeLinkUrl(prompt('연결할 주소를 입력하세요 (예: q-net.or.kr)', ''));
+  if (!url) { showToast('주소를 입력해야 추가돼요'); return; }
+  const list = getQuickLinks();
+  list.push({ id: 'ql_' + Date.now(), label: label.trim(), url });
+  saveQuickLinks(list);
+  renderQuickLinks();
+  showToast('바로가기를 추가했어요');
+}
+
+function editQuickLink(id) {
+  const list = getQuickLinks();
+  const item = list.find(l => l.id === id);
+  if (!item) return;
+  const label = prompt('바로가기 이름을 수정하세요', item.label);
+  if (label == null || !label.trim()) return;
+  const url = _normalizeLinkUrl(prompt('연결할 주소를 수정하세요', item.url));
+  if (!url) { showToast('주소를 입력해야 저장돼요'); return; }
+  item.label = label.trim();
+  item.url = url;
+  saveQuickLinks(list);
+  renderQuickLinks();
+  showToast('바로가기를 수정했어요');
+}
+
+function removeQuickLink(id) {
+  const list = getQuickLinks();
+  const item = list.find(l => l.id === id);
+  if (!item) return;
+  if (!confirm(`"${item.label}" 바로가기를 삭제할까요?`)) return;
+  saveQuickLinks(list.filter(l => l.id !== id));
+  renderQuickLinks();
+  showToast('바로가기를 삭제했어요');
+}
+
+function openQuickLink(url) {
+  window.open(url, '_blank', 'noopener');
+}
+
+function renderQuickLinks() {
+  const el = document.getElementById('qlinks-row');
+  if (!el) return;
+  const list = getQuickLinks();
+  el.innerHTML = list.map(l => `
+    <span class="qlink-wrap">
+      <button class="qlink-btn" onclick="openQuickLink('${escArg(l.url)}')">${escHtml(l.label)}</button>
+      <button class="qlink-edit" onclick="editQuickLink('${escArg(l.id)}')" title="수정" aria-label="수정"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-pencil"/></svg></button>
+      <button class="qlink-x" onclick="removeQuickLink('${escArg(l.id)}')" title="삭제" aria-label="삭제"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-x"/></svg></button>
+    </span>
+  `).join('') + `<button class="qlink-add-btn" onclick="addQuickLink()"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-plus"/></svg> 추가</button>`;
+}
+
 function renderDashboard() {
   const main = document.getElementById('dashboard-main');
   if (!main) return;
@@ -9382,7 +9503,9 @@ function renderDashboard() {
   const resumeRow = _bms.length > 1
     ? `<div class="home-duo">${_bms.map(renderResumeCard).join('')}</div>`
     : _bms.map(renderResumeCard).join('');
-  main.innerHTML = ddayRows + resumeRow + '<div id="mst-panel"></div>';
+  const qlinksCard = `<div class="home-card qlinks-card"><div class="qlinks-row" id="qlinks-row"></div></div>`;
+  main.innerHTML = qlinksCard + ddayRows + resumeRow + '<div id="mst-panel"></div>';
+  renderQuickLinks();
   // [되돌림] 다음 프레임으로 미뤘더니 한 프레임 동안 화면이 짧아져
   //          모바일에서 아래쪽에 흰 여백이 번쩍였다 → 다시 같은 프레임에 그린다
   renderMasteryPanel();
@@ -14452,6 +14575,7 @@ const _origSetExamDate = typeof setExamDate === 'function' ? setExamDate : null;
 // ── 메모 탭 ──
 let memoTabFontSize = 15;
 let memoTabHidden = false;
+let memoFullscreen = false;
 
 function initMemoTab() {
   applyMemoTabFontSize();
@@ -15540,6 +15664,26 @@ function toggleMemoTabHide() {
   }
 }
 
+// 암기칸 전체화면 — 자유 메모칸/글자크기 바를 숨기고 암기칸만 화면 전체로 확대
+function toggleMemoFullscreen() {
+  memoFullscreen = !memoFullscreen;
+  const page = document.getElementById('page-memo-tab');
+  const btn = document.getElementById('memo-tab-fullscreen-btn');
+  if (page) page.classList.toggle('memo-fullscreen', memoFullscreen);
+  document.body.classList.toggle('memo-fs', memoFullscreen);
+  if (btn) {
+    btn.classList.toggle('active', memoFullscreen);
+    btn.innerHTML = memoFullscreen
+      ? '<svg class="ic" viewBox="0 0 24 24"><use href="#ic-shrink"/></svg> 전체화면 종료'
+      : '<svg class="ic" viewBox="0 0 24 24"><use href="#ic-expand"/></svg> 전체화면';
+  }
+}
+
+function exitMemoFullscreen() {
+  if (!memoFullscreen) return;
+  toggleMemoFullscreen();
+}
+
 // 팝업 메모장 스페이스바 가리기
 let popupMemoHidden = false;
 function togglePopupMemoHide() {
@@ -15564,7 +15708,10 @@ document.addEventListener('keydown', function(e) {
   if (e.code === 'Tab' && !e.ctrlKey && !e.metaKey && !e.shiftKey) {
     if (currentPage === 'memo-tab') {
       const bottom = document.getElementById('memo-tab-bottom');
-      if (document.activeElement === bottom) {
+      const top = document.getElementById('memo-tab-top');
+      // 전체화면 모드에선 자유 메모칸이 없으니 암기칸 자체에서 Tab을 눌러도 동일하게 가리기/보이기
+      const target = memoFullscreen ? top : bottom;
+      if (document.activeElement === target) {
         e.preventDefault();
         toggleMemoTabHide();
         return;
@@ -16797,7 +16944,7 @@ function renderSettings() {
 //  - 모의고사 기록(mock_records / mock_wrong)도 빠져 있어서 추가
 const BACKUP_KEYS = ['quiz_categories','quiz_data','quiz_progress','quiz_wrong','quiz_checks',
                      'resume_bookmark','quiz_mastery','quiz_starred','quiz_daily','quiz_qmemo',
-                     'quiz_memo_links','cal_data','mock_records','mock_wrong','quiz_srs','quiz_hl','quiz_imgw'];
+                     'quiz_memo_links','cal_data','mock_records','mock_wrong','quiz_srs','quiz_hl','quiz_imgw','quiz_quick_links'];
 
 async function exportBackup() {
   try {
@@ -17064,6 +17211,11 @@ applyRenderFlags();
 //   k: 'new'(새 기능) · 'fix'(고침) · 'chg'(바뀜)
 // ══════════════════════════════════════════════════════════════════════
 const PATCH_NOTES = [
+  { v: '260804-0120', at: '2026-08-04', items: [
+    { k: 'chg', t: '<b>메모 탭</b>의 Tab/Ctrl+휠 안내 문구를 없앴고, <b>문제 불러오기</b>는 암기칸·자유 메모 아래로 옮겼습니다' },
+    { k: 'new', t: '메모 탭 암기칸에 <b>전체화면</b> 버튼을 추가했습니다 — 자유 메모·글자 크기 조절이 숨겨지고 암기칸만 화면 전체를 채우며, Tab 키로 가리기/보이기도 그대로 동작합니다' },
+    { k: 'new', t: '홈 화면 상단에 <b>바로가기 링크</b>를 추가했습니다 — 큐넷 사이트 등 자주 쓰는 링크를 직접 추가·수정·삭제할 수 있어요' },
+  ]},
   { v: '260803-0228', at: '2026-08-03', items: [
     { k: 'chg', t: '<b>암기도 색상</b>을 3단계(빨강·노랑·초록)에서 6단계로 세분화했습니다 — 완벽(90%+)·거의(70–89%)·절반(50–69%)·부족(21–49%)·많이부족(1–20%)·아직(0%). 극단으로 갈수록 색이 진해집니다' },
   ]},
@@ -17263,7 +17415,7 @@ function closePatchNotes() {
 // ── 앱 버전 ──
 // 폰이 옛 파일을 캐시해 두고 있는지 바로 확인할 수 있도록 화면에 표시한다.
 // (설정 맨 아래 · 개발자 도구 콘솔에도 찍힘)
-const APP_VERSION = '260803-0228';
+const APP_VERSION = '260804-0120';
 console.log('%c양진웅 Note 버전 ' + APP_VERSION, 'font-weight:bold');
 
 // PWA 서비스워커 등록
