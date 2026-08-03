@@ -7780,6 +7780,9 @@ async function syncFromFirebase() {
   //        → 성공/실패와 상관없이 항상 배경에서 시도
   if (typeof fetchMissingQImgs === 'function') fetchMissingQImgs();
   if (typeof flushQImgUploads === 'function') flushQImgUploads();   // 밀린 그림 업로드 마저 처리
+  // [추가] 별표·오답에 예전 형식(문제 통째로 복사)으로 남은 항목을 조용히 정리
+  //        (회차 원본으로 확인되는 것만 정리하므로 여러 번 돌아도 안전)
+  if (typeof slimWrongAndStarredEntries === 'function') slimWrongAndStarredEntries();
   // 화면 갱신은 동기화 성공/실패와 분리. 지금 보고 있는 화면만 갱신 (문제 풀이 중 방해 금지)
   try {
     if (currentPage === 'dashboard') renderDashboard();
@@ -8296,6 +8299,70 @@ function saveCategories(c) { syncToFirebase('quiz_categories', c); }
 function getStarred() { return _getCache('quiz_starred', {}); }
 function saveStarred(s) { syncToFirebase('quiz_starred', s); }
 
+// ══════════════════════════════════════════════════════════════════════
+// 별표·오답 항목의 문제 원본 찾기
+//
+//  예전엔 별표/오답을 만들 때마다 문제(지문·보기·해설)를 통째로 복사해서
+//  같이 저장했다. 문제는 이미 회차별 문제은행에 있는데 항목마다 또 들고
+//  있으니, 별표 하나 바꿀 때마다 전체 목록을 다시 보내는 동기화가 갈수록
+//  무거워졌다 (별표가 많을수록 매번 보내는 양이 계속 커짐).
+//
+//  이제 새로 만드는 항목은 qId(자격증·회차·문제번호로 찾아올 수 있는 값)만
+//  저장한다. 예전 항목(q가 그대로 들어있는 것)도 계속 읽을 수 있어야 하므로,
+//  아래 두 함수가 "회차 원본 우선, 없으면 예전 사본" 순서로 항상 찾아준다.
+// ══════════════════════════════════════════════════════════════════════
+function _entryQId(entry) {
+  if (entry.qId != null) return entry.qId;
+  return entry.q ? (entry.q.id || entry.q.num) : undefined;
+}
+
+function resolveEntryQ(entry) {
+  const qId = _entryQId(entry);
+  if (qId != null) {
+    const found = getRound(entry.cat, entry.round)
+      .find(x => String(x.id) === String(qId) || String(x.num) === String(qId));
+    if (found) return found;
+  }
+  return entry.q || null;    // 회차에서 못 찾으면(회차 삭제 등) 예전 사본이라도 사용
+}
+
+// 예전 항목 중 회차 원본으로 확인되는 것만 사본을 지운다 — 확인 안 되는 항목은
+// 절대 손대지 않으므로 잘못 지워질 일이 없다. 이미 가벼운 항목은 그대로 지나간다.
+function slimWrongAndStarredEntries() {
+  try {
+    const wrongs = getWrongAnswers();
+    let changed = false;
+    const slimmed = wrongs.map(w => {
+      if (!w.q) return w;
+      const qId = _entryQId(w);
+      const found = getRound(w.cat, w.round)
+        .find(x => String(x.id) === String(qId) || String(x.num) === String(qId));
+      if (!found) return w;
+      changed = true;
+      const { q, ...rest } = w;
+      return { ...rest, qId };
+    });
+    if (changed) saveWrongAnswers(slimmed);
+  } catch (e) { console.warn('오답 정리 실패:', e); }
+
+  try {
+    const starred = getStarred();
+    let changed = false;
+    const slimmed = {};
+    Object.entries(starred).forEach(([key, w]) => {
+      if (!w.q) { slimmed[key] = w; return; }
+      const qId = _entryQId(w);
+      const found = getRound(w.cat, w.round)
+        .find(x => String(x.id) === String(qId) || String(x.num) === String(qId));
+      if (!found) { slimmed[key] = w; return; }
+      changed = true;
+      const { q, ...rest } = w;
+      slimmed[key] = { ...rest, qId };
+    });
+    if (changed) saveStarred(slimmed);
+  } catch (e) { console.warn('별표 정리 실패:', e); }
+}
+
 function getChecks() { return _getCache('quiz_checks', {}); }
 function saveChecks(d) { syncToFirebase('quiz_checks', d); }
 
@@ -8556,14 +8623,16 @@ function starMark(level) { return '★'.repeat(Math.max(0, Math.min(STAR_MAX, le
 // 한 번 누를 때마다 ☆ → ★ → ★★ → ★★★ → ★★★★ → ★★★★★ → ☆
 function cycleStarEntry(cat, round, q, idx) {
   const starred = getStarred();
-  const key = getStarKey(cat, round, (q && (q.id || q.num)) || idx || 0);
+  const qId = (q && (q.id || q.num)) || idx || 0;
+  const key = getStarKey(cat, round, qId);
   const cur = starred[key] ? starLevelOf(starred[key]) : 0;
   const next = (cur + 1) % (STAR_MAX + 1);
   if (next === 0) {
     delete starred[key];
     showToast('별표 해제');
   } else {
-    starred[key] = { ...(starred[key] || {}), cat, round, q,
+    // [수정] 문제를 통째로 복사해두지 않고 qId만 저장 — 별표가 늘어도 동기화 용량이 안 커진다
+    starred[key] = { cat, round, qId,
                      level: next, addedAt: (starred[key] && starred[key].addedAt) || Date.now() };
     showToast(`${starMark(next)} ${STAR_WORD[next]} 볼 문제`);
   }
@@ -9870,7 +9939,7 @@ function _renameCatRecords(oldC, newC) {
 
   const w = getWrongAnswers(); let wc = false;
   w.forEach(x => {
-    if (x.cat === oldC) { x.cat = newC; x.id = newC + '_' + x.round + '_' + (x.q && (x.q.id || x.q.num)); wc = true; }
+    if (x.cat === oldC) { x.cat = newC; x.id = newC + '_' + x.round + '_' + _entryQId(x); wc = true; }
   });
   if (wc) saveWrongAnswers(w);
 
@@ -11918,7 +11987,7 @@ function srsSeedFromExisting() {
     all[key] = { lv: 0, due: _todayStart(), last: 0, cat, round, num: q.num != null ? q.num : (idx + 1) };
     changed = true;
   };
-  try { getWrongAnswers().forEach(w => add(w.cat, w.round, w.q, 0)); } catch (_) {}
+  try { getWrongAnswers().forEach(w => add(w.cat, w.round, resolveEntryQ(w), 0)); } catch (_) {}
   try {
     const data = getData();
     Object.entries(getStarred() || {}).forEach(([sk, on]) => {
@@ -11940,8 +12009,8 @@ function _srsResolveQ(cat, round, num, key) {
   const qid = String(key).split('||')[2];
   let q = list.find(x => String(x.id) === qid || String(x.num) === qid);
   if (q) return q;
-  const w = getWrongAnswers().find(w => srsKey(w.cat, w.round, w.q, 0) === key);
-  return w ? w.q : null;
+  const w = getWrongAnswers().find(w => srsKey(w.cat, w.round, { id: _entryQId(w) }, 0) === key);
+  return w ? resolveEntryQ(w) : null;
 }
 
 // 오늘 복습할 항목 (밀린 것 포함)
@@ -12002,9 +12071,11 @@ function startSrsReview() {
 
 function saveWrongAnswer(cat, round, q, myAnswer) {
   let wrongs = getWrongAnswers();
-  const id = cat + '_' + round + '_' + (q.id || q.num);
+  const qId = q.id || q.num;
+  const id = cat + '_' + round + '_' + qId;
   wrongs = wrongs.filter(w => w.id !== id);
-  wrongs.push({ id, cat, round, q, myAnswer, addedAt: Date.now() });
+  // [수정] 문제를 통째로 복사해두지 않고 qId만 저장 — 오답이 늘어도 동기화 용량이 안 커진다
+  wrongs.push({ id, cat, round, qId, myAnswer, addedAt: Date.now() });
   saveWrongAnswers(wrongs);
 }
 
@@ -12131,7 +12202,7 @@ function renderWrongNote() {
   // [수정] 저장할 때 쓰는 이름은 addedAt 인데 여기서는 ts 를 읽고 있었다.
   //        없는 값이라 전부 0이 되어 최신순·오래된순이 아무 일도 하지 않았다.
   const _when = w => w.addedAt || w.ts || 0;          // 옛 기록(ts)도 함께 본다
-  const _qnum = w => Number(w.q && (w.q.num != null ? w.q.num : w.q.id)) || 0;
+  const _qnum = w => Number(_entryQId(w)) || 0;
   filtered = [...filtered].sort((a, b) => {
     switch (wrongSort) {
       case 'oldest': return _when(a) - _when(b);
@@ -12176,7 +12247,7 @@ function renderWrongNote() {
   document.getElementById('wrong-list').innerHTML = `
     <div class="wrong-note-list">
       ${filtered.map(w => {
-        const q = w.q || {};
+        const q = resolveEntryQ(w) || {};
         const opts = Array.isArray(q.options) ? q.options : [];
         const isSubj = q.type === 'subj' || opts.length === 0;
         const isStar = !!getStarred()[getStarKey(w.cat, w.round, q.id || q.num)];
@@ -12272,18 +12343,21 @@ function resumeWrongQuiz() {
   //        그래서 원래 위치 기준으로 새 위치를 다시 매핑해준다.
   const byId = new Map(getWrongAnswers().map(w => [w.id, w]));
   const source = [];
+  const questions = [];
   const answered = {};
   let idx = 0;
   (r.ids || []).forEach((id, oldI) => {
     const item = byId.get(id);
     if (!item) return;                              // 이미 정답 처리돼 사라진 문제 — 건너뜀
+    const q = resolveEntryQ(item);
+    if (!q) return;                                  // 문제 원본을 찾을 수 없음 — 건너뜀
     const newI = source.length;
     source.push(item);
+    questions.push(q);
     if (r.answered && r.answered[oldI] !== undefined) answered[newI] = r.answered[oldI];
     if (oldI <= r.idx) idx = newI;                   // 저장 시점 idx 이하 중 남은 마지막 위치부터 이어한다
   });
   if (!source.length) { clearWrongQuizResume(); renderWrongNote(); showToast('이어서 풀 오답이 없어요'); return; }
-  const questions = source.map(w => w.q);
   wqState = { questions, idx: Math.min(idx, questions.length - 1), answered, source };
   document.getElementById('wrong-quiz-sub').textContent = `총 ${questions.length}문제`;
   goPage('wrong-quiz');
@@ -12315,8 +12389,11 @@ function startWrongQuiz() {
 
 function startWrongQuizWithData(wrongs) {
   if (!wrongs.length) { showToast('오답이 없어요'); return; }
-  const questions = wrongs.map(w => w.q);
-  wqState = { questions, idx: 0, answered: {}, source: wrongs };
+  const source = [];
+  const questions = [];
+  wrongs.forEach(w => { const q = resolveEntryQ(w); if (q) { source.push(w); questions.push(q); } });
+  if (!questions.length) { showToast('오답이 없어요'); return; }
+  wqState = { questions, idx: 0, answered: {}, source };
   document.getElementById('wrong-quiz-sub').textContent = `총 ${questions.length}문제`;
   goPage('wrong-quiz');
   renderWQ();
@@ -12427,7 +12504,7 @@ function wqJudge(result) {
   wqState.answered[wqState.idx] = result;
   // [추가] 복습 일정 갱신
   const src = wqState.source && wqState.source[wqState.idx];
-  if (src) srsGrade(src.cat, src.round, src.q, wqState.idx, result === 'correct');
+  if (src) srsGrade(src.cat, src.round, wqState.questions[wqState.idx], wqState.idx, result === 'correct');
   // [추가] 정답을 펼쳐 둔 채로 판정하면 판정 후 다시 접는다 (안 펼쳐져 있었다면 그대로 유지)
   if (wqState.revealed && wqState.revealed[wqState.idx]) wqState.revealed[wqState.idx] = false;
   _saveWQCheckpoint();
@@ -12443,7 +12520,7 @@ function wqAnswer(chosen) {
   // [추가] 복습 일정 갱신
   {
     const src = wqState.source && wqState.source[idx];
-    if (src) srsGrade(src.cat, src.round, src.q, idx, chosen === q.correct);
+    if (src) srsGrade(src.cat, src.round, q, idx, chosen === q.correct);
   }
 
   document.querySelectorAll('#wq-options .quiz-option').forEach((el, i) => {
@@ -12756,7 +12833,7 @@ function renameCategory() {
   wrongs.forEach(w => {
     if (w.cat === oldC) {
       w.cat = newC;
-      w.id = newC + '_' + w.round + '_' + (w.q && (w.q.id || w.q.num));
+      w.id = newC + '_' + w.round + '_' + _entryQId(w);
       wChanged = true;
     }
   });
@@ -12946,7 +13023,7 @@ function _relocateRound(cat, oldR, newC, newR) {
     if (w.cat === cat && String(w.round) === String(oldR)) {
       w.cat = newC;
       w.round = newR;
-      w.id = newC + '_' + newR + '_' + (w.q && (w.q.id || w.q.num));
+      w.id = newC + '_' + newR + '_' + _entryQId(w);
       wrongChanged = true;
     }
   });
@@ -13241,7 +13318,7 @@ function toggleStarReview(i, btn) {
 function toggleStarFromWrong(id, btn) {
   const w = getWrongAnswers().find(x => x.id === id);
   if (!w) return;
-  _toggleStarEntry(w.cat, w.round, w.q, btn);
+  _toggleStarEntry(w.cat, w.round, resolveEntryQ(w), btn);
 }
 
 let starFilter = { cat: null, lv: 0, rounds: new Set() };   // rounds 가 비어 있으면 "전체 회차"
@@ -13319,10 +13396,10 @@ function renderStarNote() {
   document.getElementById('star-list').innerHTML = `
     <div class="wrong-note-list">
       ${filtered.map(w => {
-        const q = w.q || {};
+        const q = resolveEntryQ(w) || {};
         const opts = Array.isArray(q.options) ? q.options : [];
         const isSubj = q.type === 'subj' || opts.length === 0;
-        const key = getStarKey(w.cat, w.round, q.id || q.num);
+        const key = getStarKey(w.cat, w.round, _entryQId(w));
         const body = isSubj
           ? `<div class="wn-option correct" style="align-items:flex-start">
                <span style="flex-shrink:0"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-check-circle"/></svg> 정답</span>
@@ -13360,7 +13437,9 @@ function renderStarNote() {
 function sendStarToMemo(key) {
   const s = getStarred()[key];
   if (!s) return;
-  appendAnki(buildAnkiText(s.q, s.cat, s.round));
+  const q = resolveEntryQ(s);
+  if (!q) { showToast('문제를 찾을 수 없어요'); return; }
+  appendAnki(buildAnkiText(q, s.cat, s.round));
 }
 
 function setStarFilter(cat) {
@@ -13458,6 +13537,12 @@ function bumpStarLv(key) {
   if (!e) return;
   const next = (starLevelOf(e) % STAR_MAX) + 1;
   e.level = next;
+  // [추가] 만지는 김에 예전 형식(문제 통째로 들어있음)이면 회차 원본으로 확인될 때만 가볍게 정리
+  if (e.q) {
+    const qId = _entryQId(e);
+    const found = getRound(e.cat, e.round).find(x => String(x.id) === String(qId) || String(x.num) === String(qId));
+    if (found) { delete e.q; e.qId = qId; }
+  }
   saveStarred(starred);
   renderStarNote();
   showToast(`${starMark(next)} ${STAR_WORD[next]} 볼 문제`);
@@ -13483,7 +13568,7 @@ function clearStarQuizResume() { saveStarQuizResume(null); }
 function _saveSQCheckpoint() {
   if (!sqState.source || !sqState.source.length) return;
   saveStarQuizResume({
-    ids: sqState.source.map(s => getStarKey(s.cat, s.round, (s.q && (s.q.id || s.q.num)) || 0)),
+    ids: sqState.source.map(s => getStarKey(s.cat, s.round, _entryQId(s) || 0)),
     idx: sqState.idx,
     answered: sqState.answered,
     total: sqState.source.length,
@@ -13496,18 +13581,21 @@ function resumeStarQuiz() {
   if (!r) return;
   const starred = getStarred();
   const source = [];
+  const questions = [];
   const answered = {};
   let idx = 0;
   (r.ids || []).forEach((id, oldI) => {
     const item = starred[id];
     if (!item) return;                              // 그 사이 별표가 해제된 문제 — 건너뜀
+    const q = resolveEntryQ(item);
+    if (!q) return;                                  // 문제 원본을 찾을 수 없음 — 건너뜀
     const newI = source.length;
     source.push(item);
+    questions.push(q);
     if (r.answered && r.answered[oldI] !== undefined) answered[newI] = r.answered[oldI];
     if (oldI <= r.idx) idx = newI;
   });
   if (!source.length) { clearStarQuizResume(); renderStarNote(); showToast('이어서 풀 별표 문제가 없어요'); return; }
-  const questions = source.map(w => w.q);
   sqState = { questions, idx: Math.min(idx, questions.length - 1), answered, source };
   document.getElementById('sq-sub').textContent = `총 ${questions.length}문제`;
   goPage('star-quiz');
@@ -13536,8 +13624,11 @@ function startStarQuiz() {
   // [수정] 자격증만 보고 회차·중요도 필터는 무시하고 있었다 → 화면에 보이는 것과 똑같이 푼다.
   const items = _starFiltered();
   if (!items.length) { showToast('별표 문제가 없어요'); return; }
-  const questions = items.map(w => w.q);
-  sqState = { questions, idx: 0, answered: {}, source: items };
+  const source = [];
+  const questions = [];
+  items.forEach(w => { const q = resolveEntryQ(w); if (q) { source.push(w); questions.push(q); } });
+  if (!questions.length) { showToast('별표 문제가 없어요'); return; }
+  sqState = { questions, idx: 0, answered: {}, source };
   document.getElementById('sq-sub').textContent = `총 ${questions.length}문제`;
   goPage('star-quiz');
   renderSQ();
@@ -15799,7 +15890,9 @@ function sendCurrentQuizToMemo() {
 function sendWrongToMemo(id) {
   const w = getWrongAnswers().find(x => x.id === id);
   if (!w) return;
-  appendAnki(buildAnkiText(w.q, w.cat, w.round));
+  const q = resolveEntryQ(w);
+  if (!q) { showToast('문제를 찾을 수 없어요'); return; }
+  appendAnki(buildAnkiText(q, w.cat, w.round));
 }
 
 function applyMemoTabFontSize() {
@@ -17381,6 +17474,9 @@ applyRenderFlags();
 //   k: 'new'(새 기능) · 'fix'(고침) · 'chg'(바뀜)
 // ══════════════════════════════════════════════════════════════════════
 const PATCH_NOTES = [
+  { v: '260804-0758', at: '2026-08-04', items: [
+    { k: 'chg', t: '<b>별표·오답</b> 저장 방식을 가볍게 바꿨습니다 — 항목마다 문제를 통째로 복사해두던 것을 그만두고 필요할 때 문제은행에서 찾아오는 방식으로 바꿔서, 별표·오답이 많을수록 느려지던 동기화가 빨라집니다. 기존에 저장된 것도 안전하게 확인되는 것만 조용히 정리됩니다' },
+  ]},
   { v: '260804-0609', at: '2026-08-04', items: [
     { k: 'chg', t: '<b>별표 중요도</b>를 3단계(★~★★★)에서 5단계(★~★★★★★)로 늘렸습니다' },
   ]},
@@ -17605,7 +17701,7 @@ function closePatchNotes() {
 // ── 앱 버전 ──
 // 폰이 옛 파일을 캐시해 두고 있는지 바로 확인할 수 있도록 화면에 표시한다.
 // (설정 맨 아래 · 개발자 도구 콘솔에도 찍힘)
-const APP_VERSION = '260804-0609';
+const APP_VERSION = '260804-0758';
 console.log('%c양진웅 Note 버전 ' + APP_VERSION, 'font-weight:bold');
 
 // PWA 서비스워커 등록
