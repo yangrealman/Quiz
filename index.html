@@ -8539,13 +8539,13 @@ function getStarKey(cat, round, qId) {
 }
 
 // ══════════════════════════════════════════════════════════════════════
-// 별표 중요도 — ★ / ★★ / ★★★
+// 별표 중요도 — ★ ~ ★★★★★ (5단계)
 //   색 대신 개수로 나눈다. 개수는 그 자체에 순서가 들어 있어 설명이 필요 없고,
 //   다크 모드와 모노크롬 스킨에서도 그대로 읽힌다.
 //   예전에 매긴 별표는 모두 ★ 하나로 시작한다.
 // ══════════════════════════════════════════════════════════════════════
-const STAR_MAX = 3;
-const STAR_WORD = ['', '한 번 더', '두 번 더', '집중해서'];
+const STAR_MAX = 5;
+const STAR_WORD = ['', '한 번 더', '두 번 더', '집중해서', '확실하게', '완벽하게'];
 function starLevelOf(entry) {
   if (!entry) return 0;
   const v = parseInt(entry.level, 10);
@@ -8553,7 +8553,7 @@ function starLevelOf(entry) {
 }
 function starMark(level) { return '★'.repeat(Math.max(0, Math.min(STAR_MAX, level))) || '☆'; }
 
-// 한 번 누를 때마다 ☆ → ★ → ★★ → ★★★ → ☆
+// 한 번 누를 때마다 ☆ → ★ → ★★ → ★★★ → ★★★★ → ★★★★★ → ☆
 function cycleStarEntry(cat, round, q, idx) {
   const starred = getStarred();
   const key = getStarKey(cat, round, (q && (q.id || q.num)) || idx || 0);
@@ -13267,7 +13267,7 @@ function renderStarNote() {
 
   const cats = [...new Set(items.map(w => w.cat))];
   const byCat = starFilter.cat ? items.filter(w => w.cat === starFilter.cat) : items;
-  const lvCnt = { 1: 0, 2: 0, 3: 0 };
+  const lvCnt = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
   byCat.forEach(w => { lvCnt[starLevelOf(w)]++; });
 
   document.getElementById('star-filter').innerHTML = `
@@ -13280,7 +13280,7 @@ function renderStarNote() {
     </div>
     <div class="sch-cats" style="margin-top:6px">
       <button class="sch-chip${starFilter.lv ? '' : ' on'}" onclick="setStarLv(0)">중요도 전체<small>${byCat.length}</small></button>
-      ${[3, 2, 1].map(lv => `
+      ${[5, 4, 3, 2, 1].map(lv => `
         <button class="sch-chip${starFilter.lv === lv ? ' on' : ''}" onclick="setStarLv(${lv})">${starMark(lv)}<small>${lvCnt[lv]}</small></button>`).join('')}
     </div>
   `;
@@ -13451,7 +13451,7 @@ function rpickClearAll() {
   renderRoundPickerList();
 }
 
-// 목록에서 중요도만 올린다 (★→★★→★★★→★ · 해제는 옆의 '별표 해제')
+// 목록에서 중요도만 올린다 (★→★★→★★★→★★★★→★★★★★→★ · 해제는 옆의 '별표 해제')
 function bumpStarLv(key) {
   const starred = getStarred();
   const e = starred[key];
@@ -17381,6 +17381,9 @@ applyRenderFlags();
 //   k: 'new'(새 기능) · 'fix'(고침) · 'chg'(바뀜)
 // ══════════════════════════════════════════════════════════════════════
 const PATCH_NOTES = [
+  { v: '260804-0609', at: '2026-08-04', items: [
+    { k: 'chg', t: '<b>별표 중요도</b>를 3단계(★~★★★)에서 5단계(★~★★★★★)로 늘렸습니다' },
+  ]},
   { v: '260804-0550', at: '2026-08-04', items: [
     { k: 'new', t: '<b>오답노트·별표</b>에 각각 <b>이어서 풀기</b>가 추가됐습니다 — 오답만/별표만 풀기를 중간에 나가도 마지막으로 풀던 자리를 기억해뒀다가 이어서 풀 수 있어요' },
   ]},
@@ -17602,7 +17605,7 @@ function closePatchNotes() {
 // ── 앱 버전 ──
 // 폰이 옛 파일을 캐시해 두고 있는지 바로 확인할 수 있도록 화면에 표시한다.
 // (설정 맨 아래 · 개발자 도구 콘솔에도 찍힘)
-const APP_VERSION = '260804-0550';
+const APP_VERSION = '260804-0609';
 console.log('%c양진웅 Note 버전 ' + APP_VERSION, 'font-weight:bold');
 
 // PWA 서비스워커 등록
