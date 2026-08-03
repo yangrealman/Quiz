@@ -6717,6 +6717,7 @@
       </div>
       <button class="btn btn-primary" id="wrong-quiz-btn" onclick="startWrongQuiz()" style="display:none">오답만 풀기</button>
     </div>
+    <div id="wrong-resume-card" style="margin-bottom:12px;"></div>
     <div id="wrong-filter" style="margin-bottom:8px; display:flex; gap:8px; flex-wrap:wrap;"></div>
     <div id="wrong-round-filter" style="margin-bottom:16px; display:flex; gap:6px; flex-wrap:wrap;"></div>
     <div id="wrong-toolbar"></div>
@@ -6764,6 +6765,7 @@
       </div>
       <button class="btn btn-primary" id="star-quiz-btn" onclick="startStarQuiz()" style="display:none; background:var(--warning)">★ 별표만 풀기</button>
     </div>
+    <div id="star-resume-card" style="margin-bottom:12px;"></div>
     <div id="star-filter" style="margin-bottom:8px; display:flex; gap:8px; flex-wrap:wrap;"></div>
     <div id="star-round-filter" style="margin-bottom:16px;"></div>
     <div id="star-list"></div>
@@ -7728,7 +7730,7 @@ async function syncFromFirebase() {
   _syncing = true;
   showSyncStatus('☁️ 동기화 중...'); setSyncDot('busy');
   try {
-    const keys = ['quiz_progress','quiz_wrong','quiz_categories','quiz_starred','mock_records','mock_wrong','cal_data','quiz_checks','resume_bookmark','quiz_mastery','quiz_daily','quiz_qmemo','quiz_memo_links','quiz_img_index','quiz_srs','quiz_hl','quiz_imgw','quiz_quick_links'];
+    const keys = ['quiz_progress','quiz_wrong','quiz_categories','quiz_starred','mock_records','mock_wrong','cal_data','quiz_checks','resume_bookmark','quiz_mastery','quiz_daily','quiz_qmemo','quiz_memo_links','quiz_img_index','quiz_srs','quiz_hl','quiz_imgw','quiz_quick_links','wrong_quiz_resume','star_quiz_resume'];
     // [추가] 문제 데이터는 회차별 구조라 따로 맞춘다 (색인 먼저 → 바뀐 회차만)
     await syncQuizData();
 
@@ -12087,6 +12089,7 @@ function deleteAllWrong() {
 function renderWrongNote() {
   const wrongs = getWrongAnswers();
   const circleNums = ['①','②','③','④','⑤','⑥'];
+  renderWrongResumeCard();
 
   const wrongBtn = document.getElementById('wrong-quiz-btn');
   wrongBtn.style.display = wrongs.length ? 'block' : 'none';
@@ -12243,6 +12246,68 @@ function deleteWrong(id) {
 
 let wqState = { questions: [], idx: 0, answered: {} };
 
+// ── 오답 풀기 이어서 풀기 체크포인트 ──
+// 필터가 아니라 "그 세션에 실제로 포함됐던 오답 id 목록"을 저장한다 —
+// 나중에 오답이 추가/삭제돼도 순서가 안 바뀌어서 idx·answered 매칭이 깨지지 않는다.
+function getWrongQuizResume() { return _getCache('wrong_quiz_resume', null); }
+function saveWrongQuizResume(state) { syncToFirebase('wrong_quiz_resume', state); }
+function clearWrongQuizResume() { saveWrongQuizResume(null); }
+
+function _saveWQCheckpoint() {
+  if (!wqState.source || !wqState.source.length) return;
+  saveWrongQuizResume({
+    ids: wqState.source.map(s => s.id),
+    idx: wqState.idx,
+    answered: wqState.answered,
+    total: wqState.source.length,
+    savedAt: Date.now()
+  });
+}
+
+function resumeWrongQuiz() {
+  const r = getWrongQuizResume();
+  if (!r) return;
+  // [주의] 세션 도중 정답 처리된 문제는 오답 목록에서 이미 빠졌을 수 있다 —
+  //        그냥 걸러내면 뒤 문제들이 앞으로 밀려서 idx·answered가 어긋난다.
+  //        그래서 원래 위치 기준으로 새 위치를 다시 매핑해준다.
+  const byId = new Map(getWrongAnswers().map(w => [w.id, w]));
+  const source = [];
+  const answered = {};
+  let idx = 0;
+  (r.ids || []).forEach((id, oldI) => {
+    const item = byId.get(id);
+    if (!item) return;                              // 이미 정답 처리돼 사라진 문제 — 건너뜀
+    const newI = source.length;
+    source.push(item);
+    if (r.answered && r.answered[oldI] !== undefined) answered[newI] = r.answered[oldI];
+    if (oldI <= r.idx) idx = newI;                   // 저장 시점 idx 이하 중 남은 마지막 위치부터 이어한다
+  });
+  if (!source.length) { clearWrongQuizResume(); renderWrongNote(); showToast('이어서 풀 오답이 없어요'); return; }
+  const questions = source.map(w => w.q);
+  wqState = { questions, idx: Math.min(idx, questions.length - 1), answered, source };
+  document.getElementById('wrong-quiz-sub').textContent = `총 ${questions.length}문제`;
+  goPage('wrong-quiz');
+  renderWQ();
+}
+
+function renderWrongResumeCard() {
+  const el = document.getElementById('wrong-resume-card');
+  if (!el) return;
+  const r = getWrongQuizResume();
+  el.innerHTML = r ? `
+    <div class="home-card resume-card" onclick="resumeWrongQuiz()">
+      <div class="rc-left">
+        <div class="rc-emoji"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-pin"/></svg></div>
+        <div>
+          <div class="rc-title">이어서 풀기</div>
+          <div class="rc-sub">오답 ${r.idx + 1} / ${r.total}번째부터</div>
+        </div>
+      </div>
+      <button class="rc-close" onclick="event.stopPropagation(); clearWrongQuizResume(); renderWrongNote();" aria-label="지우기"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-x"/></svg></button>
+    </div>
+  ` : '';
+}
+
 function startWrongQuiz() {
   // [수정] 자격증만 보고 회차 필터(여러 개 선택)는 무시하고 있었다 → 화면에 보이는 것과 똑같이 푼다.
   startWrongQuizWithData(_wrongFiltered(getWrongAnswers()));
@@ -12365,6 +12430,7 @@ function wqJudge(result) {
   if (src) srsGrade(src.cat, src.round, src.q, wqState.idx, result === 'correct');
   // [추가] 정답을 펼쳐 둔 채로 판정하면 판정 후 다시 접는다 (안 펼쳐져 있었다면 그대로 유지)
   if (wqState.revealed && wqState.revealed[wqState.idx]) wqState.revealed[wqState.idx] = false;
+  _saveWQCheckpoint();
   renderWQ();
 }
 
@@ -12403,6 +12469,7 @@ function wqAnswer(chosen) {
       saveWrongAnswers(wrongs);
     }
   }
+  _saveWQCheckpoint();
 }
 
 function wqNext() {
@@ -12412,10 +12479,12 @@ function wqNext() {
     let correct = 0;
     questions.forEach((q, i) => { if (answered[i] === q.correct) correct++; });
     showToast(`완료! ${correct}/${questions.length} 정답 🎉`);
+    clearWrongQuizResume();
     goPage('wrong');
     renderWrongNote();
   } else {
     wqState.idx++;
+    _saveWQCheckpoint();
     renderWQ();
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
@@ -12424,6 +12493,7 @@ function wqNext() {
 function wqPrev() {
   if (wqState.idx > 0) {
     wqState.idx--;
+    _saveWQCheckpoint();
     renderWQ();
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
@@ -13190,6 +13260,7 @@ function renderStarNote() {
   const starred = getStarred();
   const items = Object.values(starred);
   const circleNums = ['①','②','③','④','⑤','⑥'];
+  renderStarResumeCard();
 
   const starBtn = document.getElementById('star-quiz-btn');
   starBtn.style.display = items.length ? 'block' : 'none';
@@ -13404,6 +13475,63 @@ function deleteStarred(key) {
 // ── 별표 풀기 모드 ──
 let sqState = { questions: [], idx: 0, answered: {}, source: [] };
 
+// ── 별표 풀기 이어서 풀기 체크포인트 (오답 쪽과 같은 방식) ──
+function getStarQuizResume() { return _getCache('star_quiz_resume', null); }
+function saveStarQuizResume(state) { syncToFirebase('star_quiz_resume', state); }
+function clearStarQuizResume() { saveStarQuizResume(null); }
+
+function _saveSQCheckpoint() {
+  if (!sqState.source || !sqState.source.length) return;
+  saveStarQuizResume({
+    ids: sqState.source.map(s => getStarKey(s.cat, s.round, (s.q && (s.q.id || s.q.num)) || 0)),
+    idx: sqState.idx,
+    answered: sqState.answered,
+    total: sqState.source.length,
+    savedAt: Date.now()
+  });
+}
+
+function resumeStarQuiz() {
+  const r = getStarQuizResume();
+  if (!r) return;
+  const starred = getStarred();
+  const source = [];
+  const answered = {};
+  let idx = 0;
+  (r.ids || []).forEach((id, oldI) => {
+    const item = starred[id];
+    if (!item) return;                              // 그 사이 별표가 해제된 문제 — 건너뜀
+    const newI = source.length;
+    source.push(item);
+    if (r.answered && r.answered[oldI] !== undefined) answered[newI] = r.answered[oldI];
+    if (oldI <= r.idx) idx = newI;
+  });
+  if (!source.length) { clearStarQuizResume(); renderStarNote(); showToast('이어서 풀 별표 문제가 없어요'); return; }
+  const questions = source.map(w => w.q);
+  sqState = { questions, idx: Math.min(idx, questions.length - 1), answered, source };
+  document.getElementById('sq-sub').textContent = `총 ${questions.length}문제`;
+  goPage('star-quiz');
+  renderSQ();
+}
+
+function renderStarResumeCard() {
+  const el = document.getElementById('star-resume-card');
+  if (!el) return;
+  const r = getStarQuizResume();
+  el.innerHTML = r ? `
+    <div class="home-card resume-card" onclick="resumeStarQuiz()">
+      <div class="rc-left">
+        <div class="rc-emoji"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-pin"/></svg></div>
+        <div>
+          <div class="rc-title">이어서 풀기</div>
+          <div class="rc-sub">별표 ${r.idx + 1} / ${r.total}번째부터</div>
+        </div>
+      </div>
+      <button class="rc-close" onclick="event.stopPropagation(); clearStarQuizResume(); renderStarNote();" aria-label="지우기"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-x"/></svg></button>
+    </div>
+  ` : '';
+}
+
 function startStarQuiz() {
   // [수정] 자격증만 보고 회차·중요도 필터는 무시하고 있었다 → 화면에 보이는 것과 똑같이 푼다.
   const items = _starFiltered();
@@ -13520,6 +13648,7 @@ function sqJudge(result) {
   sqState.answered[sqState.idx] = result;
   // [추가] 정답을 펼쳐 둔 채로 판정하면 판정 후 다시 접는다 (안 펼쳐져 있었다면 그대로 유지)
   if (sqState.revealed && sqState.revealed[sqState.idx]) sqState.revealed[sqState.idx] = false;
+  _saveSQCheckpoint();
   renderSQ();
 }
 
@@ -13541,6 +13670,7 @@ function sqAnswer(chosen) {
   }
   document.getElementById('sq-next-btn').disabled = false;
   document.getElementById('sq-next-btn').innerHTML = idx === questions.length - 1 ? '완료' : '다음<svg class="ic" viewBox="0 0 24 24"><use href="#ic-arrow-right"/></svg>';
+  _saveSQCheckpoint();
 }
 
 function sqNext() {
@@ -13549,10 +13679,12 @@ function sqNext() {
     let correct = 0;
     questions.forEach((q, i) => { if (answered[i] === q.correct) correct++; });
     showToast(`완료! ${correct}/${questions.length} 정답 ⭐`);
+    clearStarQuizResume();
     goPage('star');
     renderStarNote();
   } else {
     sqState.idx++;
+    _saveSQCheckpoint();
     renderSQ();
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
@@ -13561,6 +13693,7 @@ function sqNext() {
 function sqPrev() {
   if (sqState.idx > 0) {
     sqState.idx--;
+    _saveSQCheckpoint();
     renderSQ();
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
@@ -16979,7 +17112,8 @@ function renderSettings() {
 //  - 모의고사 기록(mock_records / mock_wrong)도 빠져 있어서 추가
 const BACKUP_KEYS = ['quiz_categories','quiz_data','quiz_progress','quiz_wrong','quiz_checks',
                      'resume_bookmark','quiz_mastery','quiz_starred','quiz_daily','quiz_qmemo',
-                     'quiz_memo_links','cal_data','mock_records','mock_wrong','quiz_srs','quiz_hl','quiz_imgw','quiz_quick_links'];
+                     'quiz_memo_links','cal_data','mock_records','mock_wrong','quiz_srs','quiz_hl','quiz_imgw','quiz_quick_links',
+                     'wrong_quiz_resume','star_quiz_resume'];
 
 async function exportBackup() {
   try {
@@ -17247,6 +17381,9 @@ applyRenderFlags();
 //   k: 'new'(새 기능) · 'fix'(고침) · 'chg'(바뀜)
 // ══════════════════════════════════════════════════════════════════════
 const PATCH_NOTES = [
+  { v: '260804-0550', at: '2026-08-04', items: [
+    { k: 'new', t: '<b>오답노트·별표</b>에 각각 <b>이어서 풀기</b>가 추가됐습니다 — 오답만/별표만 풀기를 중간에 나가도 마지막으로 풀던 자리를 기억해뒀다가 이어서 풀 수 있어요' },
+  ]},
   { v: '260804-0530', at: '2026-08-04', items: [
     { k: 'chg', t: '홈 화면의 <b>학습 스트릭</b> 카드를 제거했습니다' },
   ]},
@@ -17465,7 +17602,7 @@ function closePatchNotes() {
 // ── 앱 버전 ──
 // 폰이 옛 파일을 캐시해 두고 있는지 바로 확인할 수 있도록 화면에 표시한다.
 // (설정 맨 아래 · 개발자 도구 콘솔에도 찍힘)
-const APP_VERSION = '260804-0530';
+const APP_VERSION = '260804-0550';
 console.log('%c양진웅 Note 버전 ' + APP_VERSION, 'font-weight:bold');
 
 // PWA 서비스워커 등록
