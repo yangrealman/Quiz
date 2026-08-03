@@ -2382,6 +2382,7 @@
   }
 
   /* [추가] 홈 — 학습 스트릭 / 주간 트렌드 (bumpDailyStat 기록을 처음으로 시각화) */
+  /* [수정] 막대 높이 대신 색 타일(히트맵)로 — 값이 비슷해도 단계 색이 뚜렷이 구분된다 */
   .streak-card .mst-head { margin-bottom: 14px; }
   .streak-badge {
     font-size: 12px; font-weight: 700; color: var(--primary);
@@ -2389,23 +2390,37 @@
   }
   .streak-week { display: flex; justify-content: space-between; gap: 6px; }
   .streak-day {
-    flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px;
+    flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px;
   }
-  .streak-count { font-size: 10px; font-weight: 700; color: var(--gray-400); min-height: 12px; }
-  .streak-bar-track {
-    width: 100%; max-width: 26px; height: 56px; border-radius: 6px;
-    background: var(--gray-100); display: flex; align-items: flex-end; overflow: hidden;
+  .streak-cell {
+    width: 100%; max-width: 36px; aspect-ratio: 1;
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px; font-weight: 800;
+    background: var(--gray-100); color: var(--gray-400);
+    transition: background 0.4s, color 0.4s;
   }
-  .streak-bar-fill {
-    display: block; width: 100%; border-radius: 6px;
-    background: linear-gradient(180deg, var(--mock), var(--primary));
-    transition: height 0.5s cubic-bezier(0.22,1,0.36,1);
-  }
+  .streak-cell.tier-1 { background: rgba(var(--primary-rgb), 0.16); color: var(--gray-600); }
+  .streak-cell.tier-2 { background: rgba(var(--primary-rgb), 0.38); color: var(--gray-800); }
+  .streak-cell.tier-3 { background: rgba(var(--primary-rgb), 0.65); color: #fff; }
+  .streak-cell.tier-4 { background: var(--primary); color: #fff; }
   .streak-dow { font-size: 11px; font-weight: 700; color: var(--gray-500); }
   .streak-day.today .streak-dow { color: var(--primary); }
-  .streak-day.today .streak-bar-track { background: var(--tint-primary); }
-  body.dark .streak-bar-track { background: var(--navy-1); }
-  body.dark .streak-day.today .streak-bar-track { background: var(--tint-primary); }
+  .streak-day.today .streak-cell { box-shadow: 0 0 0 2px var(--primary) inset; }
+  body.dark .streak-cell { background: var(--navy-1); }
+  .streak-scale {
+    display: flex; align-items: center; justify-content: flex-end; gap: 4px;
+    margin-top: 12px; font-size: 10px; color: var(--gray-400);
+  }
+  .streak-scale i {
+    width: 11px; height: 11px; border-radius: 3px; display: inline-block;
+    background: var(--gray-100);
+  }
+  .streak-scale i.tier-1 { background: rgba(var(--primary-rgb), 0.16); }
+  .streak-scale i.tier-2 { background: rgba(var(--primary-rgb), 0.38); }
+  .streak-scale i.tier-3 { background: rgba(var(--primary-rgb), 0.65); }
+  .streak-scale i.tier-4 { background: var(--primary); }
+  body.dark .streak-scale i.tier-0 { background: var(--navy-1); }
 
   /* ══ 암기도 슬라이더 (손잡이만 조작 가능) ══ */
   .mst-slider {
@@ -9504,6 +9519,17 @@ function renderQuickLinks() {
 }
 
 // ── 홈 — 학습 스트릭 / 주간 트렌드 (bumpDailyStat이 쌓아온 quiz_daily 시각화) ──
+// [수정] 막대 높이 차이는 값이 비슷하면 잘 구분되지 않아서(예: 8개↔10개가 거의 같아 보임),
+//        절대 구간(고정 임계값) 기준의 색 타일(히트맵)로 바꿨다 — 색은 높이보다 단계 차이가
+//        훨씬 잘 눈에 띈다. 정확한 수치는 타일 안 숫자로 함께 보여준다.
+function _streakTier(count) {
+  if (count <= 0) return 0;
+  if (count < 5) return 1;
+  if (count < 10) return 2;
+  if (count < 20) return 3;
+  return 4;
+}
+
 function renderStreakPanel() {
   const el = document.getElementById('streak-panel');
   if (!el) return;
@@ -9518,7 +9544,6 @@ function renderStreakPanel() {
     const k = todayKey(d);
     days.push({ count: stats[k] || 0, dow: dowLabel[d.getDay()], isToday: i === 0 });
   }
-  const maxCount = Math.max(1, ...days.map(d => d.count));
 
   // 연속 학습일 — 오늘 기록이 아직 없으면 어제부터 거슬러 올라간다
   let streak = 0;
@@ -9534,12 +9559,16 @@ function renderStreakPanel() {
       </div>
       <div class="streak-week">
         ${days.map(d => `
-          <div class="streak-day ${d.isToday ? 'today' : ''}" title="${d.count}문제">
-            <div class="streak-count">${d.count || ''}</div>
-            <div class="streak-bar-track"><i class="streak-bar-fill" style="height:${d.count ? Math.max(10, d.count / maxCount * 100) : 0}%"></i></div>
+          <div class="streak-day ${d.isToday ? 'today' : ''}">
+            <div class="streak-cell tier-${_streakTier(d.count)}" title="${d.count}문제">${d.count || ''}</div>
             <div class="streak-dow">${d.dow}</div>
           </div>
         `).join('')}
+      </div>
+      <div class="streak-scale">
+        <span>적음</span>
+        <i class="tier-0"></i><i class="tier-1"></i><i class="tier-2"></i><i class="tier-3"></i><i class="tier-4"></i>
+        <span>많음</span>
       </div>
     </div>
   `;
@@ -9592,7 +9621,7 @@ function renderDashboard() {
     ? `<div class="home-duo">${_bms.map(renderResumeCard).join('')}</div>`
     : _bms.map(renderResumeCard).join('');
   const qlinksCard = `<div class="home-card qlinks-card"><div class="qlinks-row" id="qlinks-row"></div></div>`;
-  main.innerHTML = qlinksCard + ddayRows + resumeRow + '<div id="streak-panel"></div>' + '<div id="mst-panel"></div>';
+  main.innerHTML = ddayRows + resumeRow + '<div id="mst-panel"></div>' + '<div id="streak-panel"></div>' + qlinksCard;
   renderQuickLinks();
   renderStreakPanel();
   // [되돌림] 다음 프레임으로 미뤘더니 한 프레임 동안 화면이 짧아져
@@ -17314,6 +17343,10 @@ applyRenderFlags();
 //   k: 'new'(새 기능) · 'fix'(고침) · 'chg'(바뀜)
 // ══════════════════════════════════════════════════════════════════════
 const PATCH_NOTES = [
+  { v: '260804-0156', at: '2026-08-04', items: [
+    { k: 'chg', t: '홈 화면 순서를 정리했습니다 — <b>바로가기 링크</b>는 제일 아래로, 그 바로 위에 <b>학습 스트릭</b>이 오도록 옮겼습니다' },
+    { k: 'chg', t: '<b>학습 스트릭</b> 그래프를 막대에서 색 타일(히트맵)로 바꿨습니다 — 값이 비슷해도 단계별 색으로 뚜렷이 구분됩니다' },
+  ]},
   { v: '260804-0143', at: '2026-08-04', items: [
     { k: 'new', t: '홈 화면에 <b>학습 스트릭</b>이 추가됐습니다 — 연속 학습일과 최근 7일간 푼 문제 수를 막대그래프로 보여줍니다' },
     { k: 'chg', t: '<b>계산기</b> 아이콘을 상단바 상시 노출에서 빼고, 문제풀이 화면에서만 뜨는 버튼으로 옮겼습니다' },
@@ -17522,7 +17555,7 @@ function closePatchNotes() {
 // ── 앱 버전 ──
 // 폰이 옛 파일을 캐시해 두고 있는지 바로 확인할 수 있도록 화면에 표시한다.
 // (설정 맨 아래 · 개발자 도구 콘솔에도 찍힘)
-const APP_VERSION = '260804-0143';
+const APP_VERSION = '260804-0156';
 console.log('%c양진웅 Note 버전 ' + APP_VERSION, 'font-weight:bold');
 
 // PWA 서비스워커 등록
