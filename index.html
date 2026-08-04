@@ -1207,18 +1207,6 @@
     font-weight: 600;
   }
 
-  /* ── 오답 풀기 모드 ── */
-  .wrong-quiz-header {
-    text-align: center;
-    padding: 16px;
-    background: var(--card);
-    border-radius: var(--radius);
-    margin-bottom: 20px;
-    border: 1px solid var(--card-border);
-  }
-  .wrong-quiz-title { font-size: 16px; font-weight: 700; color: var(--primary); }
-  .wrong-quiz-sub { font-size: 12px; color: var(--gray-500); margin-top: 2px; }
-
   /* ── 반응형 ── */
   @media (max-width: 600px) {
     .nav-tabs { display: none; }
@@ -1383,16 +1371,6 @@
     background: var(--warning-border);
     color: var(--warning);
   }
-  .star-quiz-header {
-    text-align: center;
-    padding: 16px;
-    background: var(--card);
-    border-radius: var(--radius);
-    margin-bottom: 20px;
-    border: 1px solid var(--card-border);
-  }
-  .star-quiz-title { font-size: 16px; font-weight: 700; color: var(--primary); }
-  .star-quiz-sub { font-size: 12px; color: var(--gray-500); margin-top: 2px; }
   .wq-source-badge {
     font-size: 11px;
     font-weight: 600;
@@ -6781,12 +6759,11 @@
 <div id="page-wrong-quiz" class="page">
   <div class="container">
     <button class="back-btn" onclick="goPage('wrong')"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-arrow-left"/></svg>오답 노트로</button>
-    <div class="wrong-quiz-header">
-      <div class="wrong-quiz-title">🔴 오답 집중 풀기</div>
-      <div class="wrong-quiz-sub" id="wrong-quiz-sub"></div>
-    </div>
     <div class="quiz-header">
-      <span class="quiz-q-num" id="wq-q-num"></span>
+      <div class="quiz-where">
+        <span class="quiz-where-t">🔴 오답 집중 풀기</span>
+        <span class="quiz-q-num" id="wq-q-num"></span>
+      </div>
       <span class="quiz-num" id="wq-num"></span>
     </div>
     <div class="quiz-progress-bar">
@@ -6828,12 +6805,9 @@
 <div id="page-star-quiz" class="page">
   <div class="container">
     <button class="back-btn" onclick="goPage('star')"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-arrow-left"/></svg>별표 노트로</button>
-    <div class="star-quiz-header">
-      <div class="star-quiz-title">★ 별표 집중 풀기</div>
-      <div class="star-quiz-sub" id="sq-sub"></div>
-    </div>
     <div class="quiz-header">
       <div class="quiz-where">
+        <span class="quiz-where-t">★ 별표 집중 풀기</span>
         <span class="quiz-q-num" id="sq-q-num"></span>
       </div>
       <div style="display:flex; align-items:center; gap:6px;">
@@ -6884,12 +6858,9 @@
 <div id="page-flag-quiz" class="page">
   <div class="container">
     <button class="back-btn" onclick="goPage('flag')"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-arrow-left"/></svg>체크 목록으로</button>
-    <div class="star-quiz-header">
-      <div class="star-quiz-title">✔ 체크 집중 풀기</div>
-      <div class="star-quiz-sub" id="fq-sub"></div>
-    </div>
     <div class="quiz-header">
       <div class="quiz-where">
+        <span class="quiz-where-t">✔ 체크 집중 풀기</span>
         <span class="quiz-q-num" id="fq-q-num"></span>
       </div>
       <div style="display:flex; align-items:center; gap:6px;">
@@ -12217,9 +12188,7 @@ function startSrsReview() {
     id: d.key, cat: d.cat, round: d.round, q: d.q, myAnswer: null, addedAt: Date.now(), _srs: true
   }));
   startWrongQuizWithData(asWrongs);
-  const sub = document.getElementById('wrong-quiz-sub');
-  if (sub) sub.textContent = `오늘의 복습 · 총 ${due.length}문제`;
-  showToast(`복습 ${due.length}문제를 시작합니다`);
+  showToast(`오늘의 복습 · 총 ${due.length}문제를 시작합니다`);
 }
 
 // ══════════════════════════════════════════════════════════════════════
@@ -12535,7 +12504,6 @@ function resumeWrongQuiz() {
   });
   if (!source.length) { clearWrongQuizResume(); renderWrongNote(); showToast('이어서 풀 오답이 없어요'); return; }
   wqState = { questions, idx: Math.min(idx, questions.length - 1), answered, source };
-  document.getElementById('wrong-quiz-sub').textContent = `총 ${questions.length}문제`;
   goPage('wrong-quiz');
   renderWQ();
 }
@@ -12570,7 +12538,6 @@ function startWrongQuizWithData(wrongs) {
   wrongs.forEach(w => { const q = resolveEntryQ(w); if (q) { source.push(w); questions.push(q); } });
   if (!questions.length) { showToast('오답이 없어요'); return; }
   wqState = { questions, idx: 0, answered: {}, source };
-  document.getElementById('wrong-quiz-sub').textContent = `총 ${questions.length}문제`;
   goPage('wrong-quiz');
   renderWQ();
 }
@@ -13818,7 +13785,6 @@ function resumeStarQuiz() {
   });
   if (!source.length) { clearStarQuizResume(); renderStarNote(); showToast('이어서 풀 별표 문제가 없어요'); return; }
   sqState = { questions, idx: Math.min(idx, questions.length - 1), answered, source };
-  document.getElementById('sq-sub').textContent = `총 ${questions.length}문제`;
   goPage('star-quiz');
   renderSQ();
 }
@@ -13850,7 +13816,6 @@ function startStarQuiz() {
   items.forEach(w => { const q = resolveEntryQ(w); if (q) { source.push(w); questions.push(q); } });
   if (!questions.length) { showToast('별표 문제가 없어요'); return; }
   sqState = { questions, idx: 0, answered: {}, source };
-  document.getElementById('sq-sub').textContent = `총 ${questions.length}문제`;
   goPage('star-quiz');
   renderSQ();
 }
@@ -14159,7 +14124,6 @@ function resumeFlagQuiz() {
   });
   if (!source.length) { clearFlagQuizResume(); renderFlagNote(); showToast('이어서 풀 체크 문제가 없어요'); return; }
   fqState = { questions, idx: Math.min(idx, questions.length - 1), answered, source };
-  document.getElementById('fq-sub').textContent = `총 ${questions.length}문제`;
   goPage('flag-quiz');
   renderFQ();
 }
@@ -14203,7 +14167,6 @@ function startFlagQuiz() {
       return;
     }
     fqState = { questions, idx: 0, answered: {}, source };
-    document.getElementById('fq-sub').textContent = `총 ${questions.length}문제`;
     goPage('flag-quiz');
     renderFQ();
   } catch (e) {
@@ -18053,6 +18016,9 @@ applyRenderFlags();
 //   k: 'new'(새 기능) · 'fix'(고침) · 'chg'(바뀜)
 // ══════════════════════════════════════════════════════════════════════
 const PATCH_NOTES = [
+  { v: '260804-2223', at: '2026-08-04', items: [
+    { k: 'chg', t: '<b>오답노트·별표·체크</b> 집중 풀기 화면의 큰 배너를 없앴습니다 — 일반 문제 풀이 화면처럼 작은 글자로 왼쪽 위에만 표시됩니다' },
+  ]},
   { v: '260804-2207', at: '2026-08-04', items: [
     { k: 'chg', t: '<b>오답노트·별표·체크</b> 집중 풀기 화면 상단 배너 색을 깔끔하게 통일했습니다 — 기능마다 다른 색(빨강·노랑)을 쓰던 것을 그만두고 홈 화면과 어울리는 색으로 맞췄습니다' },
     { k: 'new', t: '<b>체크</b> 목록과 체크 풀기 화면에도 별표 버튼이 생겼습니다 — 체크한 문제를 보면서 바로 별표도 매길 수 있어요' },
@@ -18314,7 +18280,7 @@ function closePatchNotes() {
 // ── 앱 버전 ──
 // 폰이 옛 파일을 캐시해 두고 있는지 바로 확인할 수 있도록 화면에 표시한다.
 // (설정 맨 아래 · 개발자 도구 콘솔에도 찍힘)
-const APP_VERSION = '260804-2207';
+const APP_VERSION = '260804-2223';
 console.log('%c양진웅 Note 버전 ' + APP_VERSION, 'font-weight:bold');
 
 // PWA 서비스워커 등록
