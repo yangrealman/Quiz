@@ -14172,16 +14172,33 @@ function renderFlagResumeCard() {
 }
 
 function startFlagQuiz() {
-  const items = Object.values(getFlagged());
-  if (!items.length) { showToast('체크한 문제가 없어요'); return; }
-  const source = [];
-  const questions = [];
-  items.forEach(w => { const q = resolveEntryQ(w); if (q) { source.push(w); questions.push(q); } });
-  if (!questions.length) { showToast('체크한 문제가 없어요'); return; }
-  fqState = { questions, idx: 0, answered: {}, source };
-  document.getElementById('fq-sub').textContent = `총 ${questions.length}문제`;
-  goPage('flag-quiz');
-  renderFQ();
+  try {
+    const flagged = getFlagged();
+    const items = Object.values(flagged);
+    if (!items.length) { showToast('체크한 문제가 없어요'); return; }
+    const source = [];
+    const questions = [];
+    let orphaned = 0;
+    items.forEach(w => {
+      const q = resolveEntryQ(w);
+      if (q) { source.push(w); questions.push(q); }
+      else { delete flagged[getStarKey(w.cat, w.round, _entryQId(w))]; orphaned++; }
+    });
+    // 회차가 삭제·변경돼서 원본을 못 찾는 체크는 목록에 남겨봐야 계속 안 풀리므로 조용히 정리
+    if (orphaned) saveFlagged(flagged);
+    if (!questions.length) {
+      showToast(orphaned ? '체크한 문제의 원본을 찾을 수 없어 정리했어요' : '체크한 문제가 없어요');
+      renderFlagNote();
+      return;
+    }
+    fqState = { questions, idx: 0, answered: {}, source };
+    document.getElementById('fq-sub').textContent = `총 ${questions.length}문제`;
+    goPage('flag-quiz');
+    renderFQ();
+  } catch (e) {
+    console.error('체크 풀기 시작 실패:', e);
+    showToast('체크 풀기를 시작하지 못했어요');
+  }
 }
 
 function renderFQ() {
@@ -18012,6 +18029,9 @@ applyRenderFlags();
 //   k: 'new'(새 기능) · 'fix'(고침) · 'chg'(바뀜)
 // ══════════════════════════════════════════════════════════════════════
 const PATCH_NOTES = [
+  { v: '260804-2138', at: '2026-08-04', items: [
+    { k: 'fix', t: '<b>체크한 것만 풀기</b> 버튼을 눌러도 반응이 없던 경우를 고쳤습니다 — 회차가 삭제·변경돼서 원본 문제를 찾을 수 없는 체크는 자동으로 정리하고, 남은 문제로 풀기를 시작합니다' },
+  ]},
   { v: '260804-2111', at: '2026-08-04', items: [
     { k: 'new', t: '<b>오답노트·별표</b> 목록에서도 문제를 체크할 수 있게 됐습니다 — 문제 풀이 화면뿐 아니라 오답노트·별표에 있는 문제도 체크해서 "체크한 것만 풀기"에 모을 수 있어요' },
   ]},
@@ -18257,7 +18277,7 @@ function closePatchNotes() {
 // ── 앱 버전 ──
 // 폰이 옛 파일을 캐시해 두고 있는지 바로 확인할 수 있도록 화면에 표시한다.
 // (설정 맨 아래 · 개발자 도구 콘솔에도 찍힘)
-const APP_VERSION = '260804-2111';
+const APP_VERSION = '260804-2138';
 console.log('%c양진웅 Note 버전 ' + APP_VERSION, 'font-weight:bold');
 
 // PWA 서비스워커 등록
