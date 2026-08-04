@@ -653,7 +653,7 @@
     font-weight: 500;
   }
   /* ── 진행바 스크러버(드래그로 문항 이동) ── */
-  #quiz-progress-bar, #sq-progress-bar {
+  #quiz-progress-bar, #sq-progress-bar, #fq-progress-bar {
     position: relative;
     height: 8px;
     overflow: visible;
@@ -663,7 +663,7 @@
     margin-bottom: 10px;
   }
   /* 얇은 막대를 손가락으로 쉽게 잡도록 위아래로 넓힌 투명 터치 영역 */
-  #quiz-progress-bar::before, #sq-progress-bar::before {
+  #quiz-progress-bar::before, #sq-progress-bar::before, #fq-progress-bar::before {
     content: "";
     position: absolute;
     left: 0;
@@ -672,7 +672,7 @@
     bottom: -16px;
     z-index: 1;
   }
-  #quiz-progress-bar .quiz-progress-fill, #sq-progress-bar .quiz-progress-fill { pointer-events: none; }
+  #quiz-progress-bar .quiz-progress-fill, #sq-progress-bar .quiz-progress-fill, #fq-progress-bar .quiz-progress-fill { pointer-events: none; }
   .quiz-progress-thumb {
     position: absolute;
     top: 50%;
@@ -687,11 +687,11 @@
     transition: left 0.15s ease-out;
     pointer-events: none;
   }
-  #quiz-progress-bar.dragging .quiz-progress-thumb, #sq-progress-bar.dragging .quiz-progress-thumb {
+  #quiz-progress-bar.dragging .quiz-progress-thumb, #sq-progress-bar.dragging .quiz-progress-thumb, #fq-progress-bar.dragging .quiz-progress-thumb {
     transition: none;
     transform: translate(-50%, -50%) scale(1.18);
   }
-  #quiz-progress-bar.dragging .quiz-progress-fill, #sq-progress-bar.dragging .quiz-progress-fill { transition: none; }
+  #quiz-progress-bar.dragging .quiz-progress-fill, #sq-progress-bar.dragging .quiz-progress-fill, #fq-progress-bar.dragging .quiz-progress-fill { transition: none; }
   .quiz-progress-tip {
     position: absolute;
     left: 0;
@@ -709,7 +709,7 @@
     transition: opacity 0.12s ease;
     box-shadow: 0 2px 8px rgba(0,0,0,0.2);
   }
-  #quiz-progress-bar.dragging .quiz-progress-tip, #sq-progress-bar.dragging .quiz-progress-tip { opacity: 1; }
+  #quiz-progress-bar.dragging .quiz-progress-tip, #sq-progress-bar.dragging .quiz-progress-tip, #fq-progress-bar.dragging .quiz-progress-tip { opacity: 1; }
   .quiz-scrub-hint {
     text-align: center;
     font-size: 10.5px;
@@ -17066,7 +17066,7 @@ function startClock() {
     if (!swipeOn()) return;
     const t = e.target;
     // 입력/스크롤 위젯 위에서 시작한 터치만 제외 (버튼·보기 위에서도 스와이프 가능해야 함)
-    if (t && t.closest && t.closest('input, textarea, select, .mst-slider, .weather-hours, .cal-popup, .calc-popup, .calc-fab, .hl-zone, .hl-toolbar, .q-img-box, #quiz-progress-bar, #sq-progress-bar, [data-noswipe]')) return;
+    if (t && t.closest && t.closest('input, textarea, select, .mst-slider, .weather-hours, .cal-popup, .calc-popup, .calc-fab, .hl-zone, .hl-toolbar, .q-img-box, #quiz-progress-bar, #sq-progress-bar, #fq-progress-bar, [data-noswipe]')) return;
     sx = mx = e.touches[0].clientX;
     sy = my = e.touches[0].clientY;
     startT = Date.now();
@@ -18030,6 +18030,9 @@ applyRenderFlags();
 //   k: 'new'(새 기능) · 'fix'(고침) · 'chg'(바뀜)
 // ══════════════════════════════════════════════════════════════════════
 const PATCH_NOTES = [
+  { v: '260804-2159', at: '2026-08-04', items: [
+    { k: 'fix', t: '<b>체크 풀기</b> 진행 막대의 위치 표시(동그란 손잡이)가 엉뚱한 곳에 뜨던 것을 고쳤습니다 — 손잡이의 위치 기준이 되는 스타일이 새 화면에 연결돼 있지 않았습니다' },
+  ]},
   { v: '260804-2154', at: '2026-08-04', items: [
     { k: 'fix', t: '<b>체크 풀기</b> 화면의 진행 막대가 왼쪽에 붙어서 눌러도 움직이지 않던 것을 고쳤습니다 — 막대 너비를 정하는 스타일 규칙과 드래그로 문항을 넘기는 기능이 새 화면에 연결돼 있지 않았습니다' },
   ]},
@@ -18284,7 +18287,7 @@ function closePatchNotes() {
 // ── 앱 버전 ──
 // 폰이 옛 파일을 캐시해 두고 있는지 바로 확인할 수 있도록 화면에 표시한다.
 // (설정 맨 아래 · 개발자 도구 콘솔에도 찍힘)
-const APP_VERSION = '260804-2154';
+const APP_VERSION = '260804-2159';
 console.log('%c양진웅 Note 버전 ' + APP_VERSION, 'font-weight:bold');
 
 // PWA 서비스워커 등록
