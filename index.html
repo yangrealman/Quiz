@@ -991,6 +991,24 @@
     margin-bottom: 10px;
     white-space: pre-wrap;
   }
+  /* [추가] 정답·해설 접기/펼치기 — 목록이 길어서 기본은 다 접혀있게 */
+  .wn-toggle {
+    display: flex; align-items: center; gap: 5px;
+    border: none; background: none; cursor: pointer; font-family: inherit;
+    font-size: 12.5px; font-weight: 700; color: var(--primary);
+    padding: 4px 0;
+  }
+  .wn-toggle-caret { width: 13px; height: 13px; transition: transform 0.25s cubic-bezier(0.22,1,0.36,1); }
+  .wrong-note-item.expanded .wn-toggle-caret { transform: rotate(180deg); }
+  .wn-toggle-txt-open { display: none; }
+  .wrong-note-item.expanded .wn-toggle-txt-closed { display: none; }
+  .wrong-note-item.expanded .wn-toggle-txt-open { display: inline; }
+  .wn-collapse {
+    display: grid; grid-template-rows: 0fr;
+    transition: grid-template-rows 0.28s cubic-bezier(0.22,1,0.36,1);
+  }
+  .wrong-note-item.expanded .wn-collapse { grid-template-rows: 1fr; margin-top: 8px; }
+  .wn-collapse > div { overflow: hidden; min-height: 0; }
   .wrong-note-options { display: flex; flex-direction: column; gap: 6px; }
   .wn-option {
     padding: 10px 14px;
@@ -12275,14 +12293,26 @@ function renderWrongNote() {
               <button onclick="deleteWrong('${escArg(w.id)}')" style="background:none; border:none; font-size:12px; color:var(--gray-400); cursor:pointer">삭제</button>
             </div>
             <div class="wrong-note-q"${hlAttr(w.cat, w.round, q, 'q')}>${q.question || ''}</div>
-            ${bodyHtml}
-            ${q.explanation ? `<div class="wn-explain"${hlAttr(w.cat, w.round, q, 'e')}><svg class="ic" viewBox="0 0 24 24"><use href="#ic-bulb"/></svg> ${renderExp(q.explanation)}</div>` : ''}${expImgSlot(q)}
+            <button class="wn-toggle" onclick="toggleAnswerCollapse(this)">
+              <span class="wn-toggle-txt-closed">정답·해설 보기</span>
+              <span class="wn-toggle-txt-open">접기</span>
+              <svg class="ic wn-toggle-caret" viewBox="0 0 24 24"><use href="#ic-chevron-down"/></svg>
+            </button>
+            <div class="wn-collapse"><div>
+              ${bodyHtml}
+              ${q.explanation ? `<div class="wn-explain"${hlAttr(w.cat, w.round, q, 'e')}><svg class="ic" viewBox="0 0 24 24"><use href="#ic-bulb"/></svg> ${renderExp(q.explanation)}</div>` : ''}${expImgSlot(q)}
+            </div></div>
           </div>
         `;
       }).join('')}
     </div>
   `;
   hlBindList('wrong-list');
+}
+
+// 오답노트·별표 목록의 정답·해설 접기/펼치기 — 문항이 많아도 목록이 길어지지 않게
+function toggleAnswerCollapse(btn) {
+  btn.closest('.wrong-note-item')?.classList.toggle('expanded');
 }
 
 function setWrongFilter(cat) {
@@ -13423,8 +13453,15 @@ function renderStarNote() {
               <button onclick="deleteStarred('${escArg(key)}')" style="background:none; border:none; font-size:12px; color:var(--gray-400); cursor:pointer">별표 해제</button>
             </div>
             <div class="wrong-note-q"${hlAttr(w.cat, w.round, q, 'q')}>${q.question || ''}</div>
-            ${body}
-            ${q.explanation ? `<div class="wn-explain"${hlAttr(w.cat, w.round, q, 'e')}><svg class="ic" viewBox="0 0 24 24"><use href="#ic-bulb"/></svg> ${renderExp(q.explanation)}</div>` : ''}${expImgSlot(q)}
+            <button class="wn-toggle" onclick="toggleAnswerCollapse(this)">
+              <span class="wn-toggle-txt-closed">정답·해설 보기</span>
+              <span class="wn-toggle-txt-open">접기</span>
+              <svg class="ic wn-toggle-caret" viewBox="0 0 24 24"><use href="#ic-chevron-down"/></svg>
+            </button>
+            <div class="wn-collapse"><div>
+              ${body}
+              ${q.explanation ? `<div class="wn-explain"${hlAttr(w.cat, w.round, q, 'e')}><svg class="ic" viewBox="0 0 24 24"><use href="#ic-bulb"/></svg> ${renderExp(q.explanation)}</div>` : ''}${expImgSlot(q)}
+            </div></div>
           </div>
         `;
       }).join('')}
@@ -17474,6 +17511,9 @@ applyRenderFlags();
 //   k: 'new'(새 기능) · 'fix'(고침) · 'chg'(바뀜)
 // ══════════════════════════════════════════════════════════════════════
 const PATCH_NOTES = [
+  { v: '260804-1940', at: '2026-08-04', items: [
+    { k: 'new', t: '<b>오답노트·별표</b> 목록에서 정답·해설을 접었다 펼 수 있게 됐습니다 — 기본은 모두 접힌 상태로 보여서 목록이 훨씬 짧아집니다' },
+  ]},
   { v: '260804-0758', at: '2026-08-04', items: [
     { k: 'chg', t: '<b>별표·오답</b> 저장 방식을 가볍게 바꿨습니다 — 항목마다 문제를 통째로 복사해두던 것을 그만두고 필요할 때 문제은행에서 찾아오는 방식으로 바꿔서, 별표·오답이 많을수록 느려지던 동기화가 빨라집니다. 기존에 저장된 것도 안전하게 확인되는 것만 조용히 정리됩니다' },
   ]},
@@ -17701,7 +17741,7 @@ function closePatchNotes() {
 // ── 앱 버전 ──
 // 폰이 옛 파일을 캐시해 두고 있는지 바로 확인할 수 있도록 화면에 표시한다.
 // (설정 맨 아래 · 개발자 도구 콘솔에도 찍힘)
-const APP_VERSION = '260804-0758';
+const APP_VERSION = '260804-1940';
 console.log('%c양진웅 Note 버전 ' + APP_VERSION, 'font-weight:bold');
 
 // PWA 서비스워커 등록
