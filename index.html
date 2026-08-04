@@ -1360,6 +1360,22 @@
   .flag-btn .ic { width: 22px; height: 22px; }
   .flag-btn.on { color: var(--primary); }
   .flag-btn:hover { transform: scale(1.15); }
+
+  /* ── 오답노트·별표에서 "여기까지 봤다" 표시 (정렬·필터 무관, 사용자가 직접 켜고 끔) ── */
+  .mark-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    line-height: 1;
+    padding: 0 2px;
+    color: var(--gray-300);
+    transition: color 0.15s, transform 0.15s;
+    flex-shrink: 0;
+  }
+  .mark-btn .ic { width: 17px; height: 17px; }
+  .mark-btn.on { color: var(--primary); }
+  .mark-btn:hover { transform: scale(1.15); }
+  .wrong-note-item.marked { background: var(--primary-light); border-color: var(--primary); }
   .star-badge {
     display: inline-flex;
     align-items: center;
@@ -7812,7 +7828,7 @@ async function syncFromFirebase() {
   _syncing = true;
   showSyncStatus('☁️ 동기화 중...'); setSyncDot('busy');
   try {
-    const keys = ['quiz_progress','quiz_wrong','quiz_categories','quiz_starred','quiz_flagged','mock_records','mock_wrong','cal_data','quiz_checks','resume_bookmark','quiz_mastery','quiz_daily','quiz_qmemo','quiz_memo_links','quiz_img_index','quiz_srs','quiz_hl','quiz_imgw','quiz_quick_links','wrong_quiz_resume','star_quiz_resume','flag_quiz_resume'];
+    const keys = ['quiz_progress','quiz_wrong','quiz_categories','quiz_starred','quiz_flagged','quiz_marked','mock_records','mock_wrong','cal_data','quiz_checks','resume_bookmark','quiz_mastery','quiz_daily','quiz_qmemo','quiz_memo_links','quiz_img_index','quiz_srs','quiz_hl','quiz_imgw','quiz_quick_links','wrong_quiz_resume','star_quiz_resume','flag_quiz_resume'];
     // [추가] 문제 데이터는 회차별 구조라 따로 맞춘다 (색인 먼저 → 바뀐 회차만)
     await syncQuizData();
 
@@ -8386,6 +8402,11 @@ function saveStarred(s) { syncToFirebase('quiz_starred', s); }
 // (회차 목록의 "완료" 체크(quiz_checks)와도 다른, 문제 단위 체크)
 function getFlagged() { return _getCache('quiz_flagged', {}); }
 function saveFlagged(s) { syncToFirebase('quiz_flagged', s); }
+
+// 오답노트·별표 목록에서 "여기까지 봤다" 표시용 하이라이트 — 별표·체크와도 완전히 별개.
+// 순서(정렬·필터)에 상관없이 문제 자체에 붙는 단순 켬/끔이라 구분은 사용자가 알아서 한다.
+function getMarked() { return _getCache('quiz_marked', {}); }
+function saveMarked(s) { syncToFirebase('quiz_marked', s); }
 
 // ══════════════════════════════════════════════════════════════════════
 // 별표·오답 항목의 문제 원본 찾기
@@ -12378,6 +12399,7 @@ function renderWrongNote() {
         const isSubj = q.type === 'subj' || opts.length === 0;
         const isStar = !!getStarred()[getStarKey(w.cat, w.round, q.id || q.num)];
         const isFlag = !!getFlagged()[getStarKey(w.cat, w.round, q.id || q.num)];
+        const isMarked = !!getMarked()[getStarKey(w.cat, w.round, q.id || q.num)];
         const bodyHtml = isSubj
           ? `<div class="wn-option correct" style="align-items:flex-start">
                <span style="flex-shrink:0"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-check-circle"/></svg> 정답</span>
@@ -12391,13 +12413,16 @@ function renderWrongNote() {
                `).join('')}
              </div>`;
         return `
-          <div class="wrong-note-item ${_wrongSel.has(w.id) ? 'selected' : ''}">
+          <div class="wrong-note-item ${_wrongSel.has(w.id) ? 'selected' : ''} ${isMarked ? 'marked' : ''}">
             ${_wrongSelectMode ? `<label class="wn-check"><input type="checkbox" ${_wrongSel.has(w.id)?'checked':''} onchange="toggleWrongSel('${w.id}')"><span></span></label>` : ''}
             <div class="wrong-note-meta">
               <span style="font-weight:600; color:var(--primary)">${w.cat}</span>
               <span>${w.round}회차</span>
               <span>Q${q.num || ''}</span>
-              <button class="star-btn ${isStar ? 'starred' : ''}" onclick="toggleStarFromWrong('${escArg(w.id)}', this)" title="별표" style="margin-left:auto; font-size:18px; padding:0 2px;">${isStar ? '★' : '☆'}</button>
+              <button class="mark-btn ${isMarked ? 'on' : ''}" onclick="toggleMarkedFromWrong('${escArg(w.id)}', this)" title="${isMarked ? '표시 해제' : '여기까지 표시'}" style="margin-left:auto;">
+                <svg class="ic" viewBox="0 0 24 24"><use href="#ic-pin"/></svg>
+              </button>
+              <button class="star-btn ${isStar ? 'starred' : ''}" onclick="toggleStarFromWrong('${escArg(w.id)}', this)" title="별표" style="font-size:18px; padding:0 2px;">${isStar ? '★' : '☆'}</button>
               <button class="flag-btn ${isFlag ? 'on' : ''}" onclick="toggleFlagFromWrong('${escArg(w.id)}', this)" title="${isFlag ? '체크 해제' : '체크'}" style="padding:0 2px;">
                 <svg class="ic" viewBox="0 0 24 24" style="width:17px;height:17px"><use href="${isFlag ? '#ic-check-square' : '#ic-square'}"/></svg>
               </button>
@@ -13498,6 +13523,36 @@ function toggleStarFromFlag(key, btn) {
   _toggleStarEntry(f.cat, f.round, resolveEntryQ(f), btn);
 }
 
+// 오답노트·별표 목록에서 "여기까지 봤다" 표시 — 정렬·필터와 무관하게 문제 자체에 붙는다
+function toggleMarkedEntry(cat, round, q, btn) {
+  if (!q) return;
+  const marked = getMarked();
+  const qId = (q.id || q.num) || 0;
+  const key = getStarKey(cat, round, qId);
+  let on;
+  if (marked[key]) { delete marked[key]; on = false; }
+  else { marked[key] = true; on = true; }
+  saveMarked(marked);
+  paintMarkBtn(btn, on);
+}
+function paintMarkBtn(btn, on) {
+  if (!btn) return;
+  btn.classList.toggle('on', !!on);
+  const item = btn.closest('.wrong-note-item');
+  if (item) item.classList.toggle('marked', !!on);
+  btn.title = on ? '표시 해제' : '여기까지 표시';
+}
+function toggleMarkedFromWrong(id, btn) {
+  const w = getWrongAnswers().find(x => x.id === id);
+  if (!w) return;
+  toggleMarkedEntry(w.cat, w.round, resolveEntryQ(w), btn);
+}
+function toggleMarkedFromStar(key, btn) {
+  const s = getStarred()[key];
+  if (!s) return;
+  toggleMarkedEntry(s.cat, s.round, resolveEntryQ(s), btn);
+}
+
 let starFilter = { cat: null, lv: 0, rounds: new Set() };   // rounds 가 비어 있으면 "전체 회차"
 
 // 자격증·회차(여러 개)·중요도 필터를 모두 적용한 별표 목록
@@ -13578,6 +13633,7 @@ function renderStarNote() {
         const isSubj = q.type === 'subj' || opts.length === 0;
         const key = getStarKey(w.cat, w.round, _entryQId(w));
         const isFlag = !!getFlagged()[key];
+        const isMarked = !!getMarked()[key];
         const body = isSubj
           ? `<div class="wn-option correct" style="align-items:flex-start">
                <span style="flex-shrink:0"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-check-circle"/></svg> 정답</span>
@@ -13591,13 +13647,16 @@ function renderStarNote() {
                `).join('')}
              </div>`;
         return `
-          <div class="wrong-note-item">
+          <div class="wrong-note-item ${isMarked ? 'marked' : ''}">
             <div class="wrong-note-meta">
               <button class="star-lv" onclick="bumpStarLv('${escArg(key)}')" title="눌러서 중요도 바꾸기">${starMark(starLevelOf(w))}</button>
               <span style="font-weight:600">${escHtml(w.cat)}</span>
               <span>${escHtml(w.round)}회차</span>
               <span>Q${q.num || ''}</span>
-              <button class="flag-btn ${isFlag ? 'on' : ''}" onclick="toggleFlagFromStar('${escArg(key)}', this)" title="${isFlag ? '체크 해제' : '체크'}" style="margin-left:auto; padding:0 2px;">
+              <button class="mark-btn ${isMarked ? 'on' : ''}" onclick="toggleMarkedFromStar('${escArg(key)}', this)" title="${isMarked ? '표시 해제' : '여기까지 표시'}" style="margin-left:auto;">
+                <svg class="ic" viewBox="0 0 24 24"><use href="#ic-pin"/></svg>
+              </button>
+              <button class="flag-btn ${isFlag ? 'on' : ''}" onclick="toggleFlagFromStar('${escArg(key)}', this)" title="${isFlag ? '체크 해제' : '체크'}" style="padding:0 2px;">
                 <svg class="ic" viewBox="0 0 24 24" style="width:17px;height:17px"><use href="${isFlag ? '#ic-check-square' : '#ic-square'}"/></svg>
               </button>
               <button onclick="sendStarToMemo('${escArg(key)}')" title="정답+해설을 암기칸에 보내기" style="background:none; border:none; font-size:15px; cursor:pointer; padding:0 2px; color:var(--gray-400);"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-pencil"/></svg></button>
@@ -17746,7 +17805,7 @@ function renderSettings() {
 //    → 백업/복원에서 캘린더 메모·시험일이 통째로 빠져 있었음
 //  - 모의고사 기록(mock_records / mock_wrong)도 빠져 있어서 추가
 const BACKUP_KEYS = ['quiz_categories','quiz_data','quiz_progress','quiz_wrong','quiz_checks',
-                     'resume_bookmark','quiz_mastery','quiz_starred','quiz_flagged','quiz_daily','quiz_qmemo',
+                     'resume_bookmark','quiz_mastery','quiz_starred','quiz_flagged','quiz_marked','quiz_daily','quiz_qmemo',
                      'quiz_memo_links','cal_data','mock_records','mock_wrong','quiz_srs','quiz_hl','quiz_imgw','quiz_quick_links',
                      'wrong_quiz_resume','star_quiz_resume','flag_quiz_resume'];
 
@@ -18016,6 +18075,9 @@ applyRenderFlags();
 //   k: 'new'(새 기능) · 'fix'(고침) · 'chg'(바뀜)
 // ══════════════════════════════════════════════════════════════════════
 const PATCH_NOTES = [
+  { v: '260804-2336', at: '2026-08-04', items: [
+    { k: 'new', t: '<b>오답노트·별표</b> 목록에 "여기까지 봤다" 표시 기능이 추가됐습니다 — 문제 옆 핀 버튼을 누르면 그 줄이 밝게 표시돼요. 정렬·필터를 바꿔도 표시한 문제 자체는 그대로 유지됩니다' },
+  ]},
   { v: '260804-2223', at: '2026-08-04', items: [
     { k: 'chg', t: '<b>오답노트·별표·체크</b> 집중 풀기 화면의 큰 배너를 없앴습니다 — 일반 문제 풀이 화면처럼 작은 글자로 왼쪽 위에만 표시됩니다' },
   ]},
@@ -18280,7 +18342,7 @@ function closePatchNotes() {
 // ── 앱 버전 ──
 // 폰이 옛 파일을 캐시해 두고 있는지 바로 확인할 수 있도록 화면에 표시한다.
 // (설정 맨 아래 · 개발자 도구 콘솔에도 찍힘)
-const APP_VERSION = '260804-2223';
+const APP_VERSION = '260804-2336';
 console.log('%c양진웅 Note 버전 ' + APP_VERSION, 'font-weight:bold');
 
 // PWA 서비스워커 등록
