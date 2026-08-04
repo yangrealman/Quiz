@@ -992,30 +992,34 @@
     white-space: pre-wrap;
   }
   /* [추가] 정답·해설 접기/펼치기 — 목록이 길어서 기본은 다 접혀있게 */
-  /* [수정] grid-template-rows 애니메이션이 오답이 많을 때(100개+) 카드 하나 펼 때마다
-     프레임마다 레이아웃을 다시 계산해서 버벅였다. contain: layout으로 카드 하나의
-     레이아웃 변화가 다른 카드까지 다시 계산되지 않게 막고, 높이 애니메이션도
-     grid 트랙 계산 대신 JS로 실측한 px 값을 직접 트랜지션하는 방식으로 바꿨다
-     (아코디언 UI에서 흔히 쓰는, 더 가벼운 방식). */
-  .wrong-note-item { contain: layout; }
+  /* [수정] height(grid-template-rows 포함)를 애니메이션하면 레이아웃 속성이라
+     프레임마다 브라우저가 다시 배치를 계산해야 해서, 목록이 길면(100개+) 계속
+     버벅였다(기기·메인스레드 상황에 따라 완전히 없애기 어려움). 그래서 칸 높이
+     자체는 즉시(애니메이션 없이) 바뀌게 하고, 눈에 보이는 움직임은 합성만으로
+     처리되는 transform/opacity로만 준다 — 이 둘은 레이아웃을 다시 계산하지 않고
+     GPU에서 처리돼 목록 길이·기기 성능과 무관하게 항상 매끄럽다. */
   .wn-toggle {
     display: flex; align-items: center; gap: 5px;
     border: none; background: none; cursor: pointer; font-family: inherit;
     font-size: 12.5px; font-weight: 700; color: var(--primary);
     padding: 4px 0;
   }
-  .wn-toggle-caret { width: 13px; height: 13px; transition: transform 0.22s cubic-bezier(0.22,1,0.36,1); }
+  .wn-toggle-caret { width: 13px; height: 13px; transition: transform 0.18s ease; }
   .wrong-note-item.expanded .wn-toggle-caret { transform: rotate(180deg); }
   .wn-toggle-txt-open { display: none; }
   .wrong-note-item.expanded .wn-toggle-txt-closed { display: none; }
   .wrong-note-item.expanded .wn-toggle-txt-open { display: inline; }
-  .wn-collapse {
-    height: 0;
-    overflow: hidden;
-    transition: height 0.22s cubic-bezier(0.22,1,0.36,1);
+  .wn-collapse { height: 0; overflow: hidden; }
+  .wrong-note-item.expanded .wn-collapse { height: auto; margin-top: 8px; }
+  .wn-collapse > div {
+    min-height: 0;
+    opacity: 0;
+    transform: translateY(-6px);
+    transition: opacity 0.16s ease, transform 0.16s ease;
+    will-change: opacity, transform;
   }
-  .wrong-note-item.expanded .wn-collapse { margin-top: 8px; }
-  .wn-collapse > div { min-height: 0; }
+  .wrong-note-item.expanded .wn-collapse > div { opacity: 1; transform: translateY(0); }
+  body.reduce-motion .wn-collapse > div { transition: none; }
   .wrong-note-options { display: flex; flex-direction: column; gap: 6px; }
   .wn-option {
     padding: 10px 14px;
@@ -12318,27 +12322,11 @@ function renderWrongNote() {
 }
 
 // 오답노트·별표 목록의 정답·해설 접기/펼치기 — 문항이 많아도 목록이 길어지지 않게
-// [수정] grid-template-rows 애니메이션 대신 실측 px 높이를 직접 트랜지션 —
-//        오답이 많을 때(100개+) 카드 하나 펼 때마다 버벅이던 문제를 줄인다.
+// [수정] 칸 높이(height)는 즉시 바뀌고, 보이는 움직임은 CSS의 opacity/transform
+//        트랜지션만으로 준다 — 레이아웃을 다시 계산하지 않는 합성 전용 애니메이션이라
+//        목록이 아무리 길어도(100개+) 버벅이지 않는다. 그래서 여기선 클래스만 토글한다.
 function toggleAnswerCollapse(btn) {
-  const item = btn.closest('.wrong-note-item');
-  const collapse = item && item.querySelector('.wn-collapse');
-  if (!item || !collapse) return;
-  const opening = !item.classList.contains('expanded');
-  item.classList.toggle('expanded', opening);
-  if (opening) {
-    collapse.style.height = collapse.scrollHeight + 'px';
-    collapse.addEventListener('transitionend', function done(e) {
-      if (e.propertyName !== 'height') return;
-      collapse.style.height = 'auto';     // 이후 내용이 늘어나도(형광펜 등) 자동으로 맞는다
-      collapse.removeEventListener('transitionend', done);
-    });
-  } else {
-    // 지금은 height:auto 상태라 바로 0으로 바꾸면 트랜지션이 안 먹는다 —
-    // 먼저 지금 높이를 px로 고정하고, 다음 프레임에 0으로 줄인다.
-    collapse.style.height = collapse.scrollHeight + 'px';
-    requestAnimationFrame(() => { collapse.style.height = '0px'; });
-  }
+  btn.closest('.wrong-note-item')?.classList.toggle('expanded');
 }
 
 function setWrongFilter(cat) {
@@ -17537,6 +17525,9 @@ applyRenderFlags();
 //   k: 'new'(새 기능) · 'fix'(고침) · 'chg'(바뀜)
 // ══════════════════════════════════════════════════════════════════════
 const PATCH_NOTES = [
+  { v: '260804-2002', at: '2026-08-04', items: [
+    { k: 'fix', t: '<b>오답노트·별표</b> 정답·해설 접기/펼치기가 여전히 버벅이던 것을 마저 고쳤습니다 — 칸 높이는 즉시 바뀌게 하고, 눈에 보이는 움직임은 목록 길이와 무관하게 항상 매끄러운 방식으로 바꿨습니다' },
+  ]},
   { v: '260804-1948', at: '2026-08-04', items: [
     { k: 'fix', t: '<b>오답노트·별표</b>의 정답·해설 접기/펼치기가 목록이 길 때(100개+) 버벅이던 것을 고쳤습니다' },
   ]},
@@ -17770,7 +17761,7 @@ function closePatchNotes() {
 // ── 앱 버전 ──
 // 폰이 옛 파일을 캐시해 두고 있는지 바로 확인할 수 있도록 화면에 표시한다.
 // (설정 맨 아래 · 개발자 도구 콘솔에도 찍힘)
-const APP_VERSION = '260804-1948';
+const APP_VERSION = '260804-2002';
 console.log('%c양진웅 Note 버전 ' + APP_VERSION, 'font-weight:bold');
 
 // PWA 서비스워커 등록
