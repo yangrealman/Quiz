@@ -6498,7 +6498,7 @@
     margin-top: 6px;
     margin-bottom: 10px;
   }
-  .quiz-scrub-row #quiz-progress-bar, .quiz-scrub-row #sq-progress-bar {
+  .quiz-scrub-row #quiz-progress-bar, .quiz-scrub-row #sq-progress-bar, .quiz-scrub-row #fq-progress-bar {
     flex: 1;
     margin-top: 0;
     margin-bottom: 0;
@@ -10984,6 +10984,7 @@ function makeScrubber(prefix, getList, jumpTo) {
 function setupQuizScrubber() {
   makeScrubber('quiz', () => (currentQuiz && currentQuiz.questions) || [], i => goToQuestion(i));
   makeScrubber('sq',   () => (sqState && sqState.questions) || [],       i => sqGoTo(i));
+  makeScrubber('fq',   () => (fqState && fqState.questions) || [],       i => fqGoTo(i));
 }
 
 function saveQuizProgress(justAnswered) {
@@ -18029,6 +18030,9 @@ applyRenderFlags();
 //   k: 'new'(새 기능) · 'fix'(고침) · 'chg'(바뀜)
 // ══════════════════════════════════════════════════════════════════════
 const PATCH_NOTES = [
+  { v: '260804-2154', at: '2026-08-04', items: [
+    { k: 'fix', t: '<b>체크 풀기</b> 화면의 진행 막대가 왼쪽에 붙어서 눌러도 움직이지 않던 것을 고쳤습니다 — 막대 너비를 정하는 스타일 규칙과 드래그로 문항을 넘기는 기능이 새 화면에 연결돼 있지 않았습니다' },
+  ]},
   { v: '260804-2147', at: '2026-08-04', items: [
     { k: 'fix', t: '<b>체크한 것만 풀기</b> 화면이 목록 화면 아래에 겹쳐서 나타나던 것을 고쳤습니다 — 화면 전환 목록에 새 화면 두 개(체크 목록·체크 풀기)가 빠져 있어서 이전 화면이 꺼지지 않고 있었습니다' },
   ]},
@@ -18280,7 +18284,7 @@ function closePatchNotes() {
 // ── 앱 버전 ──
 // 폰이 옛 파일을 캐시해 두고 있는지 바로 확인할 수 있도록 화면에 표시한다.
 // (설정 맨 아래 · 개발자 도구 콘솔에도 찍힘)
-const APP_VERSION = '260804-2147';
+const APP_VERSION = '260804-2154';
 console.log('%c양진웅 Note 버전 ' + APP_VERSION, 'font-weight:bold');
 
 // PWA 서비스워커 등록
