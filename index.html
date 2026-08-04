@@ -1211,12 +1211,12 @@
   .wrong-quiz-header {
     text-align: center;
     padding: 16px;
-    background: var(--danger-light);
+    background: var(--card);
     border-radius: var(--radius);
     margin-bottom: 20px;
-    border: 1px solid var(--danger-border);
+    border: 1px solid var(--card-border);
   }
-  .wrong-quiz-title { font-size: 16px; font-weight: 700; color: var(--danger); }
+  .wrong-quiz-title { font-size: 16px; font-weight: 700; color: var(--primary); }
   .wrong-quiz-sub { font-size: 12px; color: var(--gray-500); margin-top: 2px; }
 
   /* ── 반응형 ── */
@@ -1386,12 +1386,12 @@
   .star-quiz-header {
     text-align: center;
     padding: 16px;
-    background: var(--warning-border);
+    background: var(--card);
     border-radius: var(--radius);
     margin-bottom: 20px;
-    border: 1px solid #FDE68A;
+    border: 1px solid var(--card-border);
   }
-  .star-quiz-title { font-size: 16px; font-weight: 700; color: var(--warning); }
+  .star-quiz-title { font-size: 16px; font-weight: 700; color: var(--primary); }
   .star-quiz-sub { font-size: 12px; color: var(--gray-500); margin-top: 2px; }
   .wq-source-badge {
     font-size: 11px;
@@ -6893,6 +6893,7 @@
         <span class="quiz-q-num" id="fq-q-num"></span>
       </div>
       <div style="display:flex; align-items:center; gap:6px;">
+        <button class="star-btn" id="fq-star-btn" onclick="toggleStarFQ()" title="별표 표시">☆</button>
         <button class="flag-btn on" id="fq-flag-btn" onclick="toggleFlagFQ()" title="체크 해제">
           <svg class="ic" viewBox="0 0 24 24"><use href="#ic-check-square"/></svg>
         </button>
@@ -13523,6 +13524,13 @@ function toggleFlagFromStar(key, btn) {
   _toggleFlagFromList(s.cat, s.round, resolveEntryQ(s), btn);
 }
 
+// 체크 목록 화면에서 별표 (저장된 체크 key 기준) — 별표 저장소는 그대로, 체크와는 별개
+function toggleStarFromFlag(key, btn) {
+  const f = getFlagged()[key];
+  if (!f) return;
+  _toggleStarEntry(f.cat, f.round, resolveEntryQ(f), btn);
+}
+
 let starFilter = { cat: null, lv: 0, rounds: new Set() };   // rounds 가 비어 있으면 "전체 회차"
 
 // 자격증·회차(여러 개)·중요도 필터를 모두 적용한 별표 목록
@@ -14064,6 +14072,7 @@ function renderFlagNote() {
         const opts = Array.isArray(q.options) ? q.options : [];
         const isSubj = q.type === 'subj' || opts.length === 0;
         const key = getStarKey(w.cat, w.round, _entryQId(w));
+        const isStar = !!getStarred()[key];
         const body = isSubj
           ? `<div class="wn-option correct" style="align-items:flex-start">
                <span style="flex-shrink:0"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-check-circle"/></svg> 정답</span>
@@ -14079,6 +14088,7 @@ function renderFlagNote() {
         return `
           <div class="wrong-note-item">
             <div class="wrong-note-meta">
+              <button class="star-btn ${isStar ? 'starred' : ''}" onclick="toggleStarFromFlag('${escArg(key)}', this)" title="별표" style="font-size:18px; padding:0 2px;">${isStar ? '★' : '☆'}</button>
               <span style="font-weight:600">${escHtml(w.cat)}</span>
               <span>${escHtml(w.round)}회차</span>
               <span>Q${q.num || ''}</span>
@@ -14216,7 +14226,11 @@ function renderFQ() {
   const fqThumb = document.getElementById('fq-progress-thumb');
   if (fqThumb) fqThumb.style.left = `${fqPct}%`;
 
-  if (src) renderFQSource();
+  if (src) {
+    renderFQSource();
+    const starKey = getStarKey(src.cat, src.round, q.id || q.num || idx);
+    paintStarBtn(document.getElementById('fq-star-btn'), starLevelOf(getStarred()[starKey]));
+  }
   document.getElementById('fq-question').textContent = q.question;
   renderQImage('fq-img-wrap', q);   // 문제 그림
   {   // 형광펜 (일반 풀이와 같은 기록을 공유)
@@ -14367,6 +14381,15 @@ function toggleFlagFQ() {
   if (!src) return;
   const on = toggleFlagEntry(src.cat, src.round, questions[idx], idx);
   paintFlagBtn(document.getElementById('fq-flag-btn'), on);
+}
+
+// 체크 풀기 중에도 별표를 매길 수 있다 (별표 저장소는 그대로, 체크와는 별개)
+function toggleStarFQ() {
+  const { questions, idx, source } = fqState;
+  const src = source[idx];
+  if (!src) return;
+  const lv = cycleStarEntry(src.cat, src.round, questions[idx], idx);
+  paintStarBtn(document.getElementById('fq-star-btn'), lv);
 }
 
 function renderFQSource() {
@@ -18030,6 +18053,10 @@ applyRenderFlags();
 //   k: 'new'(새 기능) · 'fix'(고침) · 'chg'(바뀜)
 // ══════════════════════════════════════════════════════════════════════
 const PATCH_NOTES = [
+  { v: '260804-2207', at: '2026-08-04', items: [
+    { k: 'chg', t: '<b>오답노트·별표·체크</b> 집중 풀기 화면 상단 배너 색을 깔끔하게 통일했습니다 — 기능마다 다른 색(빨강·노랑)을 쓰던 것을 그만두고 홈 화면과 어울리는 색으로 맞췄습니다' },
+    { k: 'new', t: '<b>체크</b> 목록과 체크 풀기 화면에도 별표 버튼이 생겼습니다 — 체크한 문제를 보면서 바로 별표도 매길 수 있어요' },
+  ]},
   { v: '260804-2159', at: '2026-08-04', items: [
     { k: 'fix', t: '<b>체크 풀기</b> 진행 막대의 위치 표시(동그란 손잡이)가 엉뚱한 곳에 뜨던 것을 고쳤습니다 — 손잡이의 위치 기준이 되는 스타일이 새 화면에 연결돼 있지 않았습니다' },
   ]},
@@ -18287,7 +18314,7 @@ function closePatchNotes() {
 // ── 앱 버전 ──
 // 폰이 옛 파일을 캐시해 두고 있는지 바로 확인할 수 있도록 화면에 표시한다.
 // (설정 맨 아래 · 개발자 도구 콘솔에도 찍힘)
-const APP_VERSION = '260804-2159';
+const APP_VERSION = '260804-2207';
 console.log('%c양진웅 Note 버전 ' + APP_VERSION, 'font-weight:bold');
 
 // PWA 서비스워커 등록
