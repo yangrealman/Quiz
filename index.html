@@ -1375,7 +1375,11 @@
   .mark-btn .ic { width: 17px; height: 17px; }
   .mark-btn.on { color: var(--primary); }
   .mark-btn:hover { transform: scale(1.15); }
-  .wrong-note-item.marked { background: var(--primary-light); border-color: var(--primary); }
+  body:not(.dark) .wrong-note-item.marked,
+  body.dark .wrong-note-item.marked {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px var(--primary);
+  }
   .star-badge {
     display: inline-flex;
     align-items: center;
@@ -18075,6 +18079,9 @@ applyRenderFlags();
 //   k: 'new'(새 기능) · 'fix'(고침) · 'chg'(바뀜)
 // ══════════════════════════════════════════════════════════════════════
 const PATCH_NOTES = [
+  { v: '260804-2356', at: '2026-08-04', items: [
+    { k: 'fix', t: '<b>오답노트·별표</b> "여기까지 봤다" 표시가 옅어서 잘 안 보이던 것을 고쳤습니다 — 테두리를 굵고 진하게 강조했습니다' },
+  ]},
   { v: '260804-2336', at: '2026-08-04', items: [
     { k: 'new', t: '<b>오답노트·별표</b> 목록에 "여기까지 봤다" 표시 기능이 추가됐습니다 — 문제 옆 핀 버튼을 누르면 그 줄이 밝게 표시돼요. 정렬·필터를 바꿔도 표시한 문제 자체는 그대로 유지됩니다' },
   ]},
@@ -18342,7 +18349,7 @@ function closePatchNotes() {
 // ── 앱 버전 ──
 // 폰이 옛 파일을 캐시해 두고 있는지 바로 확인할 수 있도록 화면에 표시한다.
 // (설정 맨 아래 · 개발자 도구 콘솔에도 찍힘)
-const APP_VERSION = '260804-2336';
+const APP_VERSION = '260804-2356';
 console.log('%c양진웅 Note 버전 ' + APP_VERSION, 'font-weight:bold');
 
 // PWA 서비스워커 등록
