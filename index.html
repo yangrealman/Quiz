@@ -12406,6 +12406,7 @@ function renderWrongNote() {
         const opts = Array.isArray(q.options) ? q.options : [];
         const isSubj = q.type === 'subj' || opts.length === 0;
         const isStar = !!getStarred()[getStarKey(w.cat, w.round, q.id || q.num)];
+        const isFlag = !!getFlagged()[getStarKey(w.cat, w.round, q.id || q.num)];
         const bodyHtml = isSubj
           ? `<div class="wn-option correct" style="align-items:flex-start">
                <span style="flex-shrink:0"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-check-circle"/></svg> 정답</span>
@@ -12426,6 +12427,9 @@ function renderWrongNote() {
               <span>${w.round}회차</span>
               <span>Q${q.num || ''}</span>
               <button class="star-btn ${isStar ? 'starred' : ''}" onclick="toggleStarFromWrong('${escArg(w.id)}', this)" title="별표" style="margin-left:auto; font-size:18px; padding:0 2px;">${isStar ? '★' : '☆'}</button>
+              <button class="flag-btn ${isFlag ? 'on' : ''}" onclick="toggleFlagFromWrong('${escArg(w.id)}', this)" title="${isFlag ? '체크 해제' : '체크'}" style="padding:0 2px;">
+                <svg class="ic" viewBox="0 0 24 24" style="width:17px;height:17px"><use href="${isFlag ? '#ic-check-square' : '#ic-square'}"/></svg>
+              </button>
               <button onclick="sendWrongToMemo('${escArg(w.id)}')" title="정답+해설을 암기칸에 보내기" style="background:none; border:none; font-size:15px; cursor:pointer; padding:0 2px; color:var(--gray-400);"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-pencil"/></svg></button>
               <button onclick="deleteWrong('${escArg(w.id)}')" style="background:none; border:none; font-size:12px; color:var(--gray-400); cursor:pointer">삭제</button>
             </div>
@@ -13497,6 +13501,27 @@ function toggleStarFromWrong(id, btn) {
   _toggleStarEntry(w.cat, w.round, resolveEntryQ(w), btn);
 }
 
+// 목록(오답노트/별표)에서 체크 토글 — 별표와 완전히 별개의 저장소를 건드린다
+function _toggleFlagFromList(cat, round, q, btn) {
+  if (!q) return;
+  const on = toggleFlagEntry(cat, round, q, 0);
+  paintFlagBtn(btn, on);
+}
+
+// 오답노트 화면에서 체크 (저장된 오답 id 기준)
+function toggleFlagFromWrong(id, btn) {
+  const w = getWrongAnswers().find(x => x.id === id);
+  if (!w) return;
+  _toggleFlagFromList(w.cat, w.round, resolveEntryQ(w), btn);
+}
+
+// 별표 화면에서 체크 (저장된 별표 key 기준)
+function toggleFlagFromStar(key, btn) {
+  const s = getStarred()[key];
+  if (!s) return;
+  _toggleFlagFromList(s.cat, s.round, resolveEntryQ(s), btn);
+}
+
 let starFilter = { cat: null, lv: 0, rounds: new Set() };   // rounds 가 비어 있으면 "전체 회차"
 
 // 자격증·회차(여러 개)·중요도 필터를 모두 적용한 별표 목록
@@ -13576,6 +13601,7 @@ function renderStarNote() {
         const opts = Array.isArray(q.options) ? q.options : [];
         const isSubj = q.type === 'subj' || opts.length === 0;
         const key = getStarKey(w.cat, w.round, _entryQId(w));
+        const isFlag = !!getFlagged()[key];
         const body = isSubj
           ? `<div class="wn-option correct" style="align-items:flex-start">
                <span style="flex-shrink:0"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-check-circle"/></svg> 정답</span>
@@ -13595,7 +13621,10 @@ function renderStarNote() {
               <span style="font-weight:600">${escHtml(w.cat)}</span>
               <span>${escHtml(w.round)}회차</span>
               <span>Q${q.num || ''}</span>
-              <button onclick="sendStarToMemo('${escArg(key)}')" title="정답+해설을 암기칸에 보내기" style="margin-left:auto; background:none; border:none; font-size:15px; cursor:pointer; padding:0 2px; color:var(--gray-400);"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-pencil"/></svg></button>
+              <button class="flag-btn ${isFlag ? 'on' : ''}" onclick="toggleFlagFromStar('${escArg(key)}', this)" title="${isFlag ? '체크 해제' : '체크'}" style="margin-left:auto; padding:0 2px;">
+                <svg class="ic" viewBox="0 0 24 24" style="width:17px;height:17px"><use href="${isFlag ? '#ic-check-square' : '#ic-square'}"/></svg>
+              </button>
+              <button onclick="sendStarToMemo('${escArg(key)}')" title="정답+해설을 암기칸에 보내기" style="background:none; border:none; font-size:15px; cursor:pointer; padding:0 2px; color:var(--gray-400);"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-pencil"/></svg></button>
               <button onclick="deleteStarred('${escArg(key)}')" style="background:none; border:none; font-size:12px; color:var(--gray-400); cursor:pointer">별표 해제</button>
             </div>
             <div class="wrong-note-q"${hlAttr(w.cat, w.round, q, 'q')}>${q.question || ''}</div>
@@ -17983,6 +18012,9 @@ applyRenderFlags();
 //   k: 'new'(새 기능) · 'fix'(고침) · 'chg'(바뀜)
 // ══════════════════════════════════════════════════════════════════════
 const PATCH_NOTES = [
+  { v: '260804-2111', at: '2026-08-04', items: [
+    { k: 'new', t: '<b>오답노트·별표</b> 목록에서도 문제를 체크할 수 있게 됐습니다 — 문제 풀이 화면뿐 아니라 오답노트·별표에 있는 문제도 체크해서 "체크한 것만 풀기"에 모을 수 있어요' },
+  ]},
   { v: '260804-2106', at: '2026-08-04', items: [
     { k: 'new', t: '<b>체크</b> 기능이 추가됐습니다 — 문제 화면에서 별표와 별개로 체크 표시를 하고, 복습 탭의 "체크"에서 체크한 문제만 모아 풀 수 있어요' },
   ]},
@@ -18225,7 +18257,7 @@ function closePatchNotes() {
 // ── 앱 버전 ──
 // 폰이 옛 파일을 캐시해 두고 있는지 바로 확인할 수 있도록 화면에 표시한다.
 // (설정 맨 아래 · 개발자 도구 콘솔에도 찍힘)
-const APP_VERSION = '260804-2106';
+const APP_VERSION = '260804-2111';
 console.log('%c양진웅 Note 버전 ' + APP_VERSION, 'font-weight:bold');
 
 // PWA 서비스워커 등록
