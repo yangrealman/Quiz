@@ -6867,7 +6867,10 @@
         <div class="page-title">✔ 체크한 문제</div>
         <div class="page-sub">체크 표시한 문제를 모아 복습하세요</div>
       </div>
-      <button class="btn btn-primary" id="flag-quiz-btn" onclick="startFlagQuiz()" style="display:none">체크한 것만 풀기</button>
+      <div style="display:flex; align-items:center; gap:6px;">
+        <button class="mg-btn danger" id="flag-clear-btn" onclick="askClearAllFlagged(this)" title="전체 체크 해제 · 두 번 누르면 해제됩니다" style="display:none">X</button>
+        <button class="btn btn-primary" id="flag-quiz-btn" onclick="startFlagQuiz()" style="display:none">체크한 것만 풀기</button>
+      </div>
     </div>
     <div id="flag-resume-card" style="margin-bottom:12px;"></div>
     <div id="flag-list"></div>
@@ -14095,6 +14098,8 @@ function renderFlagNote() {
 
   const flagBtn = document.getElementById('flag-quiz-btn');
   if (flagBtn) flagBtn.style.display = items.length ? 'block' : 'none';
+  const clearBtn = document.getElementById('flag-clear-btn');
+  if (clearBtn) clearBtn.style.display = items.length ? 'block' : 'none';
 
   if (!items.length) {
     document.getElementById('flag-list').innerHTML = `<div class="empty-state"><div class="emoji"><svg class="ic ic-empty" viewBox="0 0 24 24"><use href="#ic-check-square"/></svg></div><p>체크한 문제가 없어요.<br>문제를 풀며 체크 버튼을 눌러 표시해보세요.</p><button class="btn btn-secondary empty-cta" onclick="goPage('home')">문제 풀러 가기</button></div>`;
@@ -14160,6 +14165,26 @@ function deleteFlagged(key) {
   saveFlagged(flagged);
   renderFlagNote();
   showToast('체크 해제했습니다');
+}
+
+// 전체 체크 해제 — 실수로 지우지 않도록 두 번 눌러야 한다 (회차 삭제와 같은 방식)
+let _clearFlagTimer = null;
+function askClearAllFlagged(btn) {
+  if (!Object.keys(getFlagged()).length) return;
+  if (btn.dataset.arm === '1') {
+    clearTimeout(_clearFlagTimer);
+    saveFlagged({});
+    renderFlagNote();
+    showToast('전체 해제했습니다');
+    return;
+  }
+  btn.dataset.arm = '1';
+  btn.classList.add('arm');
+  btn.textContent = '정말?';
+  clearTimeout(_clearFlagTimer);
+  _clearFlagTimer = setTimeout(() => {
+    btn.dataset.arm = ''; btn.classList.remove('arm'); btn.textContent = 'X';
+  }, 4000);
 }
 
 let fqState = { questions: [], idx: 0, answered: {}, source: [] };
@@ -18093,6 +18118,9 @@ applyRenderFlags();
 //   k: 'new'(새 기능) · 'fix'(고침) · 'chg'(바뀜)
 // ══════════════════════════════════════════════════════════════════════
 const PATCH_NOTES = [
+  { v: '260805-0134', at: '2026-08-05', items: [
+    { k: 'new', t: '<b>체크</b> 목록에 전체 해제 버튼(X)이 생겼습니다 — "체크한 것만 풀기" 버튼 왼쪽에 있고, 실수로 지우지 않도록 두 번 눌러야 해제됩니다' },
+  ]},
   { v: '260805-0127', at: '2026-08-05', items: [
     { k: 'new', t: '<b>오답노트</b> 화면 제목("오답 노트")을 누르면 표시해 둔 문제로 바로 스크롤됩니다 (별표와 동일한 기능)' },
   ]},
@@ -18369,7 +18397,7 @@ function closePatchNotes() {
 // ── 앱 버전 ──
 // 폰이 옛 파일을 캐시해 두고 있는지 바로 확인할 수 있도록 화면에 표시한다.
 // (설정 맨 아래 · 개발자 도구 콘솔에도 찍힘)
-const APP_VERSION = '260805-0127';
+const APP_VERSION = '260805-0134';
 console.log('%c양진웅 Note 버전 ' + APP_VERSION, 'font-weight:bold');
 
 // PWA 서비스워커 등록
