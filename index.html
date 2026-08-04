@@ -6762,7 +6762,7 @@
   <div class="container">
     <div class="section-header">
       <div>
-        <div class="page-title">오답 노트</div>
+        <div class="page-title" onclick="scrollToMarkedWrong()" style="cursor:pointer" title="표시한 문제로 이동">오답 노트</div>
         <div class="page-sub">틀린 문제를 모아 복습하세요</div>
       </div>
       <button class="btn btn-primary" id="wrong-quiz-btn" onclick="startWrongQuiz()" style="display:none">오답만 풀기</button>
@@ -12459,6 +12459,13 @@ function toggleAnswerCollapse(btn) {
   btn.closest('.wrong-note-item')?.classList.toggle('expanded');
 }
 
+// "오답 노트" 제목을 누르면 표시해 둔 문제로 바로 스크롤 — 목록이 길 때 찾아 내려가지 않아도 되게
+function scrollToMarkedWrong() {
+  const el = document.querySelector('#wrong-list .wrong-note-item.marked');
+  if (!el) { showToast('표시한 문제가 없어요'); return; }
+  el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+}
+
 function setWrongFilter(cat) {
   wrongFilter.cat = cat;
   wrongFilter.rounds = new Set();   // 자격증이 바뀌면 회차 필터는 의미가 없어지니 초기화
@@ -18086,6 +18093,9 @@ applyRenderFlags();
 //   k: 'new'(새 기능) · 'fix'(고침) · 'chg'(바뀜)
 // ══════════════════════════════════════════════════════════════════════
 const PATCH_NOTES = [
+  { v: '260805-0127', at: '2026-08-05', items: [
+    { k: 'new', t: '<b>오답노트</b> 화면 제목("오답 노트")을 누르면 표시해 둔 문제로 바로 스크롤됩니다 (별표와 동일한 기능)' },
+  ]},
   { v: '260805-0118', at: '2026-08-05', items: [
     { k: 'new', t: '<b>별표</b> 화면 제목("★ 별표 문제")을 누르면 표시해 둔 문제로 바로 스크롤됩니다 — 목록이 길 때 일일이 내려가지 않아도 돼요' },
   ]},
@@ -18359,7 +18369,7 @@ function closePatchNotes() {
 // ── 앱 버전 ──
 // 폰이 옛 파일을 캐시해 두고 있는지 바로 확인할 수 있도록 화면에 표시한다.
 // (설정 맨 아래 · 개발자 도구 콘솔에도 찍힘)
-const APP_VERSION = '260805-0118';
+const APP_VERSION = '260805-0127';
 console.log('%c양진웅 Note 버전 ' + APP_VERSION, 'font-weight:bold');
 
 // PWA 서비스워커 등록
