@@ -6809,7 +6809,7 @@
   <div class="container">
     <div class="section-header">
       <div>
-        <div class="page-title">★ 별표 문제</div>
+        <div class="page-title" onclick="scrollToMarkedStar()" style="cursor:pointer" title="표시한 문제로 이동">★ 별표 문제</div>
         <div class="page-sub">별표 표시한 문제를 모아 복습하세요</div>
       </div>
       <button class="btn btn-primary" id="star-quiz-btn" onclick="startStarQuiz()" style="display:none; background:var(--warning)">★ 별표만 풀기</button>
@@ -13557,6 +13557,13 @@ function toggleMarkedFromStar(key, btn) {
   toggleMarkedEntry(s.cat, s.round, resolveEntryQ(s), btn);
 }
 
+// "★ 별표 문제" 제목을 누르면 표시해 둔 문제로 바로 스크롤 — 목록이 길 때 찾아 내려가지 않아도 되게
+function scrollToMarkedStar() {
+  const el = document.querySelector('#star-list .wrong-note-item.marked');
+  if (!el) { showToast('표시한 문제가 없어요'); return; }
+  el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+}
+
 let starFilter = { cat: null, lv: 0, rounds: new Set() };   // rounds 가 비어 있으면 "전체 회차"
 
 // 자격증·회차(여러 개)·중요도 필터를 모두 적용한 별표 목록
@@ -18079,6 +18086,9 @@ applyRenderFlags();
 //   k: 'new'(새 기능) · 'fix'(고침) · 'chg'(바뀜)
 // ══════════════════════════════════════════════════════════════════════
 const PATCH_NOTES = [
+  { v: '260805-0118', at: '2026-08-05', items: [
+    { k: 'new', t: '<b>별표</b> 화면 제목("★ 별표 문제")을 누르면 표시해 둔 문제로 바로 스크롤됩니다 — 목록이 길 때 일일이 내려가지 않아도 돼요' },
+  ]},
   { v: '260804-2356', at: '2026-08-04', items: [
     { k: 'fix', t: '<b>오답노트·별표</b> "여기까지 봤다" 표시가 옅어서 잘 안 보이던 것을 고쳤습니다 — 테두리를 굵고 진하게 강조했습니다' },
   ]},
@@ -18349,7 +18359,7 @@ function closePatchNotes() {
 // ── 앱 버전 ──
 // 폰이 옛 파일을 캐시해 두고 있는지 바로 확인할 수 있도록 화면에 표시한다.
 // (설정 맨 아래 · 개발자 도구 콘솔에도 찍힘)
-const APP_VERSION = '260804-2356';
+const APP_VERSION = '260805-0118';
 console.log('%c양진웅 Note 버전 ' + APP_VERSION, 'font-weight:bold');
 
 // PWA 서비스워커 등록
