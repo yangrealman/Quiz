@@ -10882,11 +10882,9 @@ function judgeSubj(result) {
     burstParticles(document.querySelector('.sja-ok'));
   }
 
-  if (result === 'correct') {
-    removeWrongAnswer(cat, round, q.id || idx);
-  } else {
-    saveWrongAnswer(cat, round, q, -1);
-  }
+  // [수정] 맞혔다고 오답 노트에서 지우지 않는다 — 지우는 건 직접 고르게 한다
+  //        (한 번 맞혔다고 사라지면 다시 볼 기회가 없어진다)
+  if (result !== 'correct') saveWrongAnswer(cat, round, q, -1);
   saveQuizProgress(true);
 
   // [추가] 정답을 펼쳐 둔 채로 판정하면 판정 후 다시 접는다 (안 펼쳐져 있었다면 그대로 유지)
@@ -11067,13 +11065,12 @@ function showResult() {
 
 
   // 결과 화면에서 일괄 오답 저장 (객관식만, 주관식은 judgeSubj에서 실시간 처리)
+  // [수정] 맞힌 문제를 오답 노트에서 지우지 않는다 — 지우는 건 직접 고르게 한다
   questions.forEach((q, i) => {
     if (q.type === 'subj') return; // 주관식은 이미 처리됨
     const chosen = answered[i];
     if (chosen !== q.correct) {
       saveWrongAnswer(cat, round, q, chosen !== undefined ? chosen : -1);
-    } else {
-      removeWrongAnswer(cat, round, q.id || i);
     }
   });
 
@@ -12274,13 +12271,6 @@ function saveWrongAnswer(cat, round, q, myAnswer) {
   saveWrongAnswers(wrongs);
 }
 
-function removeWrongAnswer(cat, round, qId) {
-  let wrongs = getWrongAnswers();
-  const id = cat + '_' + round + '_' + qId;
-  wrongs = wrongs.filter(w => w.id !== id);
-  saveWrongAnswers(wrongs);
-}
-
 // ══════════════════════════════════════════════════════════════════════
 // 오답 노트 화면
 // ══════════════════════════════════════════════════════════════════════
@@ -12760,15 +12750,7 @@ function wqAnswer(chosen) {
   document.getElementById('wq-next-btn').disabled = false;
   document.getElementById('wq-next-btn').innerHTML = idx === questions.length - 1 ? '완료' : '다음<svg class="ic" viewBox="0 0 24 24"><use href="#ic-arrow-right"/></svg>';
 
-  // 정답 맞히면 오답에서 제거
-  if (chosen === q.correct) {
-    const src = wqState.source[idx];
-    if (src) {
-      let wrongs = getWrongAnswers();
-      wrongs = wrongs.filter(w => w.id !== src.id);
-      saveWrongAnswers(wrongs);
-    }
-  }
+  // [수정] 맞혀도 오답 목록에서 지우지 않는다 — 지우는 건 오답 노트에서 직접 고르게 한다
   _saveWQCheckpoint();
 }
 
@@ -14770,6 +14752,9 @@ function buildMockQuestions(cat) {
         const qs = getRound(cat, round);
         const found = qs.find(q => Number(q.num) === qNum);
         if (!found) continue;
+        // [추가] 모의고사 화면은 보기를 눌러 푸는 객관식 전용이다.
+        //        필답형(주관식)은 보기가 없어서 뽑히면 화면이 깨진다 → 아예 제외한다.
+        if (found.type === 'subj' || !Array.isArray(found.options) || !found.options.length) continue;
         candidates.push({ q: found, round, cat });
       }
       if (!candidates.length) continue;
@@ -14794,13 +14779,26 @@ function buildMockQuestions(cat) {
   return result.length > 0 ? result : null;
 }
 
+// 이 자격증에 객관식 문항이 하나라도 있는지 — 모의고사를 만들 수 있는지 판단용
+function _catHasObjective(cat) {
+  return getRoundList(cat).some(r => getRound(cat, r)
+    .some(q => q.type !== 'subj' && Array.isArray(q.options) && q.options.length));
+}
+
+// 모의고사를 못 만든 이유를 상황에 맞게 알려준다 (필답형만 있는 자격증은 회차를 더 넣어도 소용없다)
+function _mockBuildFailToast(cat) {
+  showToast(_catHasObjective(cat)
+    ? '문제가 부족해요. 회차를 더 등록해주세요.'
+    : '이 자격증은 필답형(주관식)만 있어서 모의고사를 만들 수 없어요');
+}
+
 function startMockExam() {
   const cat = document.getElementById('mock-cat-select').value;
   if (!cat) { showToast('자격증을 선택하세요'); return; }
   const timerMin = parseInt(document.getElementById('mock-timer-select').value);
 
   const built = buildMockQuestions(cat);
-  if (!built) { showToast('문제가 부족해요. 회차를 더 등록해주세요.'); return; }
+  if (!built) { _mockBuildFailToast(cat); return; }
 
   mqState = {
     cat,
@@ -14823,7 +14821,7 @@ function startMockExamAgain() {
   const cat = mqState.cat;
   if (!cat) { goPage('mock'); return; }
   const built = buildMockQuestions(cat);
-  if (!built) { showToast('문제 부족'); goPage('mock'); return; }
+  if (!built) { _mockBuildFailToast(cat); goPage('mock'); return; }
   const timerSec = mqState.timerSec;
 
   if (mqState.timerInterval) clearInterval(mqState.timerInterval);
@@ -14869,12 +14867,17 @@ function renderMQ() {
   renderQImage('mq-img-wrap', q);   // [추가] 문제 그림
 
   const optEl = document.getElementById('mq-options');
-  optEl.innerHTML = q.options.map((opt, i) => `
-    <button class="quiz-option" onclick="mqAnswer(${i})" ${idx in answered ? 'disabled' : ''}>
-      <span class="opt-num">${circleNums[i]||i+1}</span>
-      <span>${escHtml(opt)}</span>
-    </button>
-  `).join('');
+  // [수정] 보기가 없는 문항(필답형 등)이 섞여 들어와도 화면이 깨지지 않게 한다.
+  //        답을 못 고르면 '다음' 버튼도 잠겨서 시험이 멈추므로, 이때는 건너뛸 수 있게 열어 준다.
+  const opts = Array.isArray(q.options) ? q.options : [];
+  optEl.innerHTML = opts.length
+    ? opts.map((opt, i) => `
+        <button class="quiz-option" onclick="mqAnswer(${i})" ${idx in answered ? 'disabled' : ''}>
+          <span class="opt-num">${circleNums[i]||i+1}</span>
+          <span>${escHtml(opt)}</span>
+        </button>
+      `).join('')
+    : `<div class="empty-state"><p>이 문제는 보기가 없어서 모의고사에서 건너뜁니다.</p></div>`;
 
   const expBox = document.getElementById('mq-explanation-box');
   setExplanation('mq-explanation-text', q);
@@ -14893,7 +14896,7 @@ function renderMQ() {
   }
 
   document.getElementById('mq-prev-btn').disabled = idx === 0;
-  document.getElementById('mq-next-btn').disabled = !(idx in answered);
+  document.getElementById('mq-next-btn').disabled = !(idx in answered) && opts.length > 0;
 }
 
 function mqAnswer(chosen) {
@@ -18179,6 +18182,10 @@ applyRenderFlags();
 //   k: 'new'(새 기능) · 'fix'(고침) · 'chg'(바뀜)
 // ══════════════════════════════════════════════════════════════════════
 const PATCH_NOTES = [
+  { v: '260805-2328', at: '2026-08-05', items: [
+    { k: 'chg', t: '<b>오답 노트</b>에서 문제를 맞혀도 목록에서 자동으로 사라지지 않습니다 — 한 번 맞혔다고 없어지면 다시 볼 기회가 없어서, 지우는 건 직접 고르도록 바꿨습니다 (개별·여러 개·전체 삭제는 그대로 있어요)' },
+    { k: 'fix', t: '<b>모의고사</b>에 필답형(주관식) 문제가 뽑히면 화면이 깨지던 것을 고쳤습니다 — 모의고사는 보기를 고르는 객관식 전용이라 필답형은 이제 뽑지 않고, 필답형만 있는 자격증은 그 이유를 알려줍니다' },
+  ]},
   { v: '260805-2218', at: '2026-08-05', items: [
     { k: 'fix', t: '문제를 대량으로(그림 포함) 등록할 때 기기 저장 공간이 부족하면 <b>회차 목록엔 개수가 보이는데 실제로 열면 0문제로 보이는</b> 문제가 생길 수 있었습니다 — 이제 이런 경우를 자동으로 감지해서 서버에서 다시 받아오고, 저장이 안 됐을 땐 그 자리에서 바로 알려드립니다' },
   ]},
@@ -18477,7 +18484,7 @@ function closePatchNotes() {
 // ── 앱 버전 ──
 // 폰이 옛 파일을 캐시해 두고 있는지 바로 확인할 수 있도록 화면에 표시한다.
 // (설정 맨 아래 · 개발자 도구 콘솔에도 찍힘)
-const APP_VERSION = '260805-2218';
+const APP_VERSION = '260805-2328';
 console.log('%c양진웅 Note 버전 ' + APP_VERSION, 'font-weight:bold');
 
 // PWA 서비스워커 등록
