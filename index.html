@@ -13907,7 +13907,8 @@ function renderStarResumeCard() {
 
 function startStarQuiz() {
   // [수정] 자격증만 보고 회차·중요도 필터는 무시하고 있었다 → 화면에 보이는 것과 똑같이 푼다.
-  const items = _starFiltered();
+  // [수정] 목록과 같은 순서(중요도 높은 순 → 최근 표시순)로 풀리도록 정렬한다
+  const items = _starFiltered().sort((a, b) => starLevelOf(b) - starLevelOf(a) || (b.addedAt || 0) - (a.addedAt || 0));
   if (!items.length) { showToast('별표 문제가 없어요'); return; }
   const source = [];
   const questions = [];
@@ -18146,6 +18147,9 @@ applyRenderFlags();
 //   k: 'new'(새 기능) · 'fix'(고침) · 'chg'(바뀜)
 // ══════════════════════════════════════════════════════════════════════
 const PATCH_NOTES = [
+  { v: '260805-2149', at: '2026-08-05', items: [
+    { k: 'fix', t: '<b>별표만 풀기</b>가 목록에 보이는 순서(중요도 높은 순 → 최근 표시순)와 다르게 풀리던 것을 고쳤습니다 — 이제 항상 목록과 같은 순서로 풀립니다' },
+  ]},
   { v: '260805-2048', at: '2026-08-05', items: [
     { k: 'chg', t: '<b>체크 전체 해제(X)</b> 버튼 높이를 옆의 "체크한 것만 풀기" 버튼과 맞춰서 일체감 있게 바꿨습니다' },
   ]},
@@ -18435,7 +18439,7 @@ function closePatchNotes() {
 // ── 앱 버전 ──
 // 폰이 옛 파일을 캐시해 두고 있는지 바로 확인할 수 있도록 화면에 표시한다.
 // (설정 맨 아래 · 개발자 도구 콘솔에도 찍힘)
-const APP_VERSION = '260805-2048';
+const APP_VERSION = '260805-2149';
 console.log('%c양진웅 Note 버전 ' + APP_VERSION, 'font-weight:bold');
 
 // PWA 서비스워커 등록
