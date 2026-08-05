@@ -262,7 +262,7 @@
 
   /* 버튼, 카드 인터랙션 트랜지션 */
   .btn, .quiz-option, .wrong-note-item,
-  .stat-card, .nav-tab, .star-btn {
+  .stat-card, .nav-tab {
     transition: all 0.18s cubic-bezier(0.22, 1, 0.36, 1);
   }
   /* 토스트, 팝업류 부드럽게 */
@@ -1331,20 +1331,17 @@
   .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
   @media (min-width: 601px) { .toast { bottom: 30px; } }
 
-  /* ── 별표 기능 ── */
-  .star-btn {
-    background: none;
-    border: none;
-    font-size: 22px;
-    cursor: pointer;
+  /* ── 별표 위젯 — 별 5개 중 원하는 개수를 바로 눌러서 정한다 (같은 별을 다시 누르면 해제) ── */
+  .star-widget { display: inline-flex; gap: 1px; flex-shrink: 0; }
+  .star-pip {
+    font-size: 16px;
     line-height: 1;
-    padding: 4px;
+    cursor: pointer;
     color: var(--gray-300);
-    transition: color 0.15s, transform 0.15s;
-    flex-shrink: 0;
+    transition: color 0.12s, transform 0.1s;
   }
-  .star-btn.starred { color: #F59E0B; }
-  .star-btn:hover { transform: scale(1.2); }
+  .star-pip.on { color: #F59E0B; }
+  .star-pip:hover { transform: scale(1.18); }
 
   /* ── 체크 기능 (별표와 별개, 회차 완료 체크와도 별개) ── */
   .flag-btn {
@@ -4708,18 +4705,6 @@
     .mg-btn { padding: 6px 9px; font-size: 11.5px; }
     .mg-row { gap: 4px; }
   }
-
-  /* [추가] 별표 중요도 — 개수로 나눈다 (색은 보조) */
-  .star-lv {
-    border: none; background: none; cursor: pointer; font-family: inherit;
-    font-size: 12.5px; letter-spacing: -1px; padding: 0 2px 0 0;
-    color: var(--warning); font-weight: 700;
-  }
-  .star-lv:hover { filter: brightness(1.15); }
-  .star-btn.lv2 { transform: none; }
-  .star-btn.lv3 { color: var(--warning) !important; }
-  .quiz-header .star-btn { letter-spacing: -2px; }
-
   /* [추가] 검색 결과를 자격증별로 거르는 칩 */
   .sch-cats { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
   .sch-cats:empty { display: none; }
@@ -6633,7 +6618,13 @@
         <span class="quiz-q-num" id="quiz-q-num"></span>
       </div>
       <div style="display:flex; align-items:center; gap:6px;">
-        <button class="star-btn" id="quiz-star-btn" onclick="toggleStarCurrent()" title="별표 표시">☆</button>
+        <span class="star-widget" id="quiz-star-widget">
+          <span class="star-pip" onclick="setStarCurrent(1)">★</span>
+          <span class="star-pip" onclick="setStarCurrent(2)">★</span>
+          <span class="star-pip" onclick="setStarCurrent(3)">★</span>
+          <span class="star-pip" onclick="setStarCurrent(4)">★</span>
+          <span class="star-pip" onclick="setStarCurrent(5)">★</span>
+        </span>
         <button class="flag-btn" id="quiz-flag-btn" onclick="toggleFlagCurrent()" title="체크 표시">
           <svg class="ic" viewBox="0 0 24 24"><use href="#ic-square"/></svg>
         </button>
@@ -6837,7 +6828,13 @@
         <span class="quiz-q-num" id="sq-q-num"></span>
       </div>
       <div style="display:flex; align-items:center; gap:6px;">
-        <button class="star-btn" id="sq-star-btn" onclick="toggleStarSQ()" title="별표 중요도">☆</button>
+        <span class="star-widget" id="sq-star-widget">
+          <span class="star-pip" onclick="setStarSQ(1)">★</span>
+          <span class="star-pip" onclick="setStarSQ(2)">★</span>
+          <span class="star-pip" onclick="setStarSQ(3)">★</span>
+          <span class="star-pip" onclick="setStarSQ(4)">★</span>
+          <span class="star-pip" onclick="setStarSQ(5)">★</span>
+        </span>
         <span class="quiz-num" id="sq-num"></span>
       </div>
     </div>
@@ -6893,7 +6890,13 @@
         <span class="quiz-q-num" id="fq-q-num"></span>
       </div>
       <div style="display:flex; align-items:center; gap:6px;">
-        <button class="star-btn" id="fq-star-btn" onclick="toggleStarFQ()" title="별표 표시">☆</button>
+        <span class="star-widget" id="fq-star-widget">
+          <span class="star-pip" onclick="setStarFQ(1)">★</span>
+          <span class="star-pip" onclick="setStarFQ(2)">★</span>
+          <span class="star-pip" onclick="setStarFQ(3)">★</span>
+          <span class="star-pip" onclick="setStarFQ(4)">★</span>
+          <span class="star-pip" onclick="setStarFQ(5)">★</span>
+        </span>
         <button class="flag-btn on" id="fq-flag-btn" onclick="toggleFlagFQ()" title="체크 해제">
           <svg class="ic" viewBox="0 0 24 24"><use href="#ic-check-square"/></svg>
         </button>
@@ -8744,13 +8747,13 @@ function starLevelOf(entry) {
 }
 function starMark(level) { return '★'.repeat(Math.max(0, Math.min(STAR_MAX, level))) || '☆'; }
 
-// 한 번 누를 때마다 ☆ → ★ → ★★ → ★★★ → ★★★★ → ★★★★★ → ☆
-function cycleStarEntry(cat, round, q, idx) {
+// 별 5개 중 원하는 개수를 바로 눌러서 정한다 — 이미 그 단계면 눌러서 해제한다 (흔한 별점 위젯 방식)
+function setStarLevel(cat, round, q, idx, level) {
   const starred = getStarred();
   const qId = (q && (q.id || q.num)) || idx || 0;
   const key = getStarKey(cat, round, qId);
   const cur = starred[key] ? starLevelOf(starred[key]) : 0;
-  const next = (cur + 1) % (STAR_MAX + 1);
+  const next = (level === cur) ? 0 : level;
   if (next === 0) {
     delete starred[key];
     showToast('별표 해제');
@@ -8763,11 +8766,22 @@ function cycleStarEntry(cat, round, q, idx) {
   saveStarred(starred);
   return next;
 }
-function paintStarBtn(btn, level) {
-  if (!btn) return;
-  btn.textContent = level ? starMark(level) : '☆';
-  btn.className = 'star-btn' + (level ? ' starred lv' + level : '');
-  btn.title = level ? `중요도 ${level} · 눌러서 ${level < STAR_MAX ? '올리기' : '해제'}` : '별표 표시';
+// 목록처럼 매번 다시 그리는 화면에서 쓰는 위젯 마크업 — onclickTpl 안의 {i} 자리에 1~5가 들어간다
+function starWidgetHTML(level, onclickTpl) {
+  let html = '<span class="star-widget">';
+  for (let i = 1; i <= STAR_MAX; i++) {
+    html += `<span class="star-pip${i <= level ? ' on' : ''}" onclick="event.stopPropagation(); ${onclickTpl.replace('{i}', i)}">★</span>`;
+  }
+  return html + '</span>';
+}
+// 고정된 화면(문제 풀이 등)에서 위젯 상태만 다시 칠하기
+function paintStarWidget(container, level) {
+  if (!container) return;
+  container.querySelectorAll('.star-pip').forEach((p, i) => p.classList.toggle('on', i < level));
+}
+// 목록에서 누른 별(pip) 하나를 기준으로 그 위젯 전체를 다시 칠하기
+function paintStarWidgetFromPip(pip, level) {
+  paintStarWidget(pip.closest('.star-widget'), level);
 }
 
 // 체크 켜고 끄기 — 별표와 달리 중요도 단계 없이 켬/끔만 있다
@@ -10729,7 +10743,7 @@ function renderQuestion() {
 
   // 별표 버튼 상태 (중요도 개수까지)
   const starKey = getStarKey(cat, round, q.id || q.num || idx);
-  paintStarBtn(document.getElementById('quiz-star-btn'), starLevelOf(getStarred()[starKey]));
+  paintStarWidget(document.getElementById('quiz-star-widget'), starLevelOf(getStarred()[starKey]));
 
   // 체크 버튼 상태 (별표와 별개)
   paintFlagBtn(document.getElementById('quiz-flag-btn'), !!getFlagged()[starKey]);
@@ -11090,8 +11104,8 @@ function showResult() {
           const i = questions.indexOf(q);
           const myAns = answered[i];
           const starKey = getStarKey(cat, round, q.id || q.num);
-          const isStar = !!getStarred()[starKey];
-          const starBtnHtml = `<button class="star-btn ${isStar ? 'starred' : ''}" onclick="toggleStarReview(${i}, this)" title="별표" style="margin-left:auto; font-size:18px; padding:0 2px;">${isStar ? '★' : '☆'}</button>`;
+          const starLv = starLevelOf(getStarred()[starKey]);
+          const starBtnHtml = `<span style="margin-left:auto">${starWidgetHTML(starLv, `setStarReview(${i}, {i}, this)`)}</span>`;
           if (q.type === 'subj') {
             const myText = currentQuiz.subjInputs ? (currentQuiz.subjInputs[i] || '(미작성)') : '(미작성)';
             return `
@@ -12422,7 +12436,7 @@ function renderWrongNote() {
         const q = resolveEntryQ(w) || {};
         const opts = Array.isArray(q.options) ? q.options : [];
         const isSubj = q.type === 'subj' || opts.length === 0;
-        const isStar = !!getStarred()[getStarKey(w.cat, w.round, q.id || q.num)];
+        const starLv = starLevelOf(getStarred()[getStarKey(w.cat, w.round, q.id || q.num)]);
         const isFlag = !!getFlagged()[getStarKey(w.cat, w.round, q.id || q.num)];
         const isMarked = !!getMarked()[getStarKey(w.cat, w.round, q.id || q.num)];
         const bodyHtml = isSubj
@@ -12447,7 +12461,7 @@ function renderWrongNote() {
               <button class="mark-btn ${isMarked ? 'on' : ''}" onclick="toggleMarkedFromWrong('${escArg(w.id)}', this)" title="${isMarked ? '표시 해제' : '여기까지 표시'}" style="margin-left:auto;">
                 <svg class="ic" viewBox="0 0 24 24"><use href="#ic-pin"/></svg>
               </button>
-              <button class="star-btn ${isStar ? 'starred' : ''}" onclick="toggleStarFromWrong('${escArg(w.id)}', this)" title="별표" style="font-size:18px; padding:0 2px;">${isStar ? '★' : '☆'}</button>
+              ${starWidgetHTML(starLv, `setStarFromWrong('${escArg(w.id)}', {i}, this)`)}
               <button class="flag-btn ${isFlag ? 'on' : ''}" onclick="toggleFlagFromWrong('${escArg(w.id)}', this)" title="${isFlag ? '체크 해제' : '체크'}" style="padding:0 2px;">
                 <svg class="ic" viewBox="0 0 24 24" style="width:17px;height:17px"><use href="${isFlag ? '#ic-check-square' : '#ic-square'}"/></svg>
               </button>
@@ -13495,10 +13509,10 @@ document.getElementById('edit-popup').addEventListener('click', function(e) {
   if (e.target === this) closeEditPopup();
 });
 
-function toggleStarCurrent() {
+function setStarCurrent(level) {
   const { questions, idx, cat, round } = currentQuiz;
-  const lv = cycleStarEntry(cat, round, questions[idx], idx);
-  paintStarBtn(document.getElementById('quiz-star-btn'), lv);
+  const lv = setStarLevel(cat, round, questions[idx], idx, level);
+  paintStarWidget(document.getElementById('quiz-star-widget'), lv);
 }
 
 function toggleFlagCurrent() {
@@ -13507,24 +13521,24 @@ function toggleFlagCurrent() {
   paintFlagBtn(document.getElementById('quiz-flag-btn'), on);
 }
 
-// 목록(결과 리뷰/오답노트)에서 별표 토글 — 공용 로직
-function _toggleStarEntry(cat, round, q, btn) {
+// 목록(결과 리뷰/오답노트)에서 별표 지정 — 공용 로직
+function _setStarEntry(cat, round, q, level, pip) {
   if (!q) return;
-  const lv = cycleStarEntry(cat, round, q, 0);
-  paintStarBtn(btn, lv);
+  const lv = setStarLevel(cat, round, q, 0, level);
+  paintStarWidgetFromPip(pip, lv);
 }
 
 // 결과 리뷰 화면에서 별표 (현재 풀이한 currentQuiz 기준)
-function toggleStarReview(i, btn) {
+function setStarReview(i, level, pip) {
   const { questions, cat, round } = currentQuiz;
-  _toggleStarEntry(cat, round, questions[i], btn);
+  _setStarEntry(cat, round, questions[i], level, pip);
 }
 
 // 오답노트 화면에서 별표 (저장된 오답 id 기준)
-function toggleStarFromWrong(id, btn) {
+function setStarFromWrong(id, level, pip) {
   const w = getWrongAnswers().find(x => x.id === id);
   if (!w) return;
-  _toggleStarEntry(w.cat, w.round, resolveEntryQ(w), btn);
+  _setStarEntry(w.cat, w.round, resolveEntryQ(w), level, pip);
 }
 
 // 목록(오답노트/별표)에서 체크 토글 — 별표와 완전히 별개의 저장소를 건드린다
@@ -13549,10 +13563,10 @@ function toggleFlagFromStar(key, btn) {
 }
 
 // 체크 목록 화면에서 별표 (저장된 체크 key 기준) — 별표 저장소는 그대로, 체크와는 별개
-function toggleStarFromFlag(key, btn) {
+function setStarFromFlag(key, level, pip) {
   const f = getFlagged()[key];
   if (!f) return;
-  _toggleStarEntry(f.cat, f.round, resolveEntryQ(f), btn);
+  _setStarEntry(f.cat, f.round, resolveEntryQ(f), level, pip);
 }
 
 // 오답노트·별표 목록에서 "여기까지 봤다" 표시 — 정렬·필터와 무관하게 문제 자체에 붙는다
@@ -13688,7 +13702,7 @@ function renderStarNote() {
         return `
           <div class="wrong-note-item ${isMarked ? 'marked' : ''}">
             <div class="wrong-note-meta">
-              <button class="star-lv" onclick="bumpStarLv('${escArg(key)}')" title="눌러서 중요도 바꾸기">${starMark(starLevelOf(w))}</button>
+              ${starWidgetHTML(starLevelOf(w), `setStarInList('${escArg(key)}', {i})`)}
               <span style="font-weight:600">${escHtml(w.cat)}</span>
               <span>${escHtml(w.round)}회차</span>
               <span>Q${q.num || ''}</span>
@@ -13816,12 +13830,21 @@ function rpickClearAll() {
   renderRoundPickerList();
 }
 
-// 목록에서 중요도만 올린다 (★→★★→★★★→★★★★→★★★★★→★ · 해제는 옆의 '별표 해제')
-function bumpStarLv(key) {
+// 별표 목록에서 중요도를 직접 지정 (같은 별을 다시 누르면 별표 자체가 해제된다)
+// [수정] 정렬 기준(중요도)이 바뀌므로 목록을 통째로 다시 그린다
+function setStarInList(key, level) {
   const starred = getStarred();
   const e = starred[key];
   if (!e) return;
-  const next = (starLevelOf(e) % STAR_MAX) + 1;
+  const cur = starLevelOf(e);
+  const next = (level === cur) ? 0 : level;
+  if (next === 0) {
+    delete starred[key];
+    saveStarred(starred);
+    renderStarNote();
+    showToast('별표 해제');
+    return;
+  }
   e.level = next;
   // [추가] 만지는 김에 예전 형식(문제 통째로 들어있음)이면 회차 원본으로 확인될 때만 가볍게 정리
   if (e.q) {
@@ -13936,7 +13959,7 @@ function renderSQ() {
   if (src) {
     renderSQSource();
     const key = getStarKey(src.cat, src.round, q.id || q.num || idx);
-    paintStarBtn(document.getElementById('sq-star-btn'), starLevelOf(getStarred()[key]));
+    paintStarWidget(document.getElementById('sq-star-widget'), starLevelOf(getStarred()[key]));
   }
   document.getElementById('sq-question').textContent = q.question;
   renderQImage('sq-img-wrap', q);   // [추가] 문제 그림
@@ -14085,12 +14108,12 @@ function sqGoTo(i) {
 
 // 별표 풀기 중에도 중요도를 바꾼다
 // (풀어 보고 "이건 이제 알겠다" 싶을 때 그 자리에서 낮추는 게 자연스럽다)
-function toggleStarSQ() {
+function setStarSQ(level) {
   const { questions, idx, source } = sqState;
   const src = source[idx];
   if (!src) return;
-  const lv = cycleStarEntry(src.cat, src.round, questions[idx], idx);
-  paintStarBtn(document.getElementById('sq-star-btn'), lv);
+  const lv = setStarLevel(src.cat, src.round, questions[idx], idx, level);
+  paintStarWidget(document.getElementById('sq-star-widget'), lv);
   if (lv === 0) src._removed = true; else { src._removed = false; src.level = lv; }
   const b = document.getElementById('sq-source');
   if (b) renderSQSource();
@@ -14138,7 +14161,7 @@ function renderFlagNote() {
         const opts = Array.isArray(q.options) ? q.options : [];
         const isSubj = q.type === 'subj' || opts.length === 0;
         const key = getStarKey(w.cat, w.round, _entryQId(w));
-        const isStar = !!getStarred()[key];
+        const starLv = starLevelOf(getStarred()[key]);
         const body = isSubj
           ? `<div class="wn-option correct" style="align-items:flex-start">
                <span style="flex-shrink:0"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-check-circle"/></svg> 정답</span>
@@ -14154,7 +14177,7 @@ function renderFlagNote() {
         return `
           <div class="wrong-note-item">
             <div class="wrong-note-meta">
-              <button class="star-btn ${isStar ? 'starred' : ''}" onclick="toggleStarFromFlag('${escArg(key)}', this)" title="별표" style="font-size:18px; padding:0 2px;">${isStar ? '★' : '☆'}</button>
+              ${starWidgetHTML(starLv, `setStarFromFlag('${escArg(key)}', {i}, this)`)}
               <span style="font-weight:600">${escHtml(w.cat)}</span>
               <span>${escHtml(w.round)}회차</span>
               <span>Q${q.num || ''}</span>
@@ -14313,7 +14336,7 @@ function renderFQ() {
   if (src) {
     renderFQSource();
     const starKey = getStarKey(src.cat, src.round, q.id || q.num || idx);
-    paintStarBtn(document.getElementById('fq-star-btn'), starLevelOf(getStarred()[starKey]));
+    paintStarWidget(document.getElementById('fq-star-widget'), starLevelOf(getStarred()[starKey]));
   }
   document.getElementById('fq-question').textContent = q.question;
   renderQImage('fq-img-wrap', q);   // 문제 그림
@@ -14468,12 +14491,12 @@ function toggleFlagFQ() {
 }
 
 // 체크 풀기 중에도 별표를 매길 수 있다 (별표 저장소는 그대로, 체크와는 별개)
-function toggleStarFQ() {
+function setStarFQ(level) {
   const { questions, idx, source } = fqState;
   const src = source[idx];
   if (!src) return;
-  const lv = cycleStarEntry(src.cat, src.round, questions[idx], idx);
-  paintStarBtn(document.getElementById('fq-star-btn'), lv);
+  const lv = setStarLevel(src.cat, src.round, questions[idx], idx, level);
+  paintStarWidget(document.getElementById('fq-star-widget'), lv);
 }
 
 function renderFQSource() {
@@ -18147,6 +18170,9 @@ applyRenderFlags();
 //   k: 'new'(새 기능) · 'fix'(고침) · 'chg'(바뀜)
 // ══════════════════════════════════════════════════════════════════════
 const PATCH_NOTES = [
+  { v: '260805-2205', at: '2026-08-05', items: [
+    { k: 'chg', t: '<b>별표</b> 개수를 정할 때 클릭 한 번씩 돌리던 방식 대신, 별 5개 중 원하는 개수를 바로 눌러서 정하도록 바꿨습니다 (같은 별을 다시 누르면 해제) — 문제 풀기, 오답노트, 별표 목록, 체크 목록, 결과 화면 등 별표를 정하는 모든 곳에 적용했습니다' },
+  ]},
   { v: '260805-2149', at: '2026-08-05', items: [
     { k: 'fix', t: '<b>별표만 풀기</b>가 목록에 보이는 순서(중요도 높은 순 → 최근 표시순)와 다르게 풀리던 것을 고쳤습니다 — 이제 항상 목록과 같은 순서로 풀립니다' },
   ]},
@@ -18439,7 +18465,7 @@ function closePatchNotes() {
 // ── 앱 버전 ──
 // 폰이 옛 파일을 캐시해 두고 있는지 바로 확인할 수 있도록 화면에 표시한다.
 // (설정 맨 아래 · 개발자 도구 콘솔에도 찍힘)
-const APP_VERSION = '260805-2149';
+const APP_VERSION = '260805-2205';
 console.log('%c양진웅 Note 버전 ' + APP_VERSION, 'font-weight:bold');
 
 // PWA 서비스워커 등록
