@@ -672,7 +672,8 @@
     bottom: -16px;
     z-index: 1;
   }
-  #quiz-progress-bar .quiz-progress-fill, #sq-progress-bar .quiz-progress-fill, #fq-progress-bar .quiz-progress-fill { pointer-events: none; }
+  #quiz-progress-bar .quiz-progress-fill, #sq-progress-bar .quiz-progress-fill,
+  #fq-progress-bar .quiz-progress-fill, #mq-progress-bar .quiz-progress-fill { pointer-events: none; }
   .quiz-progress-thumb {
     position: absolute;
     top: 50%;
@@ -687,11 +688,13 @@
     transition: left 0.15s ease-out;
     pointer-events: none;
   }
-  #quiz-progress-bar.dragging .quiz-progress-thumb, #sq-progress-bar.dragging .quiz-progress-thumb, #fq-progress-bar.dragging .quiz-progress-thumb {
+  #quiz-progress-bar.dragging .quiz-progress-thumb, #sq-progress-bar.dragging .quiz-progress-thumb,
+  #fq-progress-bar.dragging .quiz-progress-thumb, #mq-progress-bar.dragging .quiz-progress-thumb {
     transition: none;
     transform: translate(-50%, -50%) scale(1.18);
   }
-  #quiz-progress-bar.dragging .quiz-progress-fill, #sq-progress-bar.dragging .quiz-progress-fill, #fq-progress-bar.dragging .quiz-progress-fill { transition: none; }
+  #quiz-progress-bar.dragging .quiz-progress-fill, #sq-progress-bar.dragging .quiz-progress-fill,
+  #fq-progress-bar.dragging .quiz-progress-fill, #mq-progress-bar.dragging .quiz-progress-fill { transition: none; }
   .quiz-progress-tip {
     position: absolute;
     left: 0;
@@ -6487,7 +6490,8 @@
     margin-top: 6px;
     margin-bottom: 10px;
   }
-  .quiz-scrub-row #quiz-progress-bar, .quiz-scrub-row #sq-progress-bar, .quiz-scrub-row #fq-progress-bar {
+  .quiz-scrub-row #quiz-progress-bar, .quiz-scrub-row #sq-progress-bar,
+  .quiz-scrub-row #fq-progress-bar, .quiz-scrub-row #mq-progress-bar {
     flex: 1;
     margin-top: 0;
     margin-bottom: 0;
@@ -7476,8 +7480,14 @@
       <span class="quiz-q-num" id="mq-q-num"></span>
       <span class="quiz-num" id="mq-num"></span>
     </div>
-    <div class="quiz-progress-bar">
-      <div class="quiz-progress-fill" id="mq-progress-fill"></div>
+    <div class="quiz-scrub-row">
+      <button class="scrub-arrow" onclick="mqPrev()" title="이전 문제" aria-label="이전 문제"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-arrow-left"/></svg></button>
+      <div class="quiz-progress-bar" id="mq-progress-bar">
+        <div class="quiz-progress-fill" id="mq-progress-fill"></div>
+        <div class="quiz-progress-thumb" id="mq-progress-thumb"></div>
+        <div class="quiz-progress-tip" id="mq-progress-tip"></div>
+      </div>
+      <button class="scrub-arrow" onclick="mqNext()" title="다음 문제" aria-label="다음 문제"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-arrow-right"/></svg></button>
     </div>
     <div id="mq-source" style="margin-bottom:4px"></div>
     <div class="quiz-question" id="mq-question"></div>
@@ -11029,6 +11039,9 @@ function setupQuizScrubber() {
   makeScrubber('quiz', () => (currentQuiz && currentQuiz.questions) || [], i => goToQuestion(i));
   makeScrubber('sq',   () => (sqState && sqState.questions) || [],       i => sqGoTo(i));
   makeScrubber('fq',   () => (fqState && fqState.questions) || [],       i => fqGoTo(i));
+  // 모의고사 목록은 {q, round, cat} 꾸러미라 num 이 없다 → 툴팁이 순서 번호로 떨어지는데,
+  // 화면 상단 표시(Q1, Q2…)도 순서 번호라 그게 오히려 맞다 (출처 문항번호를 쓰면 서로 어긋난다).
+  makeScrubber('mq',   () => (mqState && mqState.questions) || [],       i => mqGoTo(i));
 }
 
 function saveQuizProgress(justAnswered) {
@@ -14861,7 +14874,12 @@ function renderMQ() {
   document.getElementById('mq-q-num').textContent = `Q${idx + 1}`;
   document.getElementById('mq-num').textContent = `${idx + 1} / ${questions.length}`;
   document.getElementById('mq-progress-txt').textContent = `${Object.keys(answered).length}/${questions.length} 완료`;
-  document.getElementById('mq-progress-fill').style.width = `${(idx + 1) / questions.length * 100}%`;
+  // [수정] 손잡이(스크러버)를 붙이면서 다른 풀이 화면과 같은 기준으로 맞춘다.
+  //        idx/(n-1) 이어야 끌어다 놓은 자리에 손잡이가 그대로 멈춘다.
+  const mqPct = questions.length > 1 ? (idx / (questions.length - 1)) * 100 : 0;
+  document.getElementById('mq-progress-fill').style.width = `${mqPct}%`;
+  const mqThumb = document.getElementById('mq-progress-thumb');
+  if (mqThumb) mqThumb.style.left = `${mqPct}%`;
   document.getElementById('mq-source').innerHTML = `<span class="mock-source-badge"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-pencil"/></svg> ${item.cat} ${item.round}회차 Q${q.num}</span>`;
   document.getElementById('mq-question').textContent = q.question;
   renderQImage('mq-img-wrap', q);   // [추가] 문제 그림
@@ -14979,6 +14997,14 @@ function mqPrev() {
     renderMQ();
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
+}
+
+// 손잡이를 끌어 문항으로 바로 이동 (다른 풀이 화면과 같은 방식)
+function mqGoTo(i) {
+  if (!mqState || !mqState.questions.length) return;
+  mqState.idx = Math.max(0, Math.min(mqState.questions.length - 1, i));
+  renderMQ();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 function submitMockEarly() {
@@ -18270,6 +18296,9 @@ applyRenderFlags();
 //   k: 'new'(새 기능) · 'fix'(고침) · 'chg'(바뀜)
 // ══════════════════════════════════════════════════════════════════════
 const PATCH_NOTES = [
+  { v: '260806-2047', at: '2026-08-06', items: [
+    { k: 'new', t: '<b>모의고사</b>에도 문항 이동 손잡이가 생겼습니다 — 문제 풀기 화면처럼 진행 막대를 끌어서 원하는 문항으로 바로 이동하고, 좌우 화살표로도 넘길 수 있어요' },
+  ]},
   { v: '260806-2037', at: '2026-08-06', items: [
     { k: 'chg', t: '<b>모의고사</b> 출제를 진짜 무작위로 바꿨습니다 — 예전엔 문제 번호가 늘 똑같이 정해져 있고 그 번호를 어느 회차에서 가져올지만 랜덤이었는데, 이제 그 자격증의 <b>모든 문제를 한 통에 넣고 무작위로</b> 뽑습니다. 문제 나오는 순서도 매번 섞입니다' },
     { k: 'fix', t: '<b>모의고사 문항 수</b>가 회차 하나 분량(예: 13문제)을 넘지 못하고 조용히 줄어들던 것을 고쳤습니다 — 이제 등록된 전체 문제 수만큼 낼 수 있고, 자격증을 고르면 몇 개 중에서 뽑는지 바로 보여 줍니다' },
@@ -18580,7 +18609,7 @@ function closePatchNotes() {
 // ── 앱 버전 ──
 // 폰이 옛 파일을 캐시해 두고 있는지 바로 확인할 수 있도록 화면에 표시한다.
 // (설정 맨 아래 · 개발자 도구 콘솔에도 찍힘)
-const APP_VERSION = '260806-2037';
+const APP_VERSION = '260806-2047';
 console.log('%c양진웅 Note 버전 ' + APP_VERSION, 'font-weight:bold');
 
 // PWA 서비스워커 등록
