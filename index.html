@@ -653,7 +653,8 @@
     font-weight: 500;
   }
   /* ── 진행바 스크러버(드래그로 문항 이동) ── */
-  #quiz-progress-bar, #sq-progress-bar, #fq-progress-bar {
+  /* 끌어서 문항을 옮기는 막대 — 화면이 늘어나도 빠뜨리지 않도록 id 나열 대신 공용 클래스를 쓴다 */
+  .scrub-bar {
     position: relative;
     height: 8px;
     overflow: visible;
@@ -663,7 +664,7 @@
     margin-bottom: 10px;
   }
   /* 얇은 막대를 손가락으로 쉽게 잡도록 위아래로 넓힌 투명 터치 영역 */
-  #quiz-progress-bar::before, #sq-progress-bar::before, #fq-progress-bar::before {
+  .scrub-bar::before {
     content: "";
     position: absolute;
     left: 0;
@@ -672,8 +673,7 @@
     bottom: -16px;
     z-index: 1;
   }
-  #quiz-progress-bar .quiz-progress-fill, #sq-progress-bar .quiz-progress-fill,
-  #fq-progress-bar .quiz-progress-fill, #mq-progress-bar .quiz-progress-fill { pointer-events: none; }
+  .scrub-bar .quiz-progress-fill { pointer-events: none; }
   .quiz-progress-thumb {
     position: absolute;
     top: 50%;
@@ -688,13 +688,11 @@
     transition: left 0.15s ease-out;
     pointer-events: none;
   }
-  #quiz-progress-bar.dragging .quiz-progress-thumb, #sq-progress-bar.dragging .quiz-progress-thumb,
-  #fq-progress-bar.dragging .quiz-progress-thumb, #mq-progress-bar.dragging .quiz-progress-thumb {
+  .scrub-bar.dragging .quiz-progress-thumb {
     transition: none;
     transform: translate(-50%, -50%) scale(1.18);
   }
-  #quiz-progress-bar.dragging .quiz-progress-fill, #sq-progress-bar.dragging .quiz-progress-fill,
-  #fq-progress-bar.dragging .quiz-progress-fill, #mq-progress-bar.dragging .quiz-progress-fill { transition: none; }
+  .scrub-bar.dragging .quiz-progress-fill { transition: none; }
   .quiz-progress-tip {
     position: absolute;
     left: 0;
@@ -712,7 +710,7 @@
     transition: opacity 0.12s ease;
     box-shadow: 0 2px 8px rgba(0,0,0,0.2);
   }
-  #quiz-progress-bar.dragging .quiz-progress-tip, #sq-progress-bar.dragging .quiz-progress-tip, #fq-progress-bar.dragging .quiz-progress-tip { opacity: 1; }
+  .scrub-bar.dragging .quiz-progress-tip { opacity: 1; }
   .quiz-scrub-hint {
     text-align: center;
     font-size: 10.5px;
@@ -6490,8 +6488,7 @@
     margin-top: 6px;
     margin-bottom: 10px;
   }
-  .quiz-scrub-row #quiz-progress-bar, .quiz-scrub-row #sq-progress-bar,
-  .quiz-scrub-row #fq-progress-bar, .quiz-scrub-row #mq-progress-bar {
+  .quiz-scrub-row .scrub-bar {
     flex: 1;
     margin-top: 0;
     margin-bottom: 0;
@@ -6647,7 +6644,7 @@
     <div class="qgrid" id="qgrid"></div>
     <div class="quiz-scrub-row">
       <button class="scrub-arrow" onclick="quizPrev()" title="이전 문제" aria-label="이전 문제"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-arrow-left"/></svg></button>
-      <div class="quiz-progress-bar" id="quiz-progress-bar">
+      <div class="quiz-progress-bar scrub-bar" id="quiz-progress-bar">
         <div class="quiz-progress-fill" id="quiz-progress-fill"></div>
         <div class="quiz-progress-thumb" id="quiz-progress-thumb"></div>
         <div class="quiz-progress-tip" id="quiz-progress-tip"></div>
@@ -6844,7 +6841,7 @@
     </div>
     <div class="quiz-scrub-row">
       <button class="scrub-arrow" onclick="sqPrev()" title="이전 문제" aria-label="이전 문제"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-arrow-left"/></svg></button>
-      <div class="quiz-progress-bar" id="sq-progress-bar">
+      <div class="quiz-progress-bar scrub-bar" id="sq-progress-bar">
         <div class="quiz-progress-fill" id="sq-progress-fill"></div>
         <div class="quiz-progress-thumb" id="sq-progress-thumb"></div>
         <div class="quiz-progress-tip" id="sq-progress-tip"></div>
@@ -6909,7 +6906,7 @@
     </div>
     <div class="quiz-scrub-row">
       <button class="scrub-arrow" onclick="fqPrev()" title="이전 문제" aria-label="이전 문제"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-arrow-left"/></svg></button>
-      <div class="quiz-progress-bar" id="fq-progress-bar">
+      <div class="quiz-progress-bar scrub-bar" id="fq-progress-bar">
         <div class="quiz-progress-fill" id="fq-progress-fill"></div>
         <div class="quiz-progress-thumb" id="fq-progress-thumb"></div>
         <div class="quiz-progress-tip" id="fq-progress-tip"></div>
@@ -7484,7 +7481,7 @@
     </div>
     <div class="quiz-scrub-row">
       <button class="scrub-arrow" onclick="mqPrev()" title="이전 문제" aria-label="이전 문제"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-arrow-left"/></svg></button>
-      <div class="quiz-progress-bar" id="mq-progress-bar">
+      <div class="quiz-progress-bar scrub-bar" id="mq-progress-bar">
         <div class="quiz-progress-fill" id="mq-progress-fill"></div>
         <div class="quiz-progress-thumb" id="mq-progress-thumb"></div>
         <div class="quiz-progress-tip" id="mq-progress-tip"></div>
@@ -14704,6 +14701,8 @@ function renderMockHome() {
     : '<option value="">등록된 자격증 없음</option>';
   // [추가] 고른 자격증에 문제가 몇 개나 있는지 알려 준다 (문항 수 상한이 곧 이 값)
   sel.onchange = paintMockCountHint;
+  const countEl = document.getElementById('mock-count-input');
+  if (countEl) countEl.value = getLastMockCount();   // 지난번에 쓴 문항 수로 시작
   paintMockCountHint();
   renderMockResumeCard();
 
@@ -14749,6 +14748,16 @@ let mqState = {
 // 고른 자격증에 문제가 총 몇 개인지 = 낼 수 있는 최대 문항 수
 function _catQuestionTotal(cat) {
   return cat ? getRoundList(cat).reduce((n, r) => n + getRoundCount(cat, r), 0) : 0;
+}
+
+// 지난번에 낸 문항 수를 기억해 다음에도 그대로 띄운다 (이 기기 전용)
+const MOCK_COUNT_KEY = 'mock_last_count';
+function getLastMockCount() {
+  const n = parseInt(localStorage.getItem(MOCK_COUNT_KEY) || '', 10);
+  return (!isNaN(n) && n > 0) ? n : 60;
+}
+function saveLastMockCount(n) {
+  try { if (n > 0) localStorage.setItem(MOCK_COUNT_KEY, String(n)); } catch (_) {}
 }
 
 function paintMockCountHint() {
@@ -14810,6 +14819,7 @@ function startMockExam() {
   if (!cat) { showToast('자격증을 선택하세요'); return; }
   const timerMin = parseInt(document.getElementById('mock-timer-select').value);
   const count = parseInt(document.getElementById('mock-count-input').value) || 60;
+  saveLastMockCount(count);        // 다음에도 같은 문항 수로 시작하도록 기억
 
   const built = buildMockQuestions(cat, count);
   if (!built) { showToast('문제가 부족해요. 회차를 더 등록해주세요.'); return; }
@@ -17426,7 +17436,7 @@ function startClock() {
     if (!swipeOn()) return;
     const t = e.target;
     // 입력/스크롤 위젯 위에서 시작한 터치만 제외 (버튼·보기 위에서도 스와이프 가능해야 함)
-    if (t && t.closest && t.closest('input, textarea, select, .mst-slider, .weather-hours, .cal-popup, .calc-popup, .calc-fab, .hl-zone, .hl-toolbar, .q-img-box, #quiz-progress-bar, #sq-progress-bar, #fq-progress-bar, [data-noswipe]')) return;
+    if (t && t.closest && t.closest('input, textarea, select, .mst-slider, .weather-hours, .cal-popup, .calc-popup, .calc-fab, .hl-zone, .hl-toolbar, .q-img-box, .scrub-bar, [data-noswipe]')) return;
     sx = mx = e.touches[0].clientX;
     sy = my = e.touches[0].clientY;
     startT = Date.now();
@@ -18407,6 +18417,10 @@ applyRenderFlags();
 //   k: 'new'(새 기능) · 'fix'(고침) · 'chg'(바뀜)
 // ══════════════════════════════════════════════════════════════════════
 const PATCH_NOTES = [
+  { v: '260807-0848', at: '2026-08-07', items: [
+    { k: 'fix', t: '<b>모의고사</b>의 문항 이동 손잡이가 막대에서 한참 아래 엉뚱한 자리에 떠 있던 것을 고쳤습니다 — 끌 때 나오는 말풍선도 안 보이던 것을 함께 고쳤습니다' },
+    { k: 'new', t: '<b>모의고사 문항 수</b>를 기억합니다 — 지난번에 12문제로 했으면 다음에도 12문제로 시작해요' },
+  ]},
   { v: '260807-0836', at: '2026-08-07', items: [
     { k: 'fix', t: '<b>모의고사</b>의 필답형 문제에서 <b>Tab</b> 키로 정답 보기가 안 되던 것을 고쳤습니다 — 다른 풀이 화면처럼 Tab 으로 정답을 펼쳤다 접었다 할 수 있고, 쓰던 커서 자리도 그대로 유지됩니다' },
     { k: 'chg', t: '<b>모의고사</b> 상단 배너 높이를 줄였습니다 (문제가 보이는 공간이 그만큼 넓어져요)' },
@@ -18728,7 +18742,7 @@ function closePatchNotes() {
 // ── 앱 버전 ──
 // 폰이 옛 파일을 캐시해 두고 있는지 바로 확인할 수 있도록 화면에 표시한다.
 // (설정 맨 아래 · 개발자 도구 콘솔에도 찍힘)
-const APP_VERSION = '260807-0836';
+const APP_VERSION = '260807-0848';
 console.log('%c양진웅 Note 버전 ' + APP_VERSION, 'font-weight:bold');
 
 // PWA 서비스워커 등록
