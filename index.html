@@ -7433,6 +7433,8 @@
       <div class="mock-header-sub">전체 문제에서 무작위 출제 · 실전 대비</div>
     </div>
 
+    <div id="mock-resume-card" style="margin-bottom:12px;"></div>
+
     <!-- 모의고사 생성 -->
     <div class="mock-config-card">
       <div class="section-label" style="margin-bottom:14px">새 모의고사 시작</div>
@@ -7859,7 +7861,7 @@ async function syncFromFirebase() {
   _syncing = true;
   showSyncStatus('☁️ 동기화 중...'); setSyncDot('busy');
   try {
-    const keys = ['quiz_progress','quiz_wrong','quiz_categories','quiz_starred','quiz_flagged','quiz_marked','mock_records','mock_wrong','cal_data','quiz_checks','resume_bookmark','quiz_mastery','quiz_daily','quiz_qmemo','quiz_memo_links','quiz_img_index','quiz_srs','quiz_hl','quiz_imgw','quiz_quick_links','wrong_quiz_resume','star_quiz_resume','flag_quiz_resume'];
+    const keys = ['quiz_progress','quiz_wrong','quiz_categories','quiz_starred','quiz_flagged','quiz_marked','mock_records','mock_wrong','cal_data','quiz_checks','resume_bookmark','quiz_mastery','quiz_daily','quiz_qmemo','quiz_memo_links','quiz_img_index','quiz_srs','quiz_hl','quiz_imgw','quiz_quick_links','wrong_quiz_resume','star_quiz_resume','flag_quiz_resume','mock_quiz_resume'];
     // [추가] 문제 데이터는 회차별 구조라 따로 맞춘다 (색인 먼저 → 바뀐 회차만)
     await syncQuizData();
 
@@ -14703,6 +14705,7 @@ function renderMockHome() {
   // [추가] 고른 자격증에 문제가 몇 개나 있는지 알려 준다 (문항 수 상한이 곧 이 값)
   sel.onchange = paintMockCountHint;
   paintMockCountHint();
+  renderMockResumeCard();
 
   // 기록 목록
   const records = getMockRecords();
@@ -14850,8 +14853,10 @@ function startMockExamAgain() {
 function startMockTimer() {
   let remain = mqState.timerSec;
   const timerEl = document.getElementById('mq-timer');
+  mqState.remainSec = remain;
   mqState.timerInterval = setInterval(() => {
     remain--;
+    mqState.remainSec = remain;   // 이어서 풀 때 남은 시간을 그대로 잇기 위해 기록
     if (remain <= 0) {
       clearInterval(mqState.timerInterval);
       showToast('⏰ 시간 종료! 자동 제출됩니다.');
@@ -14957,6 +14962,7 @@ function mqJudgeSubj(result) {
   // [추가] 정답을 펼쳐 둔 채로 판정하면 판정 후 다시 접는다 (안 펼쳐져 있었다면 그대로 유지)
   if (mqState.revealed && mqState.revealed[mqState.idx]) mqState.revealed[mqState.idx] = false;
   document.getElementById('mq-progress-txt').textContent = `${Object.keys(mqState.answered).length}/${mqState.questions.length} 완료`;
+  _saveMQCheckpoint();
   renderMQ();
 }
 
@@ -14978,6 +14984,7 @@ function mqAnswer(chosen) {
   document.getElementById('mq-next-btn').disabled = false;
   document.getElementById('mq-next-btn').innerHTML = idx === questions.length - 1 ? '제출<svg class="ic" viewBox="0 0 24 24"><use href="#ic-arrow-right"/></svg>' : '다음<svg class="ic" viewBox="0 0 24 24"><use href="#ic-arrow-right"/></svg>';
   document.getElementById('mq-progress-txt').textContent = `${Object.keys(mqState.answered).length}/${questions.length} 완료`;
+  _saveMQCheckpoint();
 }
 
 function mqNext() {
@@ -14987,6 +14994,7 @@ function mqNext() {
   } else {
     mqState.idx++;
     renderMQ();
+    _saveMQCheckpoint();
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 }
@@ -14995,6 +15003,7 @@ function mqPrev() {
   if (mqState.idx > 0) {
     mqState.idx--;
     renderMQ();
+    _saveMQCheckpoint();
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 }
@@ -15004,7 +15013,83 @@ function mqGoTo(i) {
   if (!mqState || !mqState.questions.length) return;
   mqState.idx = Math.max(0, Math.min(mqState.questions.length - 1, i));
   renderMQ();
+  _saveMQCheckpoint();
   window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// ── 모의고사 이어서 풀기 ──────────────────────────────────────────────
+// 오답·별표·체크 풀기에는 있던 기능이 모의고사에만 없어서, 앱을 다시 열면
+// 풀던 시험이 통째로 사라졌다 (문제 목록이 메모리에만 있었다).
+// 문제를 통째로 저장하지 않고 (회차 + 문항번호)만 적어 두었다가 다시 찾아 온다.
+function getMockQuizResume() { return _getCache('mock_quiz_resume', null); }
+function saveMockQuizResume(state) { syncToFirebase('mock_quiz_resume', state); }
+function clearMockQuizResume() { saveMockQuizResume(null); }
+
+function _saveMQCheckpoint() {
+  if (!mqState || !mqState.questions || !mqState.questions.length) return;
+  saveMockQuizResume({
+    cat: mqState.cat,
+    picks: mqState.questions.map(it => ({ round: it.round, qNum: Number(it.q.num) })),
+    idx: mqState.idx,
+    answered: mqState.answered,
+    subjInputs: mqState.subjInputs || {},
+    // 타이머는 앱이 꺼져 있는 동안 흐르지 않게 '남은 시간'을 저장한다
+    remainSec: mqState.timerSec ? (mqState.remainSec != null ? mqState.remainSec : mqState.timerSec) : 0,
+    elapsedSec: mqState.startTime ? Math.floor((Date.now() - mqState.startTime) / 1000) : 0,
+    savedAt: Date.now()
+  });
+}
+
+function resumeMockQuiz() {
+  const r = getMockQuizResume();
+  if (!r || !r.picks || !r.picks.length) return;
+
+  // 저장 이후 문제가 지워졌을 수 있다 — 남은 것만 모으고 idx·답안을 새 위치로 다시 매핑한다
+  const questions = [];
+  const answered = {};
+  const subjInputs = {};
+  let idx = 0;
+  r.picks.forEach((pk, oldI) => {
+    const q = getRound(r.cat, pk.round).find(x => Number(x.num) === pk.qNum);
+    if (!q) return;
+    const newI = questions.length;
+    questions.push({ q, round: pk.round, cat: r.cat });
+    if (r.answered && r.answered[oldI] !== undefined) answered[newI] = r.answered[oldI];
+    if (r.subjInputs && r.subjInputs[oldI] !== undefined) subjInputs[newI] = r.subjInputs[oldI];
+    if (oldI <= r.idx) idx = newI;
+  });
+  if (!questions.length) { clearMockQuizResume(); renderMockHome(); showToast('이어서 풀 모의고사가 없어요'); return; }
+
+  if (mqState.timerInterval) clearInterval(mqState.timerInterval);
+  mqState = {
+    cat: r.cat, questions, idx: Math.min(idx, questions.length - 1), answered, subjInputs,
+    revealed: {},
+    timerSec: r.remainSec || 0, remainSec: r.remainSec || 0, timerInterval: null,
+    startTime: Date.now() - (r.elapsedSec || 0) * 1000   // 이미 쓴 시간을 이어받는다
+  };
+
+  document.getElementById('mq-title').textContent = `${r.cat} 모의고사`;
+  goPage('mock-quiz');
+  renderMQ();
+  if (mqState.timerSec > 0) startMockTimer();
+  else document.getElementById('mq-timer').textContent = '';
+}
+
+function renderMockResumeCard() {
+  const el = document.getElementById('mock-resume-card');
+  if (!el) return;
+  const r = getMockQuizResume();
+  el.innerHTML = r && r.picks && r.picks.length ? `
+    <div class="home-card resume-card" onclick="resumeMockQuiz()">
+      <div class="rc-left">
+        <div class="rc-emoji"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-pin"/></svg></div>
+        <div>
+          <div class="rc-title">이어서 풀기</div>
+          <div class="rc-sub">${escHtml(r.cat)} · ${r.idx + 1} / ${r.picks.length}번째부터</div>
+        </div>
+      </div>
+      <button class="rc-close" onclick="event.stopPropagation(); clearMockQuizResume(); renderMockHome();" aria-label="지우기"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-x"/></svg></button>
+    </div>` : '';
 }
 
 function submitMockEarly() {
@@ -15017,6 +15102,7 @@ function submitMockEarly() {
 
 function submitMock() {
   if (mqState.timerInterval) clearInterval(mqState.timerInterval);
+  clearMockQuizResume();          // 제출했으면 이어서 풀 것이 없다
 
   const { questions, answered, cat, startTime } = mqState;
   let correct = 0;
@@ -17422,6 +17508,14 @@ function getLastSpot() {
   } catch (_) { return null; }
 }
 
+// 풀이 화면별 '이어서 풀기' 복원 경로 — 화면만 열면 비어 있으므로 반드시 이쪽을 태운다
+const RESUME_PAGES = {
+  'wrong-quiz': { has: () => getWrongQuizResume(), resume: () => resumeWrongQuiz(), list: 'wrong' },
+  'star-quiz':  { has: () => getStarQuizResume(),  resume: () => resumeStarQuiz(),  list: 'star'  },
+  'flag-quiz':  { has: () => getFlagQuizResume(),  resume: () => resumeFlagQuiz(),  list: 'flag'  },
+  'mock-quiz':  { has: () => getMockQuizResume(),  resume: () => resumeMockQuiz(),  list: 'mock'  },
+};
+
 // 앱을 다시 열었을 때 그 자리로 돌아간다
 function restoreLastSpot() {
   const spot = getLastSpot();
@@ -17445,6 +17539,15 @@ function restoreLastSpot() {
         selectedCategory = spot.selectedCat;
         renderRoundList(spot.selectedCat);
       }
+      return true;
+    }
+    // [수정] 오답·별표·체크·모의고사 '풀기' 화면은 문제 목록이 메모리에만 있어서
+    //        화면만 열면 빈칸으로 뜬다 → 각 화면의 이어서 풀기 복원을 태운다.
+    //        이어 풀 것이 없으면 빈 화면 대신 해당 목록 화면으로 보낸다.
+    const rp = RESUME_PAGES[spot.page];
+    if (rp) {
+      if (rp.has()) { rp.resume(); return true; }
+      goPage(rp.list);
       return true;
     }
     // 그 밖의 화면은 그대로 열기
@@ -18028,7 +18131,7 @@ function renderSettings() {
 const BACKUP_KEYS = ['quiz_categories','quiz_data','quiz_progress','quiz_wrong','quiz_checks',
                      'resume_bookmark','quiz_mastery','quiz_starred','quiz_flagged','quiz_marked','quiz_daily','quiz_qmemo',
                      'quiz_memo_links','cal_data','mock_records','mock_wrong','quiz_srs','quiz_hl','quiz_imgw','quiz_quick_links',
-                     'wrong_quiz_resume','star_quiz_resume','flag_quiz_resume'];
+                     'wrong_quiz_resume','star_quiz_resume','flag_quiz_resume','mock_quiz_resume'];
 
 async function exportBackup() {
   try {
@@ -18296,6 +18399,10 @@ applyRenderFlags();
 //   k: 'new'(새 기능) · 'fix'(고침) · 'chg'(바뀜)
 // ══════════════════════════════════════════════════════════════════════
 const PATCH_NOTES = [
+  { v: '260806-2155', at: '2026-08-06', items: [
+    { k: 'fix', t: '<b>오답만 풀기 · 별표만 풀기 · 체크만 풀기</b>를 풀다가 앱을 껐다 켜면 빈 화면이 뜨던 것을 고쳤습니다 — 이제 문제 풀기처럼 풀던 자리로 그대로 돌아갑니다 (이어서 풀 게 없으면 빈 화면 대신 목록으로 갑니다)' },
+    { k: 'new', t: '<b>모의고사</b>도 이어서 풀 수 있습니다 — 앱을 껐다 켜도 풀던 문항·고른 답·필답형에 쓰던 답안·타이머 남은 시간까지 그대로 이어집니다. 모의고사 홈에 <b>이어서 풀기</b> 카드가 뜹니다' },
+  ]},
   { v: '260806-2047', at: '2026-08-06', items: [
     { k: 'new', t: '<b>모의고사</b>에도 문항 이동 손잡이가 생겼습니다 — 문제 풀기 화면처럼 진행 막대를 끌어서 원하는 문항으로 바로 이동하고, 좌우 화살표로도 넘길 수 있어요' },
   ]},
@@ -18609,7 +18716,7 @@ function closePatchNotes() {
 // ── 앱 버전 ──
 // 폰이 옛 파일을 캐시해 두고 있는지 바로 확인할 수 있도록 화면에 표시한다.
 // (설정 맨 아래 · 개발자 도구 콘솔에도 찍힘)
-const APP_VERSION = '260806-2047';
+const APP_VERSION = '260806-2155';
 console.log('%c양진웅 Note 버전 ' + APP_VERSION, 'font-weight:bold');
 
 // PWA 서비스워커 등록
