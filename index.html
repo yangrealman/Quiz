@@ -1460,15 +1460,15 @@
   .mock-quiz-header {
     background: linear-gradient(135deg, var(--nav-g1), var(--nav-g3));
     border-radius: var(--radius);
-    padding: 14px 18px;
-    margin-bottom: 20px;
+    padding: 8px 14px;
+    margin-bottom: 10px;
     color: #fff;
     display: flex;
     align-items: center;
     justify-content: space-between;
   }
-  .mock-quiz-title { font-size: 15px; font-weight: 700; }
-  .mock-quiz-timer { font-size: 18px; font-weight: 800; font-variant-numeric: tabular-nums; }
+  .mock-quiz-title { font-size: 14px; font-weight: 700; }
+  .mock-quiz-timer { font-size: 16px; font-weight: 800; font-variant-numeric: tabular-nums; }
   .mock-quiz-timer.warn { color: #FCA5A5; }
   .mock-source-badge {
     font-size: 11px;
@@ -14902,9 +14902,9 @@ function renderMQ() {
     optEl.innerHTML = `
       <span class="subj-type-badge"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-pencil"/></svg>주관식</span>
       <div class="subj-input-wrap">
-        <textarea class="subj-input" id="mq-subj-input" spellcheck="false" placeholder="여기에 답을 써보세요..." oninput="mqState.subjInputs=mqState.subjInputs||{}; mqState.subjInputs[${idx}]=this.value">${savedSubj}</textarea>
+        <textarea class="subj-input" id="mq-subj-input" spellcheck="false" placeholder="여기에 답을 써보세요...&#10;Tab 정답 보기 · Ctrl+Enter 다음 · Ctrl+⌫ 이전" oninput="mqState.subjInputs=mqState.subjInputs||{}; mqState.subjInputs[${idx}]=this.value" onkeydown="if(event.key==='Tab'){event.preventDefault();toggleMQReveal();}">${savedSubj}</textarea>
       </div>
-      ${!revealed ? `<button class="btn btn-primary" onclick="mqRevealSubj()" style="width:100%">정답 보기 👁</button>` : ''}
+      ${!revealed ? `<button class="btn btn-primary" onclick="toggleMQReveal()" style="width:100%">정답 보기 👁</button>` : ''}
       <div class="subj-answer-box ${revealed ? 'show' : ''}">
         <div class="subj-answer-title"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-check-square"/></svg>모범 답안</div>
         <div class="subj-answer-text">${renderExp(q.answer || '')}</div>
@@ -14950,11 +14950,19 @@ function renderMQ() {
   document.getElementById('mq-prev-btn').disabled = idx === 0;
 }
 
-function mqRevealSubj() {
+// Tab 으로 정답을 펼쳤다 접었다 한다 (쓰던 커서 자리를 잃지 않게 되돌려 준다)
+function toggleMQReveal() {
+  const textarea = document.getElementById('mq-subj-input');
+  const cursorPos = textarea ? textarea.selectionStart : null;
+  if (!mqState.subjInputs) mqState.subjInputs = {};
+  if (textarea) mqState.subjInputs[mqState.idx] = textarea.value;
   if (!mqState.revealed) mqState.revealed = {};
-  mqState.revealed[mqState.idx] = true;
+  mqState.revealed[mqState.idx] = !mqState.revealed[mqState.idx];
   renderMQ();
-  setTimeout(() => { const t = document.getElementById('mq-subj-input'); if (t) t.focus(); }, 0);
+  setTimeout(() => {
+    const t = document.getElementById('mq-subj-input');
+    if (t) { t.focus(); if (cursorPos !== null) t.setSelectionRange(cursorPos, cursorPos); }
+  }, 0);
 }
 
 function mqJudgeSubj(result) {
@@ -18399,6 +18407,10 @@ applyRenderFlags();
 //   k: 'new'(새 기능) · 'fix'(고침) · 'chg'(바뀜)
 // ══════════════════════════════════════════════════════════════════════
 const PATCH_NOTES = [
+  { v: '260807-0836', at: '2026-08-07', items: [
+    { k: 'fix', t: '<b>모의고사</b>의 필답형 문제에서 <b>Tab</b> 키로 정답 보기가 안 되던 것을 고쳤습니다 — 다른 풀이 화면처럼 Tab 으로 정답을 펼쳤다 접었다 할 수 있고, 쓰던 커서 자리도 그대로 유지됩니다' },
+    { k: 'chg', t: '<b>모의고사</b> 상단 배너 높이를 줄였습니다 (문제가 보이는 공간이 그만큼 넓어져요)' },
+  ]},
   { v: '260806-2155', at: '2026-08-06', items: [
     { k: 'fix', t: '<b>오답만 풀기 · 별표만 풀기 · 체크만 풀기</b>를 풀다가 앱을 껐다 켜면 빈 화면이 뜨던 것을 고쳤습니다 — 이제 문제 풀기처럼 풀던 자리로 그대로 돌아갑니다 (이어서 풀 게 없으면 빈 화면 대신 목록으로 갑니다)' },
     { k: 'new', t: '<b>모의고사</b>도 이어서 풀 수 있습니다 — 앱을 껐다 켜도 풀던 문항·고른 답·필답형에 쓰던 답안·타이머 남은 시간까지 그대로 이어집니다. 모의고사 홈에 <b>이어서 풀기</b> 카드가 뜹니다' },
@@ -18716,7 +18728,7 @@ function closePatchNotes() {
 // ── 앱 버전 ──
 // 폰이 옛 파일을 캐시해 두고 있는지 바로 확인할 수 있도록 화면에 표시한다.
 // (설정 맨 아래 · 개발자 도구 콘솔에도 찍힘)
-const APP_VERSION = '260806-2155';
+const APP_VERSION = '260807-0836';
 console.log('%c양진웅 Note 버전 ' + APP_VERSION, 'font-weight:bold');
 
 // PWA 서비스워커 등록
