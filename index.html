@@ -14765,6 +14765,46 @@ function startSelectedMockWrongQuiz() {
   renderMWQ();
 }
 
+// 고른 회차만 지운다 (지금까지는 전체 초기화뿐이었다).
+// 눈 돌리기 처리: 지운 회차에서만 나왔던 문제는 '아직 안 본 것'으로 되돌려 다시 출제되게 하고,
+//                남아 있는 회차에도 나왔던 문제는 이미 본 것으로 그대로 둔다.
+function deleteSelectedMockRecords() {
+  if (!_mockRecSel.size) return;
+  const recs = getMockRecords();
+  const del  = recs.filter(r => _mockRecSel.has(r.id));
+  const keep = recs.filter(r => !_mockRecSel.has(r.id));
+  if (!del.length) return;
+
+  const wrongs = getMockWrongs();
+  const delWrongs = wrongs.filter(w => _mockRecSel.has(w.mockId)).length;
+
+  // 되돌아올 문제 수를 미리 세어 확인 문구에 담는다
+  const keyOf = ({ round, qNum }) => round + '||' + qNum;
+  const deck = getMockDeck();
+  const plan = {};   // 자격증별로 덱에서 빼낼 키들
+  let restore = 0;
+  new Set(del.map(r => r.cat)).forEach(cat => {
+    if (!Array.isArray(deck[cat])) return;
+    // [주의] 키가 '회차||번호'라 자격증이 다르면 겹칠 수 있다 → 반드시 자격증별로 따로 센다
+    const inDel  = new Set(del .filter(r => r.cat === cat).flatMap(r => (r.questionLog || []).map(keyOf)));
+    const inKeep = new Set(keep.filter(r => r.cat === cat).flatMap(r => (r.questionLog || []).map(keyOf)));
+    const back = deck[cat].filter(k => inDel.has(k) && !inKeep.has(k));
+    if (back.length) { plan[cat] = new Set(back); restore += back.length; }
+  });
+
+  if (!confirm(`선택한 ${del.length}회차 기록을 지울까요?\n\n· 이 회차의 오답 ${delWrongs}개도 함께 지워집니다\n· 여기서만 나왔던 문제 ${restore}개는 모의고사에 다시 나옵니다\n\n되돌릴 수 없습니다.`)) return;
+
+  saveMockRecords(keep);
+  saveMockWrongs(wrongs.filter(w => !_mockRecSel.has(w.mockId)));
+  Object.keys(plan).forEach(cat => { deck[cat] = deck[cat].filter(k => !plan[cat].has(k)); });
+  if (Object.keys(plan).length) saveMockDeck(deck);
+
+  _mockRecSel.clear();
+  _mockRecSelMode = false;
+  renderMockHome();
+  showToast(`${del.length}회차를 지웠어요${restore ? ` · 문제 ${restore}개가 다시 출제 대상이 됩니다` : ''}`);
+}
+
 function renderMockRecTools() {
   const el = document.getElementById('mock-rec-tools');
   if (!el) return;
@@ -14776,6 +14816,7 @@ function renderMockRecTools() {
     <button class="wn-tool-btn" onclick="toggleMockRecSelMode()">${_mockRecSelMode ? '선택 취소' : '회차 선택'}</button>
     ${_mockRecSelMode ? `
       <button class="wn-tool-btn" onclick="selectAllMockRec()">전체 선택</button>
+      <button class="wn-tool-btn danger" onclick="deleteSelectedMockRecords()" ${n ? '' : 'disabled'}>삭제${n ? ' (' + n + ')' : ''}</button>
       <span class="mrt-count">${n}회차 · 오답 ${nq}개</span>
       <button class="wn-tool-btn" style="margin-left:auto; border-color:var(--mock); color:var(--mock)"
               onclick="startSelectedMockWrongQuiz()" ${nq ? '' : 'disabled'}>선택한 오답만 풀기</button>
@@ -18502,6 +18543,9 @@ applyRenderFlags();
 //   k: 'new'(새 기능) · 'fix'(고침) · 'chg'(바뀜)
 // ══════════════════════════════════════════════════════════════════════
 const PATCH_NOTES = [
+  { v: '260807-2145', at: '2026-08-07', items: [
+    { k: 'new', t: '<b>모의고사 기록</b>에서 <b>회차 선택</b> 후 고른 회차만 지울 수 있습니다 (예전엔 전체 초기화뿐이었어요) — 그 회차의 오답도 함께 지워지고, <b>거기서만 나왔던 문제는 모의고사에 다시 나옵니다</b>. 남아 있는 다른 회차에도 나왔던 문제는 본 것으로 그대로 둡니다' },
+  ]},
   { v: '260807-2109', at: '2026-08-07', items: [
     { k: 'new', t: '<b>설정 &gt; 기능</b>에 <b>판정하면 자동으로 다음 문제</b>가 생겼습니다 — 켜두면 필답형에서 맞았어요·틀렸어요를 누르는 순간 바로 다음 문제로 넘어갑니다. 문제 풀기·오답만·별표만·체크만·모의고사·모의고사 오답 <b>여섯 화면에 한 번에</b> 적용돼요 (마지막 문제에서는 실수로 제출되지 않도록 넘어가지 않습니다)' },
   ]},
@@ -18850,7 +18894,7 @@ function closePatchNotes() {
 // ── 앱 버전 ──
 // 폰이 옛 파일을 캐시해 두고 있는지 바로 확인할 수 있도록 화면에 표시한다.
 // (설정 맨 아래 · 개발자 도구 콘솔에도 찍힘)
-const APP_VERSION = '260807-2109';
+const APP_VERSION = '260807-2145';
 console.log('%c양진웅 Note 버전 ' + APP_VERSION, 'font-weight:bold');
 
 // PWA 서비스워커 등록
