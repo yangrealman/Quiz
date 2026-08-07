@@ -7135,6 +7135,14 @@
 
         <div class="set-row">
           <div class="set-row-main">
+            <div class="set-row-title">판정하면 자동으로 다음 문제</div>
+            <div class="set-row-desc">필답형에서 맞았어요·틀렸어요를 누르면 바로 다음으로 넘어갑니다 · 마지막 문제에서는 넘어가지 않아요</div>
+          </div>
+          <button class="set-switch" id="sw-autonext" aria-label="판정하면 자동으로 다음 문제" title="판정하면 자동으로 다음 문제" onclick="toggleSetting('autoNextOnJudge')" role="switch"><span></span></button>
+        </div>
+
+        <div class="set-row">
+          <div class="set-row-main">
             <div class="set-row-title">정답 효과</div>
             <div class="set-row-desc">정답을 맞히면 작은 축하 효과가 나타납니다</div>
           </div>
@@ -10854,6 +10862,17 @@ function toggleSubjReveal() {
   }, 0);
 }
 
+// 판정하면 자동으로 다음 문제로 (설정에서 켤 때만).
+// 마지막 문제에서는 넘기지 않는다 — 거기서 '다음'은 제출·종료라서 실수로 끝나버린다.
+// 판정 표시가 눈에 들어올 만큼만 짧게 기다렸다 넘어간다.
+function _autoNextAfterJudge(idx, total, nextFn) {
+  try {
+    if (!getSettings().autoNextOnJudge) return;
+    if (!(idx < total - 1)) return;
+    setTimeout(nextFn, 320);
+  } catch (_) {}
+}
+
 function judgeSubj(result) {
   const { questions, idx, cat, round } = currentQuiz;
   const q = questions[idx];
@@ -10871,6 +10890,7 @@ function judgeSubj(result) {
   //        (한 번 맞혔다고 사라지면 다시 볼 기회가 없어진다)
   if (result !== 'correct') saveWrongAnswer(cat, round, q, -1);
   saveQuizProgress(true);
+  _autoNextAfterJudge(idx, questions.length, quizNext);
 
   // [추가] 정답을 펼쳐 둔 채로 판정하면 판정 후 다시 접는다 (안 펼쳐져 있었다면 그대로 유지)
   if (currentQuiz.revealed && currentQuiz.revealed[idx]) {
@@ -12705,6 +12725,7 @@ function wqJudge(result) {
   if (wqState.revealed && wqState.revealed[wqState.idx]) wqState.revealed[wqState.idx] = false;
   _saveWQCheckpoint();
   renderWQ();
+  _autoNextAfterJudge(wqState.idx, wqState.questions.length, wqNext);
 }
 
 function wqAnswer(chosen) {
@@ -14020,6 +14041,7 @@ function sqJudge(result) {
   if (sqState.revealed && sqState.revealed[sqState.idx]) sqState.revealed[sqState.idx] = false;
   _saveSQCheckpoint();
   renderSQ();
+  _autoNextAfterJudge(sqState.idx, sqState.questions.length, sqNext);
 }
 
 function sqAnswer(chosen) {
@@ -14393,6 +14415,7 @@ function fqJudge(result) {
   if (fqState.revealed && fqState.revealed[fqState.idx]) fqState.revealed[fqState.idx] = false;
   _saveFQCheckpoint();
   renderFQ();
+  _autoNextAfterJudge(fqState.idx, fqState.questions.length, fqNext);
 }
 
 function fqAnswer(chosen) {
@@ -15037,6 +15060,7 @@ function mqJudgeSubj(result) {
   renderMQ();
   // 정답을 펼쳐 둔 채 판정하면 한참 아래에 있게 된다 → 문제가 보이게 위로 올려 준다
   window.scrollTo({ top: 0, behavior: 'smooth' });
+  _autoNextAfterJudge(mqState.idx, mqState.questions.length, mqNext);
 }
 
 function mqAnswer(chosen) {
@@ -15491,6 +15515,7 @@ function mwqJudge(result) {
   if (mwqState.revealed && mwqState.revealed[mwqState.idx]) mwqState.revealed[mwqState.idx] = false;
   renderMWQ();
   window.scrollTo({ top: 0, behavior: 'smooth' });
+  _autoNextAfterJudge(mwqState.idx, mwqState.questions.length, mwqNext);
 }
 
 function mwqAnswer(chosen) {
@@ -17856,6 +17881,7 @@ const DEFAULT_SETTINGS = {
   reduceMotion: false,
   haptic: true,            // 진동 피드백 (모바일)
   sound: false,            // 효과음 (기본 꺼짐)
+  autoNextOnJudge: false,  // 맞았어요/틀렸어요 누르면 자동으로 다음 문제 (기본 꺼짐)
   calSize: 'md'            // 캘린더 크기 sm/md/lg
 };
 
@@ -18011,7 +18037,8 @@ function toggleSetting(key) {
   const labels = {
     swipeNav: '스와이프 이동',
     particles: '정답 효과', reduceMotion: '애니메이션 줄이기',
-    haptic: '진동 피드백', sound: '효과음'
+    haptic: '진동 피드백', sound: '효과음',
+    autoNextOnJudge: '판정 후 자동으로 다음'
   };
   showToast(`${labels[key] || key} ${s[key] ? '켜짐' : '꺼짐'}`);
 }
@@ -18168,6 +18195,7 @@ function renderSettings() {
   sw('sw-swipe', s.swipeNav);
   sw('sw-particles', s.particles);
   sw('sw-haptic', s.haptic);
+  sw('sw-autonext', s.autoNextOnJudge);
   sw('sw-sound', s.sound);
   sw('sw-live', liveEnabled());
 
@@ -18474,6 +18502,9 @@ applyRenderFlags();
 //   k: 'new'(새 기능) · 'fix'(고침) · 'chg'(바뀜)
 // ══════════════════════════════════════════════════════════════════════
 const PATCH_NOTES = [
+  { v: '260807-2109', at: '2026-08-07', items: [
+    { k: 'new', t: '<b>설정 &gt; 기능</b>에 <b>판정하면 자동으로 다음 문제</b>가 생겼습니다 — 켜두면 필답형에서 맞았어요·틀렸어요를 누르는 순간 바로 다음 문제로 넘어갑니다. 문제 풀기·오답만·별표만·체크만·모의고사·모의고사 오답 <b>여섯 화면에 한 번에</b> 적용돼요 (마지막 문제에서는 실수로 제출되지 않도록 넘어가지 않습니다)' },
+  ]},
   { v: '260807-2036', at: '2026-08-07', items: [
     { k: 'chg', t: '<b>모의고사</b>가 이제 <b>모든 문제를 한 번씩 다 볼 때까지 겹치지 않게</b> 출제됩니다 — 예전엔 매번 전체에서 무작위로 뽑아서, 아직 못 본 문제가 3분의 1이나 남아 있어도 이미 본 문제가 다시 나왔어요. 12문제씩이면 64번까지 한 문제도 안 겹칩니다' },
     { k: 'new', t: '<b>지금까지 푼 모의고사도 그대로 이어집니다</b> — 이미 나왔던 문제는 본 것으로 치고, <b>아직 못 본 문제부터</b> 나옵니다. 모의고사 시작 화면에서 몇 개나 봤는지 확인하고 <b>처음부터</b>로 다시 돌릴 수도 있어요' },
@@ -18819,7 +18850,7 @@ function closePatchNotes() {
 // ── 앱 버전 ──
 // 폰이 옛 파일을 캐시해 두고 있는지 바로 확인할 수 있도록 화면에 표시한다.
 // (설정 맨 아래 · 개발자 도구 콘솔에도 찍힘)
-const APP_VERSION = '260807-2036';
+const APP_VERSION = '260807-2109';
 console.log('%c양진웅 Note 버전 ' + APP_VERSION, 'font-weight:bold');
 
 // PWA 서비스워커 등록
