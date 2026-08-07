@@ -6756,7 +6756,16 @@
         <span class="quiz-where-t">🔴 오답 집중 풀기</span>
         <span class="quiz-q-num" id="wq-q-num"></span>
       </div>
-      <span class="quiz-num" id="wq-num"></span>
+      <div style="display:flex; align-items:center; gap:8px;">
+        <span class="star-widget" id="wq-star-widget">
+          <span class="star-pip" onclick="setStarWQ(1)">★</span>
+          <span class="star-pip" onclick="setStarWQ(2)">★</span>
+          <span class="star-pip" onclick="setStarWQ(3)">★</span>
+          <span class="star-pip" onclick="setStarWQ(4)">★</span>
+          <span class="star-pip" onclick="setStarWQ(5)">★</span>
+        </span>
+        <span class="quiz-num" id="wq-num"></span>
+      </div>
     </div>
     <div class="quiz-progress-bar">
       <div class="quiz-progress-fill" id="wq-progress-fill"></div>
@@ -7517,7 +7526,16 @@
     </div>
     <div class="quiz-header">
       <span class="quiz-q-num" id="mwq-q-num"></span>
-      <span class="quiz-num" id="mwq-num"></span>
+      <div style="display:flex; align-items:center; gap:8px;">
+        <span class="star-widget" id="mwq-star-widget">
+          <span class="star-pip" onclick="setStarMWQ(1)">★</span>
+          <span class="star-pip" onclick="setStarMWQ(2)">★</span>
+          <span class="star-pip" onclick="setStarMWQ(3)">★</span>
+          <span class="star-pip" onclick="setStarMWQ(4)">★</span>
+          <span class="star-pip" onclick="setStarMWQ(5)">★</span>
+        </span>
+        <span class="quiz-num" id="mwq-num"></span>
+      </div>
     </div>
     <div class="quiz-scrub-row">
       <button class="scrub-arrow" onclick="mwqPrev()" title="이전 문제" aria-label="이전 문제"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-arrow-left"/></svg></button>
@@ -12632,6 +12650,10 @@ function renderWQ() {
   document.getElementById('wq-progress-fill').style.width = `${(idx + 1) / questions.length * 100}%`;
 
   const src = source ? source[idx] : null;
+  if (src) {
+    const starKey = getStarKey(src.cat, src.round, q.id || q.num || idx);
+    paintStarWidget(document.getElementById('wq-star-widget'), starLevelOf(getStarred()[starKey]));
+  }
   const sourceEl = document.getElementById('wq-source');
   if (sourceEl && src) {
     sourceEl.innerHTML = `<span class="wq-source-badge">🔴 ${src.cat} ${src.round}회차 Q${q.num || ''}</span>`;
@@ -14482,6 +14504,23 @@ function toggleFlagFQ() {
 }
 
 // 체크 풀기 중에도 별표를 매길 수 있다 (별표 저장소는 그대로, 체크와는 별개)
+// 오답 풀기 화면에서 그 자리에서 별표 개수 보기·바꾸기
+function setStarWQ(level) {
+  const { questions, idx, source } = wqState;
+  const src = source && source[idx];
+  if (!src) return;
+  const lv = setStarLevel(src.cat, src.round, questions[idx], idx, level);
+  paintStarWidget(document.getElementById('wq-star-widget'), lv);
+}
+
+function setStarMWQ(level) {
+  const { questions, idx, source } = mwqState;
+  const src = source && source[idx];
+  if (!src) return;
+  const lv = setStarLevel(src.cat, src.round, questions[idx], idx, level);
+  paintStarWidget(document.getElementById('mwq-star-widget'), lv);
+}
+
 function setStarFQ(level) {
   const { questions, idx, source } = fqState;
   const src = source[idx];
@@ -15502,6 +15541,10 @@ function renderMWQ() {
   if (mwqThumb) mwqThumb.style.left = `${mwqPct}%`;
   document.getElementById('mwq-source').innerHTML = src
     ? `<span class="mock-wrong-badge"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-pencil"/></svg> ${src.cat} ${src.round}회차 Q${q.num}</span>` : '';
+  if (src) {
+    const starKey = getStarKey(src.cat, src.round, q.id || q.num || idx);
+    paintStarWidget(document.getElementById('mwq-star-widget'), starLevelOf(getStarred()[starKey]));
+  }
   document.getElementById('mwq-question').textContent = q.question;
   renderQImage('mwq-img-wrap', q);   // [추가] 문제 그림
 
@@ -18569,6 +18612,9 @@ applyRenderFlags();
 //   k: 'new'(새 기능) · 'fix'(고침) · 'chg'(바뀜)
 // ══════════════════════════════════════════════════════════════════════
 const PATCH_NOTES = [
+  { v: '260808-0138', at: '2026-08-08', items: [
+    { k: 'new', t: '<b>오답만 풀기</b>와 <b>모의고사 오답 풀기</b>에서도 <b>별표</b>를 볼 수 있고 그 자리에서 고칠 수 있습니다 — 문항 번호 옆에 별 5개가 뜨고, 지금 몇 개인지 바로 보이며, 원하는 개수를 누르면 바뀝니다 (같은 별을 다시 누르면 해제)' },
+  ]},
   { v: '260807-2202', at: '2026-08-07', items: [
     { k: 'fix', t: '<b>모의고사</b>에서 시작만 하고 제출하지 않은 시험도 문제를 써버려서, 12문제를 3번 풀었는데 96개를 본 것으로 세지던 것을 고쳤습니다 — 이제 <b>실제로 제출한 시험만</b> 셉니다. 잘못 쌓여 있던 개수는 한 번에 바로잡히고, 풀다 만 시험의 문제는 다시 나옵니다' },
   ]},
@@ -18923,7 +18969,7 @@ function closePatchNotes() {
 // ── 앱 버전 ──
 // 폰이 옛 파일을 캐시해 두고 있는지 바로 확인할 수 있도록 화면에 표시한다.
 // (설정 맨 아래 · 개발자 도구 콘솔에도 찍힘)
-const APP_VERSION = '260807-2202';
+const APP_VERSION = '260808-0138';
 console.log('%c양진웅 Note 버전 ' + APP_VERSION, 'font-weight:bold');
 
 // PWA 서비스워커 등록
