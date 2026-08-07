@@ -1441,17 +1441,6 @@
     flex-shrink: 0;
   }
   .mock-score-badge.fail { color: var(--danger); }
-  .mock-quiz-header {
-    background: linear-gradient(135deg, var(--nav-g1), var(--nav-g3));
-    border-radius: var(--radius);
-    padding: 8px 14px;
-    margin-bottom: 10px;
-    color: #fff;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-  }
-  .mock-quiz-title { font-size: 14px; font-weight: 700; }
   /* 모의고사 계열 강조 버튼 — .btn-secondary 는 배경을 !important 로 잡아
      인라인 배경이 먹지 않는다(흰 배경+흰 글자). 그래서 클래스를 바꿔 끼워 쓴다. */
   .mock-deck-reset {
@@ -6482,6 +6471,11 @@
   }
   .scrub-arrow .ic { width: 14px; height: 14px; }
   .scrub-arrow:hover { border-color: var(--primary); color: var(--primary); }
+  /* 오답 풀기 — 양옆 버튼을 틀렸어요(빨강)·맞았어요(초록) 판정으로 쓴다 */
+  .scrub-arrow.judge-no { color: var(--danger); border-color: var(--danger-border); }
+  .scrub-arrow.judge-no:hover { border-color: var(--danger); background: var(--danger-light); color: var(--danger); }
+  .scrub-arrow.judge-ok { color: var(--success); border-color: var(--success-border); }
+  .scrub-arrow.judge-ok:hover { border-color: var(--success); background: var(--success-light); color: var(--success); }
   .scrub-arrow:active { transform: scale(0.9); }
   body.dark .scrub-arrow { background: var(--card); border-color: var(--card-border); }
 
@@ -7451,15 +7445,15 @@
 <!-- ─────────────────────────────── 모의고사 풀기 ─────────────────────────────── -->
 <div id="page-mock-quiz" class="page">
   <div class="container">
-    <div class="mock-quiz-header">
-      <div>
-        <div class="mock-quiz-title" id="mq-title">모의고사</div>
-        <div style="font-size:12px; opacity:0.8; margin-top:2px" id="mq-progress-txt"></div>
-      </div>
-    </div>
     <div class="quiz-header">
-      <span class="quiz-q-num" id="mq-q-num"></span>
-      <span class="quiz-num" id="mq-num"></span>
+      <div class="quiz-where">
+        <span class="quiz-where-t" id="mq-title">모의고사</span>
+        <span class="quiz-q-num" id="mq-q-num"></span>
+      </div>
+      <div style="display:flex; align-items:center; gap:8px;">
+        <span class="quiz-where-t" id="mq-progress-txt"></span>
+        <span class="quiz-num" id="mq-num"></span>
+      </div>
     </div>
     <div class="quiz-scrub-row">
       <button class="scrub-arrow" onclick="mqPrev()" title="이전 문제" aria-label="이전 문제"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-arrow-left"/></svg></button>
@@ -7520,12 +7514,11 @@
 <div id="page-mock-wrong-quiz" class="page">
   <div class="container">
     <button class="back-btn" onclick="goPage('mock-wrong')"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-arrow-left"/></svg>모의고사 오답노트로</button>
-    <div style="text-align:center; padding:14px; background:var(--mock-light); border-radius:var(--radius); margin-bottom:20px; border:1px solid var(--mock-border);">
-      <div style="font-size:16px; font-weight:700; color:var(--mock)"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-pencil"/></svg> 모의고사 오답 풀기</div>
-      <div style="font-size:12px; color:var(--gray-500); margin-top:2px" id="mwq-sub"></div>
-    </div>
     <div class="quiz-header">
-      <span class="quiz-q-num" id="mwq-q-num"></span>
+      <div class="quiz-where">
+        <span class="quiz-where-t" id="mwq-sub"></span>
+        <span class="quiz-q-num" id="mwq-q-num"></span>
+      </div>
       <div style="display:flex; align-items:center; gap:8px;">
         <span class="star-widget" id="mwq-star-widget">
           <span class="star-pip" onclick="setStarMWQ(1)">★</span>
@@ -7538,13 +7531,13 @@
       </div>
     </div>
     <div class="quiz-scrub-row">
-      <button class="scrub-arrow" onclick="mwqPrev()" title="이전 문제" aria-label="이전 문제"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-arrow-left"/></svg></button>
+      <button class="scrub-arrow judge-no" onclick="mwqJudgeGo('wrong')" title="틀렸어요" aria-label="틀렸어요"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-x-circle"/></svg></button>
       <div class="quiz-progress-bar scrub-bar" id="mwq-progress-bar">
         <div class="quiz-progress-fill" id="mwq-progress-fill"></div>
         <div class="quiz-progress-thumb" id="mwq-progress-thumb"></div>
         <div class="quiz-progress-tip" id="mwq-progress-tip"></div>
       </div>
-      <button class="scrub-arrow" onclick="mwqNext()" title="다음 문제" aria-label="다음 문제"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-arrow-right"/></svg></button>
+      <button class="scrub-arrow judge-ok" onclick="mwqJudgeGo('correct')" title="맞았어요" aria-label="맞았어요"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-check-square"/></svg></button>
     </div>
     <div id="mwq-source" style="margin-bottom:4px"></div>
     <div class="quiz-question" id="mwq-question"></div>
@@ -15663,6 +15656,15 @@ function mwqNext() {
   }
 }
 
+// 스크러버 양옆 버튼 — 판정하고 무조건 다음 문제로 (마지막이면 완료).
+// 아래 3칸과 겹치지만, 문항 이동은 손잡이로 하면 되므로 여기선 판정을 빠르게 하는 쪽을 택했다.
+function mwqJudgeGo(result) {
+  if (!mwqState || !mwqState.questions.length) return;
+  mwqState.answered[mwqState.idx] = result;
+  if (mwqState.revealed && mwqState.revealed[mwqState.idx]) mwqState.revealed[mwqState.idx] = false;
+  mwqNext();
+}
+
 function mwqPrev() {
   if (mwqState.idx > 0) {
     mwqState.idx--;
@@ -18612,6 +18614,10 @@ applyRenderFlags();
 //   k: 'new'(새 기능) · 'fix'(고침) · 'chg'(바뀜)
 // ══════════════════════════════════════════════════════════════════════
 const PATCH_NOTES = [
+  { v: '260808-0150', at: '2026-08-08', items: [
+    { k: 'chg', t: '<b>모의고사</b>와 <b>모의고사 오답 풀기</b>의 상단 배너를 없애고 문제 풀기처럼 <b>한 줄</b>로 정리했습니다 — 문제가 시작되는 위치가 각각 73px · 100px 위로 올라와 문제와 버튼이 한눈에 들어옵니다' },
+    { k: 'new', t: '<b>모의고사 오답 풀기</b>의 문항 막대 양옆 화살표가 <b>틀렸어요(빨강) · 맞았어요(초록)</b> 판정 버튼이 됐습니다 — 어느 쪽을 누르든 바로 다음 문제로 넘어갑니다 (문항 이동은 막대를 끌어서 하시면 돼요)' },
+  ]},
   { v: '260808-0138', at: '2026-08-08', items: [
     { k: 'new', t: '<b>오답만 풀기</b>와 <b>모의고사 오답 풀기</b>에서도 <b>별표</b>를 볼 수 있고 그 자리에서 고칠 수 있습니다 — 문항 번호 옆에 별 5개가 뜨고, 지금 몇 개인지 바로 보이며, 원하는 개수를 누르면 바뀝니다 (같은 별을 다시 누르면 해제)' },
   ]},
@@ -18969,7 +18975,7 @@ function closePatchNotes() {
 // ── 앱 버전 ──
 // 폰이 옛 파일을 캐시해 두고 있는지 바로 확인할 수 있도록 화면에 표시한다.
 // (설정 맨 아래 · 개발자 도구 콘솔에도 찍힘)
-const APP_VERSION = '260808-0138';
+const APP_VERSION = '260808-0150';
 console.log('%c양진웅 Note 버전 ' + APP_VERSION, 'font-weight:bold');
 
 // PWA 서비스워커 등록
