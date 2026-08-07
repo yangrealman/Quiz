@@ -12666,19 +12666,23 @@ function renderWQ() {
       <div class="subj-input-wrap">
         <textarea class="subj-input" id="wq-subj-input" spellcheck="false" placeholder="여기에 답을 써보세요...&#10;Tab 정답 보기 · Ctrl+Enter 다음 · Ctrl+⌫ 이전" oninput="wqState.subjInputs=wqState.subjInputs||{}; wqState.subjInputs[${idx}]=this.value" onkeydown="if(event.key==='Tab'){event.preventDefault();toggleWQReveal();}">${savedSubj}</textarea>
       </div>
-      ${!revealed ? `<button class="btn btn-primary" onclick="revealWQ()" style="width:100%">정답 보기 👁</button>` : ''}
       <div class="subj-answer-box ${revealed ? 'show' : ''}">
         <div class="subj-answer-title"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-check-square"/></svg>모범 답안</div>
         <div class="subj-answer-text">${renderExp(q.answer || '')}</div>
         ${q.explanation ? `<div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--success-border);font-size:13px;color:var(--success-deep);"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-bulb"/></svg> ${renderExp(q.explanation)}</div>` : ''}
       </div>
-      ${revealed ? `
-        <div class="subj-judge-btns">
-          <button class="subj-correct-btn ${judged==='correct'?'selected-judge':''}" onclick="wqJudge('correct')"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-check-square"/></svg>맞았어요</button>
-          <button class="subj-wrong-btn ${judged==='wrong'?'selected-judge':''}" onclick="wqJudge('wrong')"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-x-circle"/></svg>틀렸어요</button>
-        </div>
-        <div style="font-size:12px;color:var(--gray-400);text-align:center;margin-top:8px;">판정 없이 다음으로 넘어가도 돼요</div>
-      ` : ''}
+      <div class="subj-actions">
+        <button class="sja sja-ok ${judged==='correct' ? 'on' : ''}" onclick="wqJudge('correct')">
+          <svg class="ic" viewBox="0 0 24 24"><use href="#ic-check-square"/></svg><span>맞았어요</span>
+        </button>
+        <button class="sja sja-reveal ${revealed ? 'on' : ''}" onclick="toggleWQReveal()">
+          <svg class="ic" viewBox="0 0 24 24"><use href="#ic-eye"/></svg><span>${revealed ? '정답 숨기기' : '정답 보기'}</span>
+        </button>
+        <button class="sja sja-no ${judged==='wrong' ? 'on' : ''}" onclick="wqJudge('wrong')">
+          <svg class="ic" viewBox="0 0 24 24"><use href="#ic-x-circle"/></svg><span>틀렸어요</span>
+        </button>
+      </div>
+      <div class="subj-hint">판정 없이 다음으로 넘어가도 돼요</div>
     `;
     expBox.classList.remove('show');
     document.getElementById('wq-next-btn').disabled = false;
@@ -12704,16 +12708,6 @@ function renderWQ() {
 
   document.getElementById('wq-next-btn').innerHTML = idx === questions.length - 1 ? '완료' : '다음<svg class="ic" viewBox="0 0 24 24"><use href="#ic-arrow-right"/></svg>';
   document.getElementById('wq-prev-btn').disabled = idx === 0;
-}
-
-function revealWQ() {
-  if (!wqState.revealed) wqState.revealed = {};
-  const textarea = document.getElementById('wq-subj-input');
-  if (!wqState.subjInputs) wqState.subjInputs = {};
-  wqState.subjInputs[wqState.idx] = textarea ? textarea.value : '';
-  wqState.revealed[wqState.idx] = true;
-  renderWQ();
-  setTimeout(() => { const t = document.getElementById('wq-subj-input'); if (t) t.focus(); }, 0);
 }
 
 function toggleWQReveal() {
@@ -13990,19 +13984,23 @@ function renderSQ() {
       <div class="subj-input-wrap">
         <textarea class="subj-input" id="sq-subj-input" spellcheck="false" placeholder="여기에 답을 써보세요...&#10;Tab 정답 보기 · Ctrl+Enter 다음 · Ctrl+⌫ 이전" oninput="sqState.subjInputs=sqState.subjInputs||{}; sqState.subjInputs[${idx}]=this.value" onkeydown="if(event.key==='Tab'){event.preventDefault();toggleSQReveal();}">${savedSubj}</textarea>
       </div>
-      ${!revealed ? `<button class="btn btn-primary" onclick="revealSQ()" style="width:100%">정답 보기 👁</button>` : ''}
       <div class="subj-answer-box ${revealed ? 'show' : ''}">
         <div class="subj-answer-title"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-check-square"/></svg>모범 답안</div>
         <div class="subj-answer-text">${renderExp(q.answer || '')}</div>
         ${q.explanation ? `<div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--success-border);font-size:13px;color:var(--success-deep);"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-bulb"/></svg> ${renderExp(q.explanation)}</div>` : ''}
       </div>
-      ${revealed ? `
-        <div class="subj-judge-btns">
-          <button class="subj-correct-btn ${judged==='correct'?'selected-judge':''}" onclick="sqJudge('correct')"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-check-square"/></svg>맞았어요</button>
-          <button class="subj-wrong-btn ${judged==='wrong'?'selected-judge':''}" onclick="sqJudge('wrong')"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-x-circle"/></svg>틀렸어요</button>
-        </div>
-        <div style="font-size:12px;color:var(--gray-400);text-align:center;margin-top:8px;">판정 없이 다음으로 넘어가도 돼요</div>
-      ` : ''}
+      <div class="subj-actions">
+        <button class="sja sja-ok ${judged==='correct' ? 'on' : ''}" onclick="sqJudge('correct')">
+          <svg class="ic" viewBox="0 0 24 24"><use href="#ic-check-square"/></svg><span>맞았어요</span>
+        </button>
+        <button class="sja sja-reveal ${revealed ? 'on' : ''}" onclick="toggleSQReveal()">
+          <svg class="ic" viewBox="0 0 24 24"><use href="#ic-eye"/></svg><span>${revealed ? '정답 숨기기' : '정답 보기'}</span>
+        </button>
+        <button class="sja sja-no ${judged==='wrong' ? 'on' : ''}" onclick="sqJudge('wrong')">
+          <svg class="ic" viewBox="0 0 24 24"><use href="#ic-x-circle"/></svg><span>틀렸어요</span>
+        </button>
+      </div>
+      <div class="subj-hint">판정 없이 다음으로 넘어가도 돼요</div>
     `;
     expBox.classList.remove('show');
     document.getElementById('sq-next-btn').disabled = false;
@@ -14028,13 +14026,6 @@ function renderSQ() {
 
   document.getElementById('sq-next-btn').innerHTML = idx === questions.length - 1 ? '완료' : '다음<svg class="ic" viewBox="0 0 24 24"><use href="#ic-arrow-right"/></svg>';
   document.getElementById('sq-prev-btn').disabled = idx === 0;
-}
-
-function revealSQ() {
-  if (!sqState.revealed) sqState.revealed = {};
-  sqState.revealed[sqState.idx] = true;
-  renderSQ();
-  setTimeout(() => { const t = document.getElementById('sq-subj-input'); if (t) t.focus(); }, 0);
 }
 
 function toggleSQReveal() {
@@ -14367,19 +14358,23 @@ function renderFQ() {
       <div class="subj-input-wrap">
         <textarea class="subj-input" id="fq-subj-input" spellcheck="false" placeholder="여기에 답을 써보세요...&#10;Tab 정답 보기 · Ctrl+Enter 다음 · Ctrl+⌫ 이전" oninput="fqState.subjInputs=fqState.subjInputs||{}; fqState.subjInputs[${idx}]=this.value" onkeydown="if(event.key==='Tab'){event.preventDefault();toggleFQReveal();}">${savedSubj}</textarea>
       </div>
-      ${!revealed ? `<button class="btn btn-primary" onclick="revealFQ()" style="width:100%">정답 보기 👁</button>` : ''}
       <div class="subj-answer-box ${revealed ? 'show' : ''}">
         <div class="subj-answer-title"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-check-square"/></svg>모범 답안</div>
         <div class="subj-answer-text">${renderExp(q.answer || '')}</div>
         ${q.explanation ? `<div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--success-border);font-size:13px;color:var(--success-deep);"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-bulb"/></svg> ${renderExp(q.explanation)}</div>` : ''}
       </div>
-      ${revealed ? `
-        <div class="subj-judge-btns">
-          <button class="subj-correct-btn ${judged==='correct'?'selected-judge':''}" onclick="fqJudge('correct')"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-check-square"/></svg>맞았어요</button>
-          <button class="subj-wrong-btn ${judged==='wrong'?'selected-judge':''}" onclick="fqJudge('wrong')"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-x-circle"/></svg>틀렸어요</button>
-        </div>
-        <div style="font-size:12px;color:var(--gray-400);text-align:center;margin-top:8px;">판정 없이 다음으로 넘어가도 돼요</div>
-      ` : ''}
+      <div class="subj-actions">
+        <button class="sja sja-ok ${judged==='correct' ? 'on' : ''}" onclick="fqJudge('correct')">
+          <svg class="ic" viewBox="0 0 24 24"><use href="#ic-check-square"/></svg><span>맞았어요</span>
+        </button>
+        <button class="sja sja-reveal ${revealed ? 'on' : ''}" onclick="toggleFQReveal()">
+          <svg class="ic" viewBox="0 0 24 24"><use href="#ic-eye"/></svg><span>${revealed ? '정답 숨기기' : '정답 보기'}</span>
+        </button>
+        <button class="sja sja-no ${judged==='wrong' ? 'on' : ''}" onclick="fqJudge('wrong')">
+          <svg class="ic" viewBox="0 0 24 24"><use href="#ic-x-circle"/></svg><span>틀렸어요</span>
+        </button>
+      </div>
+      <div class="subj-hint">판정 없이 다음으로 넘어가도 돼요</div>
     `;
     expBox.classList.remove('show');
     document.getElementById('fq-next-btn').disabled = false;
@@ -14405,13 +14400,6 @@ function renderFQ() {
 
   document.getElementById('fq-next-btn').innerHTML = idx === questions.length - 1 ? '완료' : '다음<svg class="ic" viewBox="0 0 24 24"><use href="#ic-arrow-right"/></svg>';
   document.getElementById('fq-prev-btn').disabled = idx === 0;
-}
-
-function revealFQ() {
-  if (!fqState.revealed) fqState.revealed = {};
-  fqState.revealed[fqState.idx] = true;
-  renderFQ();
-  setTimeout(() => { const t = document.getElementById('fq-subj-input'); if (t) t.focus(); }, 0);
 }
 
 function toggleFQReveal() {
@@ -14914,19 +14902,23 @@ function renderMQ() {
       <div class="subj-input-wrap">
         <textarea class="subj-input" id="mq-subj-input" spellcheck="false" placeholder="여기에 답을 써보세요...&#10;Tab 정답 보기 · Ctrl+Enter 다음 · Ctrl+⌫ 이전" oninput="mqState.subjInputs=mqState.subjInputs||{}; mqState.subjInputs[${idx}]=this.value" onkeydown="if(event.key==='Tab'){event.preventDefault();toggleMQReveal();}">${savedSubj}</textarea>
       </div>
-      ${!revealed ? `<button class="btn btn-primary" onclick="toggleMQReveal()" style="width:100%">정답 보기 👁</button>` : ''}
       <div class="subj-answer-box ${revealed ? 'show' : ''}">
         <div class="subj-answer-title"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-check-square"/></svg>모범 답안</div>
         <div class="subj-answer-text">${renderExp(q.answer || '')}</div>
         ${q.explanation ? `<div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--success-border);font-size:13px;color:var(--success-deep);"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-bulb"/></svg> ${renderExp(q.explanation)}</div>` : ''}
       </div>
-      ${revealed ? `
-        <div class="subj-judge-btns">
-          <button class="subj-correct-btn ${judged==='correct'?'selected-judge':''}" onclick="mqJudgeSubj('correct')"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-check-square"/></svg>맞았어요</button>
-          <button class="subj-wrong-btn ${judged==='wrong'?'selected-judge':''}" onclick="mqJudgeSubj('wrong')"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-x-circle"/></svg>틀렸어요</button>
-        </div>
-        <div style="font-size:12px;color:var(--gray-400);text-align:center;margin-top:8px;">판정 없이 다음으로 넘어가도 돼요</div>
-      ` : ''}
+      <div class="subj-actions">
+        <button class="sja sja-ok ${judged==='correct' ? 'on' : ''}" onclick="mqJudgeSubj('correct')">
+          <svg class="ic" viewBox="0 0 24 24"><use href="#ic-check-square"/></svg><span>맞았어요</span>
+        </button>
+        <button class="sja sja-reveal ${revealed ? 'on' : ''}" onclick="toggleMQReveal()">
+          <svg class="ic" viewBox="0 0 24 24"><use href="#ic-eye"/></svg><span>${revealed ? '정답 숨기기' : '정답 보기'}</span>
+        </button>
+        <button class="sja sja-no ${judged==='wrong' ? 'on' : ''}" onclick="mqJudgeSubj('wrong')">
+          <svg class="ic" viewBox="0 0 24 24"><use href="#ic-x-circle"/></svg><span>틀렸어요</span>
+        </button>
+      </div>
+      <div class="subj-hint">판정 없이 다음으로 넘어가도 돼요</div>
     `;
     expBox.classList.remove('show');
     document.getElementById('mq-next-btn').disabled = false;   // 판정 없이도 진행 가능
@@ -18417,6 +18409,9 @@ applyRenderFlags();
 //   k: 'new'(새 기능) · 'fix'(고침) · 'chg'(바뀜)
 // ══════════════════════════════════════════════════════════════════════
 const PATCH_NOTES = [
+  { v: '260807-1116', at: '2026-08-07', items: [
+    { k: 'chg', t: '<b>오답만 풀기 · 별표만 풀기 · 체크만 풀기 · 모의고사</b>의 필답형 판정을 문제 풀기와 똑같이 <b>맞았어요 · 정답 보기 · 틀렸어요</b> 3칸으로 맞췄습니다 — 예전엔 정답을 먼저 펼쳐야 판정 버튼이 나왔는데, 이제 바로 판정할 수 있고 정답도 눌러서 접었다 펼 수 있어요' },
+  ]},
   { v: '260807-0848', at: '2026-08-07', items: [
     { k: 'fix', t: '<b>모의고사</b>의 문항 이동 손잡이가 막대에서 한참 아래 엉뚱한 자리에 떠 있던 것을 고쳤습니다 — 끌 때 나오는 말풍선도 안 보이던 것을 함께 고쳤습니다' },
     { k: 'new', t: '<b>모의고사 문항 수</b>를 기억합니다 — 지난번에 12문제로 했으면 다음에도 12문제로 시작해요' },
@@ -18742,7 +18737,7 @@ function closePatchNotes() {
 // ── 앱 버전 ──
 // 폰이 옛 파일을 캐시해 두고 있는지 바로 확인할 수 있도록 화면에 표시한다.
 // (설정 맨 아래 · 개발자 도구 콘솔에도 찍힘)
-const APP_VERSION = '260807-0848';
+const APP_VERSION = '260807-1116';
 console.log('%c양진웅 Note 버전 ' + APP_VERSION, 'font-weight:bold');
 
 // PWA 서비스워커 등록
