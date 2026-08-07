@@ -6471,18 +6471,37 @@
   }
   .scrub-arrow .ic { width: 14px; height: 14px; }
   .scrub-arrow:hover { border-color: var(--primary); color: var(--primary); }
-  /* 판정 버튼 — 아이콘 없이 단색 원 (필답형에서만 보인다) */
+  /* 판정 버튼 — 화살표와 같은 28px 원.
+     이 앱은 '꽉 찬 단색 = 지금 선택된 상태'가 규칙이라(.sja 참고),
+     평소엔 연한 틴트로 두고 누르는 순간에만 진하게 채운다. */
   .judge-dot {
-    flex-shrink: 0; width: 24px; height: 24px; padding: 0;
-    border: none; border-radius: 50%; cursor: pointer;
-    transition: transform 0.1s, filter 0.14s;
+    flex-shrink: 0;
+    width: 28px; height: 28px; padding: 0;
+    display: inline-flex; align-items: center; justify-content: center;
+    border: 1px solid transparent;
+    border-radius: 50%;
+    cursor: pointer;
+    transition: background-color 0.16s, border-color 0.16s, transform 0.1s;
     -webkit-tap-highlight-color: transparent;
   }
-  .judge-dot:hover { filter: brightness(1.08); }
-  .judge-dot:active { transform: scale(0.88); }
-  .judge-dot.judge-no { background: var(--danger); }
-  .judge-dot.judge-ok { background: var(--success); }
+  .judge-dot::before {
+    content: ""; width: 10px; height: 10px; border-radius: 50%;
+    background: currentColor; transition: background-color 0.16s;
+  }
+  .judge-dot.judge-no { color: var(--danger);  background-color: var(--tint-danger);  border-color: var(--tint-danger-edge); }
+  .judge-dot.judge-ok { color: var(--success); background-color: var(--tint-success); border-color: var(--tint-success-edge); }
+  .judge-dot.judge-no:hover { border-color: var(--danger); }
+  .judge-dot.judge-ok:hover { border-color: var(--success); }
+  /* 누르는 순간에만 꽉 채운다 */
+  .judge-dot:active { transform: scale(0.9); }
+  .judge-dot.judge-no:active { background-color: var(--danger);  border-color: var(--danger); }
+  .judge-dot.judge-ok:active { background-color: var(--success); border-color: var(--success); }
+  .judge-dot:active::before { background: #fff; }
   .judge-dot[hidden] { display: none; }
+
+  /* 이동(화살표)과 판정은 하는 일이 다르다 → 화살표+판정은 붙이고, 막대와는 띄운다 */
+  .quiz-scrub-row.judge-row { gap: 6px; }
+  .quiz-scrub-row.judge-row .scrub-bar { margin: 0 8px; }
   .scrub-arrow:active { transform: scale(0.9); }
   body.dark .scrub-arrow { background: var(--card); border-color: var(--card-border); }
 
@@ -7462,7 +7481,7 @@
         <span class="quiz-num" id="mq-num"></span>
       </div>
     </div>
-    <div class="quiz-scrub-row">
+    <div class="quiz-scrub-row judge-row">
       <button class="scrub-arrow" onclick="mqPrev()" title="이전 문제" aria-label="이전 문제"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-arrow-left"/></svg></button>
       <button class="judge-dot judge-no" id="mq-judge-no" onclick="mqJudgeGo('wrong')" title="틀렸어요" aria-label="틀렸어요"></button>
       <div class="quiz-progress-bar scrub-bar" id="mq-progress-bar">
@@ -7539,7 +7558,7 @@
         <span class="quiz-num" id="mwq-num"></span>
       </div>
     </div>
-    <div class="quiz-scrub-row">
+    <div class="quiz-scrub-row judge-row">
       <button class="scrub-arrow" onclick="mwqPrev()" title="이전 문제" aria-label="이전 문제"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-arrow-left"/></svg></button>
       <button class="judge-dot judge-no" id="mwq-judge-no" onclick="mwqJudgeGo('wrong')" title="틀렸어요" aria-label="틀렸어요"></button>
       <div class="quiz-progress-bar scrub-bar" id="mwq-progress-bar">
@@ -18649,6 +18668,9 @@ applyRenderFlags();
 //   k: 'new'(새 기능) · 'fix'(고침) · 'chg'(바뀜)
 // ══════════════════════════════════════════════════════════════════════
 const PATCH_NOTES = [
+  { v: '260808-0213', at: '2026-08-08', items: [
+    { k: 'chg', t: '<b>판정 버튼</b> 모양을 앱의 다른 버튼들과 맞췄습니다 — 화살표와 같은 크기의 원에 연한 빨강·초록을 깔고, 누르는 순간에만 진하게 채웁니다 (꽉 찬 색은 이 앱에서 \'선택됨\'을 뜻해서 평소엔 쓰지 않아요). 화살표와 판정은 붙이고 막대와는 띄워서 이동·판정이 구분되게 했습니다' },
+  ]},
   { v: '260808-0202', at: '2026-08-08', items: [
     { k: 'chg', t: '<b>모의고사</b>와 <b>모의고사 오답 풀기</b>의 문항 막대 줄을 <b>이전 ← · 틀렸어요(빨강 원) · 막대 · 맞았어요(초록 원) · 다음 →</b> 로 바꿨습니다 — 이동과 판정을 한 줄에서 다 할 수 있어요' },
     { k: 'fix', t: '판정 원은 <b>필답형에서만</b> 나옵니다 — 객관식은 정답이 보기 번호라, 판정으로 답하면 채점에서 무조건 틀린 것으로 집계되던 문제를 막았습니다' },
@@ -19014,7 +19036,7 @@ function closePatchNotes() {
 // ── 앱 버전 ──
 // 폰이 옛 파일을 캐시해 두고 있는지 바로 확인할 수 있도록 화면에 표시한다.
 // (설정 맨 아래 · 개발자 도구 콘솔에도 찍힘)
-const APP_VERSION = '260808-0202';
+const APP_VERSION = '260808-0213';
 console.log('%c양진웅 Note 버전 ' + APP_VERSION, 'font-weight:bold');
 
 // PWA 서비스워커 등록
