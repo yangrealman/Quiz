@@ -1445,6 +1445,11 @@
     flex-wrap: wrap;
   }
   .mock-record-item:hover { border-color: var(--primary); background: var(--primary-light); }
+  .mock-record-item.selected { border-color: var(--mock); box-shadow: 0 0 0 2px var(--mock-light); }
+  .mock-record-check { display: flex; align-items: center; }
+  .mock-record-check input { width: 18px; height: 18px; accent-color: var(--mock); cursor: pointer; }
+  .mock-rec-tools { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 10px; }
+  .mock-rec-tools .mrt-count { font-size: 12px; font-weight: 700; color: var(--gray-500); }
   .mock-record-left { display: flex; flex-direction: column; gap: 3px; }
   .mock-record-title { font-size: 14px; font-weight: 700; color: var(--gray-800); }
   .mock-record-sub { font-size: 12px; color: var(--gray-400); }
@@ -7456,6 +7461,7 @@
       <div class="section-label"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-chart"/></svg> 모의고사 기록</div>
       <button class="btn btn-secondary" onclick="clearMockRecords()" style="font-size:12px; padding:5px 10px">기록 초기화</button>
     </div>
+    <div class="mock-rec-tools" id="mock-rec-tools"></div>
     <div id="mock-record-list"></div>
   </div>
 </div>
@@ -14693,19 +14699,31 @@ function renderMockHome() {
   const listEl = document.getElementById('mock-record-list');
   if (!records.length) {
     listEl.innerHTML = `<div class="empty-state"><div class="emoji"><svg class="ic ic-empty" viewBox="0 0 24 24"><use href="#ic-clipboard"/></svg></div><p>모의고사 기록이 없어요.<br>첫 모의고사를 시작해보세요!</p></div>`;
+    renderMockRecTools();
     return;
   }
+  renderMockRecTools();
   // 최신순 정렬
   const sorted = [...records].reverse();
+  // 회차마다 지금 남아 있는 오답 수 (기록에 적힌 wrongCount 는 그 뒤 삭제분이 반영 안 됨)
+  const liveWrong = {};
+  getMockWrongs().forEach(w => { liveWrong[w.mockId] = (liveWrong[w.mockId] || 0) + 1; });
+
   listEl.innerHTML = sorted.map((r, i) => {
     const pct = Math.round(r.correct / r.total * 100);
     const pass = pct >= 60;
     const date = new Date(r.date).toLocaleDateString('ko-KR', {month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit'});
+    const nWrong = liveWrong[r.id] || 0;
+    const picked = _mockRecSel.has(r.id);
     return `
-      <div class="mock-record-item" onclick="viewMockRecord(${records.length - 1 - i})">
+      <div class="mock-record-item ${picked ? 'selected' : ''}"
+           onclick="${_mockRecSelMode ? `toggleMockRecSel(${r.id})` : `viewMockRecord(${records.length - 1 - i})`}">
+        ${_mockRecSelMode ? `<label class="mock-record-check" onclick="event.stopPropagation(); toggleMockRecSel(${r.id})">
+          <input type="checkbox" ${picked ? 'checked' : ''} onclick="event.stopPropagation(); toggleMockRecSel(${r.id})">
+        </label>` : ''}
         <div class="mock-record-left">
           <div class="mock-record-title">${r.cat} · 모의고사 ${records.length - i}회</div>
-          <div class="mock-record-sub">${date} · ${r.total}문제 · ${r.timeUsed || '-'}</div>
+          <div class="mock-record-sub">${date} · ${r.total}문제 · 오답 ${nWrong}개</div>
         </div>
         <div class="mock-score-badge ${pass ? '' : 'fail'}">${pct}점</div>
       </div>
@@ -14713,10 +14731,67 @@ function renderMockHome() {
   }).join('');
 }
 
+// ── 회차를 골라 그 오답만 풀기 ──────────────────────────────────────
+// 오답 한 건마다 어느 시험에서 나왔는지(mockId)가 이미 적혀 있어서, 고른 기록의
+// id 로 걸러내기만 하면 된다.
+let _mockRecSelMode = false;
+let _mockRecSel = new Set();
+
+function toggleMockRecSelMode() {
+  _mockRecSelMode = !_mockRecSelMode;
+  _mockRecSel.clear();
+  renderMockHome();
+}
+
+function toggleMockRecSel(id) {
+  if (_mockRecSel.has(id)) _mockRecSel.delete(id); else _mockRecSel.add(id);
+  renderMockHome();
+}
+
+function selectAllMockRec() {
+  const ids = getMockRecords().map(r => r.id);
+  if (ids.every(id => _mockRecSel.has(id))) _mockRecSel.clear();
+  else ids.forEach(id => _mockRecSel.add(id));
+  renderMockHome();
+}
+
+// 고른 회차들의 오답 (고른 게 없으면 빈 배열)
+function _selectedMockWrongs() {
+  if (!_mockRecSel.size) return [];
+  return getMockWrongs().filter(w => _mockRecSel.has(w.mockId));
+}
+
+function startSelectedMockWrongQuiz() {
+  const wrongs = _selectedMockWrongs();
+  if (!wrongs.length) { showToast('고른 회차에 오답이 없어요'); return; }
+  mwqState = { questions: wrongs.map(w => w.q), idx: 0, answered: {}, source: wrongs };
+  document.getElementById('mwq-sub').textContent = `선택한 ${_mockRecSel.size}회차 · 총 ${wrongs.length}문제`;
+  goPage('mock-wrong-quiz');
+  renderMWQ();
+}
+
+function renderMockRecTools() {
+  const el = document.getElementById('mock-rec-tools');
+  if (!el) return;
+  const records = getMockRecords();
+  if (!records.length) { el.innerHTML = ''; return; }
+  const n = _mockRecSel.size;
+  const nq = _selectedMockWrongs().length;
+  el.innerHTML = `
+    <button class="wn-tool-btn" onclick="toggleMockRecSelMode()">${_mockRecSelMode ? '선택 취소' : '회차 선택'}</button>
+    ${_mockRecSelMode ? `
+      <button class="wn-tool-btn" onclick="selectAllMockRec()">전체 선택</button>
+      <span class="mrt-count">${n}회차 · 오답 ${nq}개</span>
+      <button class="wn-tool-btn" style="margin-left:auto; border-color:var(--mock); color:var(--mock)"
+              onclick="startSelectedMockWrongQuiz()" ${nq ? '' : 'disabled'}>선택한 오답만 풀기</button>
+    ` : ''}`;
+}
+
 function clearMockRecords() {
   if (!confirm('모의고사 기록과 모의고사 오답을 전부 초기화할까요?')) return;
   localStorage.removeItem('mock_records');
   localStorage.removeItem('mock_wrong');
+  _mockRecSel.clear(); _mockRecSelMode = false;
   renderMockHome();
   showToast('초기화 완료');
 }
@@ -18367,6 +18442,10 @@ applyRenderFlags();
 //   k: 'new'(새 기능) · 'fix'(고침) · 'chg'(바뀜)
 // ══════════════════════════════════════════════════════════════════════
 const PATCH_NOTES = [
+  { v: '260807-1249', at: '2026-08-07', items: [
+    { k: 'new', t: '<b>모의고사 기록</b>에서 <b>회차 선택</b>을 누르면 각 기록에 체크박스가 생기고, 고른 회차의 오답만 모아서 바로 풀 수 있습니다 — 모의고사가 쌓여 오답이 많아졌을 때 원하는 회차만 골라 복습하세요' },
+    { k: 'chg', t: '<b>모의고사 기록</b>에 그 회차의 <b>남아 있는 오답 개수</b>를 표시합니다 (삭제한 오답이 반영된 실제 개수예요)' },
+  ]},
   { v: '260807-1210', at: '2026-08-07', items: [
     { k: 'chg', t: '<b>모의고사 타이머</b>를 없앴습니다 — 시간 설정과 남은 시간 표시, 시간 종료 시 자동 제출이 모두 빠졌습니다 (걸린 시간은 기록에 그대로 남습니다)' },
     { k: 'fix', t: '<b>모의고사 오답노트</b>의 자격증 필터에서 선택된 버튼이 흰 배경에 흰 글자로 나와 안 보이던 것을 고쳤습니다' },
@@ -18700,7 +18779,7 @@ function closePatchNotes() {
 // ── 앱 버전 ──
 // 폰이 옛 파일을 캐시해 두고 있는지 바로 확인할 수 있도록 화면에 표시한다.
 // (설정 맨 아래 · 개발자 도구 콘솔에도 찍힘)
-const APP_VERSION = '260807-1210';
+const APP_VERSION = '260807-1249';
 console.log('%c양진웅 Note 버전 ' + APP_VERSION, 'font-weight:bold');
 
 // PWA 서비스워커 등록
