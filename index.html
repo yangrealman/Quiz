@@ -839,25 +839,6 @@
   .subj-answer-box.show { display: block; }
   .subj-answer-title { font-size: 12px; font-weight: 700; color: var(--success-deep); margin-bottom: 6px; }
   .subj-answer-text { font-size: 15px; color: var(--gray-800); line-height: 1.8; }
-  .subj-judge-btns {
-    display: flex;
-    gap: 10px;
-    margin-top: 14px;
-  }
-  .subj-judge-btns button {
-    flex: 1;
-    padding: 10px;
-    border-radius: var(--radius);
-    font-size: 14px;
-    font-weight: 700;
-    cursor: pointer;
-    border: 2px solid transparent;
-    transition: all 0.15s;
-  }
-  .subj-correct-btn { background: var(--success-light); color: var(--success); border-color: var(--success); }
-  .subj-wrong-btn   { background: var(--danger-light);  color: var(--danger);  border-color: var(--danger);  }
-  .subj-correct-btn.selected-judge { background: var(--success); color: #fff; }
-  .subj-wrong-btn.selected-judge   { background: var(--danger);  color: #fff; }
   .explanation-box {
     margin-top: 16px;
     padding: 16px 18px;
@@ -2881,26 +2862,6 @@
   body.dark .explanation-title { color: var(--dk-amber-fg); }
   body.dark .explanation-text { color: #E4DDCE; }
 
-  /* 맞았어요 / 틀렸어요 — 대비 강화 */
-  body.dark .subj-correct-btn {
-    background: var(--dk-green-bg);
-    color: var(--dk-green-fg);
-    border-color: var(--dk-green-bd);
-  }
-  body.dark .subj-wrong-btn {
-    background: var(--dk-red-bg);
-    color: var(--dk-red-fg);
-    border-color: var(--dk-red-bd);
-  }
-  body.dark .subj-correct-btn:hover { background: #16382A; }
-  body.dark .subj-wrong-btn:hover   { background: #3A1D20; }
-  body.dark .subj-correct-btn.selected-judge {
-    background: var(--success-deep); color: #fff; border-color: var(--success);
-  }
-  body.dark .subj-wrong-btn.selected-judge {
-    background: var(--danger); color: #fff; border-color: var(--danger);
-  }
-
   /* 오답노트 보기 옵션 */
   body.dark .wn-option.correct { background: var(--dk-green-bg); color: #D8F5E4; border-color: var(--dk-green-bd); }
   body.dark .wn-option.my-wrong { background: var(--dk-red-bg); color: #F8DCDC; border-color: var(--dk-red-bd); }
@@ -2913,8 +2874,6 @@
   /* 판정 안내문 */
   body.dark .subj-judge-hint { color: var(--gray-500); }
   /* 판정 버튼·뱃지 아이콘 정렬 */
-  .subj-judge-btns button { display: inline-flex; align-items: center; justify-content: center; gap: 7px; }
-  .subj-judge-btns button .ic { width: 17px; height: 17px; stroke-width: 2; }
   .subj-type-badge { display: inline-flex; align-items: center; gap: 5px; }
   .subj-type-badge .ic { width: 13px; height: 13px; stroke-width: 2; }
   .subj-answer-title { display: flex; align-items: center; gap: 6px; }
@@ -7546,8 +7505,14 @@
       <span class="quiz-q-num" id="mwq-q-num"></span>
       <span class="quiz-num" id="mwq-num"></span>
     </div>
-    <div class="quiz-progress-bar">
-      <div class="quiz-progress-fill" id="mwq-progress-fill"></div>
+    <div class="quiz-scrub-row">
+      <button class="scrub-arrow" onclick="mwqPrev()" title="이전 문제" aria-label="이전 문제"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-arrow-left"/></svg></button>
+      <div class="quiz-progress-bar scrub-bar" id="mwq-progress-bar">
+        <div class="quiz-progress-fill" id="mwq-progress-fill"></div>
+        <div class="quiz-progress-thumb" id="mwq-progress-thumb"></div>
+        <div class="quiz-progress-tip" id="mwq-progress-tip"></div>
+      </div>
+      <button class="scrub-arrow" onclick="mwqNext()" title="다음 문제" aria-label="다음 문제"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-arrow-right"/></svg></button>
     </div>
     <div id="mwq-source" style="margin-bottom:4px"></div>
     <div class="quiz-question" id="mwq-question"></div>
@@ -11041,6 +11006,7 @@ function setupQuizScrubber() {
   // 모의고사 목록은 {q, round, cat} 꾸러미라 num 이 없다 → 툴팁이 순서 번호로 떨어지는데,
   // 화면 상단 표시(Q1, Q2…)도 순서 번호라 그게 오히려 맞다 (출처 문항번호를 쓰면 서로 어긋난다).
   makeScrubber('mq',   () => (mqState && mqState.questions) || [],       i => mqGoTo(i));
+  makeScrubber('mwq',  () => (mwqState && mwqState.questions) || [],     i => mwqGoTo(i));
 }
 
 function saveQuizProgress(justAnswered) {
@@ -15382,7 +15348,11 @@ function renderMWQ() {
 
   document.getElementById('mwq-q-num').textContent = `Q${q.num || idx + 1}`;
   document.getElementById('mwq-num').textContent = `${idx + 1} / ${questions.length}`;
-  document.getElementById('mwq-progress-fill').style.width = `${(idx + 1) / questions.length * 100}%`;
+  // 손잡이를 끌어다 놓은 자리에 그대로 멈추도록 다른 화면과 같은 기준을 쓴다
+  const mwqPct = questions.length > 1 ? (idx / (questions.length - 1)) * 100 : 0;
+  document.getElementById('mwq-progress-fill').style.width = `${mwqPct}%`;
+  const mwqThumb = document.getElementById('mwq-progress-thumb');
+  if (mwqThumb) mwqThumb.style.left = `${mwqPct}%`;
   document.getElementById('mwq-source').innerHTML = src
     ? `<span class="mock-wrong-badge"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-pencil"/></svg> ${src.cat} ${src.round}회차 Q${q.num}</span>` : '';
   document.getElementById('mwq-question').textContent = q.question;
@@ -15401,19 +15371,23 @@ function renderMWQ() {
       <div class="subj-input-wrap">
         <textarea class="subj-input" id="mwq-subj-input" spellcheck="false" placeholder="여기에 답을 써보세요...&#10;Tab 정답 보기 · Ctrl+Enter 다음 · Ctrl+⌫ 이전" oninput="mwqState.subjInputs=mwqState.subjInputs||{}; mwqState.subjInputs[${idx}]=this.value" onkeydown="if(event.key==='Tab'){event.preventDefault();toggleMWQReveal();}">${savedSubj}</textarea>
       </div>
-      ${!revealed ? `<button class="btn btn-primary" onclick="revealMWQ()" style="width:100%">정답 보기 👁</button>` : ''}
       <div class="subj-answer-box ${revealed ? 'show' : ''}">
         <div class="subj-answer-title"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-check-square"/></svg>모범 답안</div>
         <div class="subj-answer-text">${renderExp(q.answer || '')}</div>
         ${q.explanation ? `<div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--success-border);font-size:13px;color:var(--success-deep);"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-bulb"/></svg> ${renderExp(q.explanation)}</div>` : ''}
       </div>
-      ${revealed ? `
-        <div class="subj-judge-btns">
-          <button class="subj-correct-btn ${judged==='correct'?'selected-judge':''}" onclick="mwqJudge('correct')"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-check-square"/></svg>맞았어요</button>
-          <button class="subj-wrong-btn ${judged==='wrong'?'selected-judge':''}" onclick="mwqJudge('wrong')"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-x-circle"/></svg>틀렸어요</button>
-        </div>
-        <div style="font-size:12px;color:var(--gray-400);text-align:center;margin-top:8px;">판정 없이 다음으로 넘어가도 돼요</div>
-      ` : ''}
+      <div class="subj-actions">
+        <button class="sja sja-ok ${judged==='correct' ? 'on' : ''}" onclick="mwqJudge('correct')">
+          <svg class="ic" viewBox="0 0 24 24"><use href="#ic-check-square"/></svg><span>맞았어요</span>
+        </button>
+        <button class="sja sja-reveal ${revealed ? 'on' : ''}" onclick="toggleMWQReveal()">
+          <svg class="ic" viewBox="0 0 24 24"><use href="#ic-eye"/></svg><span>${revealed ? '정답 숨기기' : '정답 보기'}</span>
+        </button>
+        <button class="sja sja-no ${judged==='wrong' ? 'on' : ''}" onclick="mwqJudge('wrong')">
+          <svg class="ic" viewBox="0 0 24 24"><use href="#ic-x-circle"/></svg><span>틀렸어요</span>
+        </button>
+      </div>
+      <div class="subj-hint">판정 없이 다음으로 넘어가도 돼요</div>
     `;
     expBox.classList.remove('show');
     document.getElementById('mwq-next-btn').disabled = false;
@@ -15441,13 +15415,6 @@ function renderMWQ() {
   document.getElementById('mwq-prev-btn').disabled = idx === 0;
 }
 
-function revealMWQ() {
-  if (!mwqState.revealed) mwqState.revealed = {};
-  mwqState.revealed[mwqState.idx] = true;
-  renderMWQ();
-  setTimeout(() => { const t = document.getElementById('mwq-subj-input'); if (t) t.focus(); }, 0);
-}
-
 function toggleMWQReveal() {
   const textarea = document.getElementById('mwq-subj-input');
   const cursorPos = textarea ? textarea.selectionStart : null;
@@ -15467,6 +15434,7 @@ function mwqJudge(result) {
   // [추가] 정답을 펼쳐 둔 채로 판정하면 판정 후 다시 접는다 (안 펼쳐져 있었다면 그대로 유지)
   if (mwqState.revealed && mwqState.revealed[mwqState.idx]) mwqState.revealed[mwqState.idx] = false;
   renderMWQ();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 function mwqAnswer(chosen) {
@@ -15510,6 +15478,14 @@ function mwqPrev() {
     renderMWQ();
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
+}
+
+// 손잡이를 끌어 문항으로 바로 이동
+function mwqGoTo(i) {
+  if (!mwqState || !mwqState.questions.length) return;
+  mwqState.idx = Math.max(0, Math.min(mwqState.questions.length - 1, i));
+  renderMWQ();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 // ══════════════════════════════════════════════════════════════════════
@@ -18442,6 +18418,10 @@ applyRenderFlags();
 //   k: 'new'(새 기능) · 'fix'(고침) · 'chg'(바뀜)
 // ══════════════════════════════════════════════════════════════════════
 const PATCH_NOTES = [
+  { v: '260807-1321', at: '2026-08-07', items: [
+    { k: 'new', t: '<b>모의고사 오답 풀기</b>에도 문항 이동 손잡이가 생겼습니다 — 막대를 끌어 원하는 문항으로 바로 이동하고 좌우 화살표로도 넘길 수 있어요' },
+    { k: 'chg', t: '<b>모의고사 오답 풀기</b>의 필답형 판정도 <b>맞았어요 · 정답 보기 · 틀렸어요</b> 3칸으로 바꿨습니다 — 이제 여섯 개 풀이 화면이 모두 같은 방식이에요' },
+  ]},
   { v: '260807-1249', at: '2026-08-07', items: [
     { k: 'new', t: '<b>모의고사 기록</b>에서 <b>회차 선택</b>을 누르면 각 기록에 체크박스가 생기고, 고른 회차의 오답만 모아서 바로 풀 수 있습니다 — 모의고사가 쌓여 오답이 많아졌을 때 원하는 회차만 골라 복습하세요' },
     { k: 'chg', t: '<b>모의고사 기록</b>에 그 회차의 <b>남아 있는 오답 개수</b>를 표시합니다 (삭제한 오답이 반영된 실제 개수예요)' },
@@ -18779,7 +18759,7 @@ function closePatchNotes() {
 // ── 앱 버전 ──
 // 폰이 옛 파일을 캐시해 두고 있는지 바로 확인할 수 있도록 화면에 표시한다.
 // (설정 맨 아래 · 개발자 도구 콘솔에도 찍힘)
-const APP_VERSION = '260807-1249';
+const APP_VERSION = '260807-1321';
 console.log('%c양진웅 Note 버전 ' + APP_VERSION, 'font-weight:bold');
 
 // PWA 서비스워커 등록
