@@ -1466,8 +1466,12 @@
     justify-content: space-between;
   }
   .mock-quiz-title { font-size: 14px; font-weight: 700; }
-  .mock-quiz-timer { font-size: 16px; font-weight: 800; font-variant-numeric: tabular-nums; }
-  .mock-quiz-timer.warn { color: #FCA5A5; }
+  /* 모의고사 계열 강조 버튼 — .btn-secondary 는 배경을 !important 로 잡아
+     인라인 배경이 먹지 않는다(흰 배경+흰 글자). 그래서 클래스를 바꿔 끼워 쓴다. */
+  .btn-mock { background: var(--mock); color: #fff; border: 1px solid var(--mock); }
+  .btn-mock:hover { filter: brightness(1.06); }
+  /* 다크에서 --mock 은 연보라라 흰 글자를 얹으면 잘 안 읽힌다 → 채워진 버튼은 진한 보라로 */
+  body.dark .btn-mock { background: #7C3AED; border-color: #7C3AED; color: #fff; }
   .mock-source-badge {
     font-size: 11px;
     font-weight: 600;
@@ -7444,15 +7448,6 @@
         <input type="number" inputmode="numeric" class="form-input" id="mock-count-input" value="60" min="1" placeholder="예: 60">
         <div id="mock-count-hint" style="font-size:12px; color:var(--gray-400); margin-top:6px"></div>
       </div>
-      <div class="form-group">
-        <label class="form-label">타이머 설정</label>
-        <select class="form-select" id="mock-timer-select">
-          <option value="0">타이머 없음</option>
-          <option value="60" selected>60분 (기본)</option>
-          <option value="90">90분</option>
-          <option value="120">120분</option>
-        </select>
-      </div>
       <button class="btn btn-primary" onclick="startMockExam()" style="width:100%; margin-top:4px">모의고사 시작<svg class="ic" viewBox="0 0 24 24"><use href="#ic-arrow-right"/></svg></button>
     </div>
 
@@ -7473,7 +7468,6 @@
         <div class="mock-quiz-title" id="mq-title">모의고사</div>
         <div style="font-size:12px; opacity:0.8; margin-top:2px" id="mq-progress-txt"></div>
       </div>
-      <div class="mock-quiz-timer" id="mq-timer">60:00</div>
     </div>
     <div class="quiz-header">
       <span class="quiz-q-num" id="mq-q-num"></span>
@@ -14730,7 +14724,7 @@ function clearMockRecords() {
 // ── 모의고사 생성 ──
 let mqState = {
   cat: '', questions: [], idx: 0, answered: {},
-  timerSec: 0, timerInterval: null, startTime: null
+  startTime: null
 };
 
 // 고른 자격증에 문제가 총 몇 개인지 = 낼 수 있는 최대 문항 수
@@ -14805,7 +14799,6 @@ function buildMockQuestions(cat, count) {
 function startMockExam() {
   const cat = document.getElementById('mock-cat-select').value;
   if (!cat) { showToast('자격증을 선택하세요'); return; }
-  const timerMin = parseInt(document.getElementById('mock-timer-select').value);
   const count = parseInt(document.getElementById('mock-count-input').value) || 60;
   saveLastMockCount(count);        // 다음에도 같은 문항 수로 시작하도록 기억
 
@@ -14818,16 +14811,12 @@ function startMockExam() {
     questions: built,
     idx: 0,
     answered: {},
-    timerSec: timerMin * 60,
-    timerInterval: null,
     startTime: Date.now()
   };
 
   document.getElementById('mq-title').textContent = `${cat} 모의고사`;
   goPage('mock-quiz');
   renderMQ();
-  if (mqState.timerSec > 0) startMockTimer();
-  else document.getElementById('mq-timer').textContent = '';
 }
 
 function startMockExamAgain() {
@@ -14836,36 +14825,11 @@ function startMockExamAgain() {
   const count = mqState.questions.length;
   const built = buildMockQuestions(cat, count);
   if (!built) { showToast('문제가 부족해요. 회차를 더 등록해주세요.'); goPage('mock'); return; }
-  const timerSec = mqState.timerSec;
-
-  if (mqState.timerInterval) clearInterval(mqState.timerInterval);
-  mqState = { cat, questions: built, idx: 0, answered: {}, timerSec, timerInterval: null, startTime: Date.now() };
+  mqState = { cat, questions: built, idx: 0, answered: {}, startTime: Date.now() };
 
   document.getElementById('mq-title').textContent = `${cat} 모의고사`;
   goPage('mock-quiz');
   renderMQ();
-  if (mqState.timerSec > 0) startMockTimer();
-  else document.getElementById('mq-timer').textContent = '';
-}
-
-function startMockTimer() {
-  let remain = mqState.timerSec;
-  const timerEl = document.getElementById('mq-timer');
-  mqState.remainSec = remain;
-  mqState.timerInterval = setInterval(() => {
-    remain--;
-    mqState.remainSec = remain;   // 이어서 풀 때 남은 시간을 그대로 잇기 위해 기록
-    if (remain <= 0) {
-      clearInterval(mqState.timerInterval);
-      showToast('⏰ 시간 종료! 자동 제출됩니다.');
-      setTimeout(() => submitMock(), 1000);
-      return;
-    }
-    const m = Math.floor(remain / 60);
-    const s = remain % 60;
-    timerEl.textContent = `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
-    timerEl.className = 'mock-quiz-timer' + (remain <= 300 ? ' warn' : '');
-  }, 1000);
 }
 
 function renderMQ() {
@@ -14974,6 +14938,8 @@ function mqJudgeSubj(result) {
   document.getElementById('mq-progress-txt').textContent = `${Object.keys(mqState.answered).length}/${mqState.questions.length} 완료`;
   _saveMQCheckpoint();
   renderMQ();
+  // 정답을 펼쳐 둔 채 판정하면 한참 아래에 있게 된다 → 문제가 보이게 위로 올려 준다
+  window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 function mqAnswer(chosen) {
@@ -15043,8 +15009,6 @@ function _saveMQCheckpoint() {
     idx: mqState.idx,
     answered: mqState.answered,
     subjInputs: mqState.subjInputs || {},
-    // 타이머는 앱이 꺼져 있는 동안 흐르지 않게 '남은 시간'을 저장한다
-    remainSec: mqState.timerSec ? (mqState.remainSec != null ? mqState.remainSec : mqState.timerSec) : 0,
     elapsedSec: mqState.startTime ? Math.floor((Date.now() - mqState.startTime) / 1000) : 0,
     savedAt: Date.now()
   });
@@ -15070,19 +15034,15 @@ function resumeMockQuiz() {
   });
   if (!questions.length) { clearMockQuizResume(); renderMockHome(); showToast('이어서 풀 모의고사가 없어요'); return; }
 
-  if (mqState.timerInterval) clearInterval(mqState.timerInterval);
   mqState = {
     cat: r.cat, questions, idx: Math.min(idx, questions.length - 1), answered, subjInputs,
     revealed: {},
-    timerSec: r.remainSec || 0, remainSec: r.remainSec || 0, timerInterval: null,
     startTime: Date.now() - (r.elapsedSec || 0) * 1000   // 이미 쓴 시간을 이어받는다
   };
 
   document.getElementById('mq-title').textContent = `${r.cat} 모의고사`;
   goPage('mock-quiz');
   renderMQ();
-  if (mqState.timerSec > 0) startMockTimer();
-  else document.getElementById('mq-timer').textContent = '';
 }
 
 function renderMockResumeCard() {
@@ -15111,7 +15071,6 @@ function submitMockEarly() {
 }
 
 function submitMock() {
-  if (mqState.timerInterval) clearInterval(mqState.timerInterval);
   clearMockQuizResume();          // 제출했으면 이어서 풀 것이 없다
 
   const { questions, answered, cat, startTime } = mqState;
@@ -15254,12 +15213,11 @@ function renderMockWrongNote() {
   document.getElementById('mock-wrong-quiz-btn').style.display = wrongs.length ? 'block' : 'none';
 
   const cats = [...new Set(wrongs.map(w => w.cat))];
-  const activeStyle = 'background:var(--mock); border-color:var(--mock); color:#fff;';
   document.getElementById('mock-wrong-filter').innerHTML = `
-    <button class="btn btn-secondary" onclick="setMockWrongFilter(null)" style="font-size:13px; padding:6px 14px; ${mockWrongFilter.cat === null ? activeStyle : ''}">전체 (${wrongs.length})</button>
+    <button class="btn ${mockWrongFilter.cat === null ? 'btn-mock' : 'btn-secondary'}" onclick="setMockWrongFilter(null)" style="font-size:13px; padding:6px 14px">전체 (${wrongs.length})</button>
     ${cats.map(c => {
       const cnt = wrongs.filter(w => w.cat === c).length;
-      return `<button class="btn btn-secondary" onclick="setMockWrongFilter('${escArg(c)}')" style="font-size:13px; padding:6px 14px; ${mockWrongFilter.cat === c ? activeStyle : ''}">${c} (${cnt})</button>`;
+      return `<button class="btn ${mockWrongFilter.cat === c ? 'btn-mock' : 'btn-secondary'}" onclick="setMockWrongFilter('${escArg(c)}')" style="font-size:13px; padding:6px 14px">${c} (${cnt})</button>`;
     }).join('')}
   `;
 
@@ -18409,6 +18367,11 @@ applyRenderFlags();
 //   k: 'new'(새 기능) · 'fix'(고침) · 'chg'(바뀜)
 // ══════════════════════════════════════════════════════════════════════
 const PATCH_NOTES = [
+  { v: '260807-1210', at: '2026-08-07', items: [
+    { k: 'chg', t: '<b>모의고사 타이머</b>를 없앴습니다 — 시간 설정과 남은 시간 표시, 시간 종료 시 자동 제출이 모두 빠졌습니다 (걸린 시간은 기록에 그대로 남습니다)' },
+    { k: 'fix', t: '<b>모의고사 오답노트</b>의 자격증 필터에서 선택된 버튼이 흰 배경에 흰 글자로 나와 안 보이던 것을 고쳤습니다' },
+    { k: 'chg', t: '<b>모의고사</b>에서 정답을 펼쳐 둔 채 맞았어요·틀렸어요를 누르면 화면 맨 위로 올라갑니다 — 아래로 내려간 채로 다음 문제를 보게 되던 것을 고쳤어요' },
+  ]},
   { v: '260807-1116', at: '2026-08-07', items: [
     { k: 'chg', t: '<b>오답만 풀기 · 별표만 풀기 · 체크만 풀기 · 모의고사</b>의 필답형 판정을 문제 풀기와 똑같이 <b>맞았어요 · 정답 보기 · 틀렸어요</b> 3칸으로 맞췄습니다 — 예전엔 정답을 먼저 펼쳐야 판정 버튼이 나왔는데, 이제 바로 판정할 수 있고 정답도 눌러서 접었다 펼 수 있어요' },
   ]},
@@ -18737,7 +18700,7 @@ function closePatchNotes() {
 // ── 앱 버전 ──
 // 폰이 옛 파일을 캐시해 두고 있는지 바로 확인할 수 있도록 화면에 표시한다.
 // (설정 맨 아래 · 개발자 도구 콘솔에도 찍힘)
-const APP_VERSION = '260807-1116';
+const APP_VERSION = '260807-1210';
 console.log('%c양진웅 Note 버전 ' + APP_VERSION, 'font-weight:bold');
 
 // PWA 서비스워커 등록
