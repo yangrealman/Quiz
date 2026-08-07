@@ -14883,6 +14883,16 @@ function setMockSeen(cat, set) {
   saveMockDeck(deck);
 }
 
+// 예전엔 뽑을 때 소모해서, 제출하지 않은 시험 몫이 덱에 남아 있다.
+// 한 번만 비워서 실제 기록(제출한 시험) 기준으로 다시 세게 한다.
+(function fixMockDeckOnce() {
+  try {
+    if (localStorage.getItem('mock_deck_bysubmit') === '1') return;
+    localStorage.setItem('mock_deck_bysubmit', '1');
+    if (Object.keys(getMockDeck()).length) saveMockDeck({});
+  } catch (_) {}
+})();
+
 function resetMockDeck(cat) {
   if (!confirm('이번 바퀴 기록을 지우고 처음부터 다시 돌릴까요?\n(모의고사 기록과 오답은 그대로 있습니다)')) return;
   const deck = getMockDeck();
@@ -14934,21 +14944,30 @@ function buildMockQuestions(cat, count) {
   count = Math.max(1, Math.min(parseInt(count) || 60, pool.length));
 
   // ② 이번 바퀴에 아직 안 나온 문제에서 뽑는다
+  //    [수정] 예전엔 '뽑는 순간' 봤다고 쳐서, 시작만 하고 제출 안 한 시험도 문제를 까먹었고
+  //          기록을 지워도 그건 되돌아오지 않았다 → 이제 제출할 때(submitMock)만 기록한다.
   const seen = getMockSeen(cat);
-  const left = _shuffle(pool.filter(it => !seen.has(_deckKey(it.round, it.q.num))));
+  // 아직 제출하지 않고 풀던 시험이 있으면 그 문제는 빼 둔다 (새 시험에 겹쳐 나오지 않게)
+  const busy = new Set();
+  try {
+    const r = getMockQuizResume();
+    if (r && r.cat === cat) (r.picks || []).forEach(pk => busy.add(_deckKey(pk.round, pk.qNum)));
+  } catch (_) {}
+  const left = _shuffle(pool.filter(it => {
+    const k = _deckKey(it.round, it.q.num);
+    return !seen.has(k) && !busy.has(k);
+  }));
 
   let result;
   if (left.length >= count) {
     result = left.slice(0, count);
-    result.forEach(it => seen.add(_deckKey(it.round, it.q.num)));
-    setMockSeen(cat, seen);
   } else {
     // ③ 남은 걸 다 쓰고도 모자라면 한 바퀴를 마친 것 — 새로 섞어 이어서 채운다
     result = left.slice();
     const usedNow = new Set(result.map(it => _deckKey(it.round, it.q.num)));
     const reshuffled = _shuffle(pool.filter(it => !usedNow.has(_deckKey(it.round, it.q.num))));
     result = result.concat(reshuffled.slice(0, count - result.length));
-    setMockSeen(cat, new Set(result.map(it => _deckKey(it.round, it.q.num))));
+    setMockSeen(cat, new Set());     // 새 바퀴 시작 (이번 시험 몫은 제출할 때 쌓인다)
     showToast('전체 문제를 한 바퀴 다 봤어요 · 새로 섞어서 다시 시작합니다');
   }
 
@@ -15273,6 +15292,13 @@ function submitMock() {
   const recordId = Date.now();
   records.push({ id: recordId, cat, date: Date.now(), correct, total, pct, timeUsed, wrongCount: wrongItems.length, questionLog });
   saveMockRecords(records);
+
+  // 눈 돌리기 — 실제로 풀어서 제출한 문제만 '봤다'로 친다
+  try {
+    const seenSet = getMockSeen(cat);
+    questions.forEach(item => seenSet.add(_deckKey(item.round, item.q.num)));
+    setMockSeen(cat, seenSet);
+  } catch (_) {}
 
   // 모의고사 오답 저장
   const existWrongs = getMockWrongs();
@@ -18543,6 +18569,9 @@ applyRenderFlags();
 //   k: 'new'(새 기능) · 'fix'(고침) · 'chg'(바뀜)
 // ══════════════════════════════════════════════════════════════════════
 const PATCH_NOTES = [
+  { v: '260807-2202', at: '2026-08-07', items: [
+    { k: 'fix', t: '<b>모의고사</b>에서 시작만 하고 제출하지 않은 시험도 문제를 써버려서, 12문제를 3번 풀었는데 96개를 본 것으로 세지던 것을 고쳤습니다 — 이제 <b>실제로 제출한 시험만</b> 셉니다. 잘못 쌓여 있던 개수는 한 번에 바로잡히고, 풀다 만 시험의 문제는 다시 나옵니다' },
+  ]},
   { v: '260807-2145', at: '2026-08-07', items: [
     { k: 'new', t: '<b>모의고사 기록</b>에서 <b>회차 선택</b> 후 고른 회차만 지울 수 있습니다 (예전엔 전체 초기화뿐이었어요) — 그 회차의 오답도 함께 지워지고, <b>거기서만 나왔던 문제는 모의고사에 다시 나옵니다</b>. 남아 있는 다른 회차에도 나왔던 문제는 본 것으로 그대로 둡니다' },
   ]},
@@ -18894,7 +18923,7 @@ function closePatchNotes() {
 // ── 앱 버전 ──
 // 폰이 옛 파일을 캐시해 두고 있는지 바로 확인할 수 있도록 화면에 표시한다.
 // (설정 맨 아래 · 개발자 도구 콘솔에도 찍힘)
-const APP_VERSION = '260807-2145';
+const APP_VERSION = '260807-2202';
 console.log('%c양진웅 Note 버전 ' + APP_VERSION, 'font-weight:bold');
 
 // PWA 서비스워커 등록
