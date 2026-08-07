@@ -6471,11 +6471,18 @@
   }
   .scrub-arrow .ic { width: 14px; height: 14px; }
   .scrub-arrow:hover { border-color: var(--primary); color: var(--primary); }
-  /* 오답 풀기 — 양옆 버튼을 틀렸어요(빨강)·맞았어요(초록) 판정으로 쓴다 */
-  .scrub-arrow.judge-no { color: var(--danger); border-color: var(--danger-border); }
-  .scrub-arrow.judge-no:hover { border-color: var(--danger); background: var(--danger-light); color: var(--danger); }
-  .scrub-arrow.judge-ok { color: var(--success); border-color: var(--success-border); }
-  .scrub-arrow.judge-ok:hover { border-color: var(--success); background: var(--success-light); color: var(--success); }
+  /* 판정 버튼 — 아이콘 없이 단색 원 (필답형에서만 보인다) */
+  .judge-dot {
+    flex-shrink: 0; width: 24px; height: 24px; padding: 0;
+    border: none; border-radius: 50%; cursor: pointer;
+    transition: transform 0.1s, filter 0.14s;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .judge-dot:hover { filter: brightness(1.08); }
+  .judge-dot:active { transform: scale(0.88); }
+  .judge-dot.judge-no { background: var(--danger); }
+  .judge-dot.judge-ok { background: var(--success); }
+  .judge-dot[hidden] { display: none; }
   .scrub-arrow:active { transform: scale(0.9); }
   body.dark .scrub-arrow { background: var(--card); border-color: var(--card-border); }
 
@@ -7457,11 +7464,13 @@
     </div>
     <div class="quiz-scrub-row">
       <button class="scrub-arrow" onclick="mqPrev()" title="이전 문제" aria-label="이전 문제"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-arrow-left"/></svg></button>
+      <button class="judge-dot judge-no" id="mq-judge-no" onclick="mqJudgeGo('wrong')" title="틀렸어요" aria-label="틀렸어요"></button>
       <div class="quiz-progress-bar scrub-bar" id="mq-progress-bar">
         <div class="quiz-progress-fill" id="mq-progress-fill"></div>
         <div class="quiz-progress-thumb" id="mq-progress-thumb"></div>
         <div class="quiz-progress-tip" id="mq-progress-tip"></div>
       </div>
+      <button class="judge-dot judge-ok" id="mq-judge-ok" onclick="mqJudgeGo('correct')" title="맞았어요" aria-label="맞았어요"></button>
       <button class="scrub-arrow" onclick="mqNext()" title="다음 문제" aria-label="다음 문제"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-arrow-right"/></svg></button>
     </div>
     <div id="mq-source" style="margin-bottom:4px"></div>
@@ -7531,13 +7540,15 @@
       </div>
     </div>
     <div class="quiz-scrub-row">
-      <button class="scrub-arrow judge-no" onclick="mwqJudgeGo('wrong')" title="틀렸어요" aria-label="틀렸어요"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-x-circle"/></svg></button>
+      <button class="scrub-arrow" onclick="mwqPrev()" title="이전 문제" aria-label="이전 문제"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-arrow-left"/></svg></button>
+      <button class="judge-dot judge-no" id="mwq-judge-no" onclick="mwqJudgeGo('wrong')" title="틀렸어요" aria-label="틀렸어요"></button>
       <div class="quiz-progress-bar scrub-bar" id="mwq-progress-bar">
         <div class="quiz-progress-fill" id="mwq-progress-fill"></div>
         <div class="quiz-progress-thumb" id="mwq-progress-thumb"></div>
         <div class="quiz-progress-tip" id="mwq-progress-tip"></div>
       </div>
-      <button class="scrub-arrow judge-ok" onclick="mwqJudgeGo('correct')" title="맞았어요" aria-label="맞았어요"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-check-square"/></svg></button>
+      <button class="judge-dot judge-ok" id="mwq-judge-ok" onclick="mwqJudgeGo('correct')" title="맞았어요" aria-label="맞았어요"></button>
+      <button class="scrub-arrow" onclick="mwqNext()" title="다음 문제" aria-label="다음 문제"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-arrow-right"/></svg></button>
     </div>
     <div id="mwq-source" style="margin-bottom:4px"></div>
     <div class="quiz-question" id="mwq-question"></div>
@@ -15066,6 +15077,7 @@ function renderMQ() {
   const optEl = document.getElementById('mq-options');
   const expBox = document.getElementById('mq-explanation-box');
   const isSubj = q.type === 'subj';
+  _paintJudgeDots('mq', isSubj);
   const nextLabel = idx === questions.length - 1 ? '제출<svg class="ic" viewBox="0 0 24 24"><use href="#ic-arrow-right"/></svg>' : '다음<svg class="ic" viewBox="0 0 24 24"><use href="#ic-arrow-right"/></svg>';
 
   if (isSubj) {
@@ -15524,6 +15536,7 @@ function renderMWQ() {
   const src = source[idx];
   const circleNums = ['①','②','③','④','⑤','⑥'];
   const isSubj = q.type === 'subj';
+  _paintJudgeDots('mwq', isSubj);
 
   document.getElementById('mwq-q-num').textContent = `Q${q.num || idx + 1}`;
   document.getElementById('mwq-num').textContent = `${idx + 1} / ${questions.length}`;
@@ -15654,6 +15667,28 @@ function mwqNext() {
     renderMWQ();
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
+}
+
+// 판정 원은 필답형에서만 쓴다.
+// [주의] 객관식은 정답이 '보기 번호(숫자)'라, 판정값('correct' 문자열)을 넣으면
+//        채점에서 번호와 비교되어 무조건 틀린 것으로 집계된다 → 아예 숨긴다.
+function _paintJudgeDots(prefix, isSubj) {
+  const no = document.getElementById(prefix + '-judge-no');
+  const ok = document.getElementById(prefix + '-judge-ok');
+  if (no) no.hidden = !isSubj;
+  if (ok) ok.hidden = !isSubj;
+}
+
+// 모의고사 — 판정하고 다음으로. 마지막 문제에서는 넘기지 않는다(거기서 다음은 '제출'이라 실수로 끝난다).
+function mqJudgeGo(result) {
+  if (!mqState || !mqState.questions.length) return;
+  const last = mqState.idx >= mqState.questions.length - 1;
+  mqState.answered[mqState.idx] = result;
+  if (mqState.revealed && mqState.revealed[mqState.idx]) mqState.revealed[mqState.idx] = false;
+  document.getElementById('mq-progress-txt').textContent = `${Object.keys(mqState.answered).length}/${mqState.questions.length} 완료`;
+  _saveMQCheckpoint();
+  if (last) { renderMQ(); window.scrollTo({ top: 0, behavior: 'smooth' }); return; }
+  mqNext();
 }
 
 // 스크러버 양옆 버튼 — 판정하고 무조건 다음 문제로 (마지막이면 완료).
@@ -18614,6 +18649,10 @@ applyRenderFlags();
 //   k: 'new'(새 기능) · 'fix'(고침) · 'chg'(바뀜)
 // ══════════════════════════════════════════════════════════════════════
 const PATCH_NOTES = [
+  { v: '260808-0202', at: '2026-08-08', items: [
+    { k: 'chg', t: '<b>모의고사</b>와 <b>모의고사 오답 풀기</b>의 문항 막대 줄을 <b>이전 ← · 틀렸어요(빨강 원) · 막대 · 맞았어요(초록 원) · 다음 →</b> 로 바꿨습니다 — 이동과 판정을 한 줄에서 다 할 수 있어요' },
+    { k: 'fix', t: '판정 원은 <b>필답형에서만</b> 나옵니다 — 객관식은 정답이 보기 번호라, 판정으로 답하면 채점에서 무조건 틀린 것으로 집계되던 문제를 막았습니다' },
+  ]},
   { v: '260808-0150', at: '2026-08-08', items: [
     { k: 'chg', t: '<b>모의고사</b>와 <b>모의고사 오답 풀기</b>의 상단 배너를 없애고 문제 풀기처럼 <b>한 줄</b>로 정리했습니다 — 문제가 시작되는 위치가 각각 73px · 100px 위로 올라와 문제와 버튼이 한눈에 들어옵니다' },
     { k: 'new', t: '<b>모의고사 오답 풀기</b>의 문항 막대 양옆 화살표가 <b>틀렸어요(빨강) · 맞았어요(초록)</b> 판정 버튼이 됐습니다 — 어느 쪽을 누르든 바로 다음 문제로 넘어갑니다 (문항 이동은 막대를 끌어서 하시면 돼요)' },
@@ -18975,7 +19014,7 @@ function closePatchNotes() {
 // ── 앱 버전 ──
 // 폰이 옛 파일을 캐시해 두고 있는지 바로 확인할 수 있도록 화면에 표시한다.
 // (설정 맨 아래 · 개발자 도구 콘솔에도 찍힘)
-const APP_VERSION = '260808-0150';
+const APP_VERSION = '260808-0202';
 console.log('%c양진웅 Note 버전 ' + APP_VERSION, 'font-weight:bold');
 
 // PWA 서비스워커 등록
