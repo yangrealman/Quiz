@@ -7528,7 +7528,7 @@
   <div class="container">
     <div class="section-header">
       <div>
-        <div class="page-title"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-pencil"/></svg> 모의고사 오답노트</div>
+        <div class="page-title" onclick="scrollToMarkedMockWrong()" style="cursor:pointer" title="표시한 문제로 이동"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-pencil"/></svg> 모의고사 오답노트</div>
         <div class="page-sub">모의고사에서 틀린 문제 모음</div>
       </div>
       <button class="btn" id="mock-wrong-quiz-btn" onclick="startMockWrongQuiz()" style="display:none; background:var(--mock); color:#fff">오답만 풀기</button>
@@ -13655,6 +13655,13 @@ function toggleMarkedFromStar(key, btn) {
 }
 
 // "★ 별표 문제" 제목을 누르면 표시해 둔 문제로 바로 스크롤 — 목록이 길 때 찾아 내려가지 않아도 되게
+// "모의고사 오답노트" 제목을 누르면 핀으로 표시해 둔 문제로 바로 스크롤
+function scrollToMarkedMockWrong() {
+  const el = document.querySelector('#mock-wrong-list .wrong-note-item.marked');
+  if (!el) { showToast('표시한 문제가 없어요'); return; }
+  el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+}
+
 function scrollToMarkedStar() {
   const el = document.querySelector('#star-list .wrong-note-item.marked');
   if (!el) { showToast('표시한 문제가 없어요'); return; }
@@ -18692,6 +18699,9 @@ applyRenderFlags();
 //   k: 'new'(새 기능) · 'fix'(고침) · 'chg'(바뀜)
 // ══════════════════════════════════════════════════════════════════════
 const PATCH_NOTES = [
+  { v: '260808-1654', at: '2026-08-08', items: [
+    { k: 'new', t: '<b>모의고사 오답노트</b> 제목을 누르면 핀으로 표시해 둔 문제로 바로 스크롤됩니다 (오답 노트·별표와 동일한 기능)' },
+  ]},
   { v: '260808-1623', at: '2026-08-08', items: [
     { k: 'chg', t: '<b>모의고사 오답노트</b>를 오답 노트·별표와 같은 방식으로 바꿨습니다 — 정답과 해설이 바로 보이지 않고 <b>정답·해설 보기</b>를 눌러야 열립니다 (윗줄에 적혀 있던 <b>정답: ③</b> 도 없앴어요). 항목마다 <b>별표 · 체크 · 표시(핀)</b> 를 그 자리에서 바꿀 수 있습니다' },
   ]},
@@ -19063,7 +19073,7 @@ function closePatchNotes() {
 // ── 앱 버전 ──
 // 폰이 옛 파일을 캐시해 두고 있는지 바로 확인할 수 있도록 화면에 표시한다.
 // (설정 맨 아래 · 개발자 도구 콘솔에도 찍힘)
-const APP_VERSION = '260808-1623';
+const APP_VERSION = '260808-1654';
 console.log('%c양진웅 Note 버전 ' + APP_VERSION, 'font-weight:bold');
 
 // PWA 서비스워커 등록
