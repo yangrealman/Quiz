@@ -13588,6 +13588,21 @@ function _toggleFlagFromList(cat, round, q, btn) {
   paintFlagBtn(btn, on);
 }
 
+// 모의고사 오답 목록에서 별표·체크·표시 (항목에 문제가 통째로 들어있다)
+function _findMockWrong(id) { return getMockWrongs().find(x => x.id === id); }
+function setStarFromMockWrong(id, level, pip) {
+  const w = _findMockWrong(id); if (!w) return;
+  _setStarEntry(w.cat, w.round, w.q, level, pip);
+}
+function toggleFlagFromMockWrong(id, btn) {
+  const w = _findMockWrong(id); if (!w) return;
+  _toggleFlagFromList(w.cat, w.round, w.q, btn);
+}
+function toggleMarkedFromMockWrong(id, btn) {
+  const w = _findMockWrong(id); if (!w) return;
+  toggleMarkedEntry(w.cat, w.round, w.q, btn);
+}
+
 // 오답노트 화면에서 체크 (저장된 오답 id 기준)
 function toggleFlagFromWrong(id, btn) {
   const w = getWrongAnswers().find(x => x.id === id);
@@ -15479,44 +15494,53 @@ function renderMockWrongNote() {
     return;
   }
 
-  // [수정] 필답형(주관식) 오답도 이제 이 목록에 들어올 수 있다 — 보기가 없어 options.map이 깨지므로 분기한다.
+  // [수정] 오답 노트·별표와 같은 방식으로 — 정답과 해설은 눌러야 열리는 서랍에 넣고,
+  //        윗줄에 별표·체크·표시를 둔다. 예전엔 정답이 그대로 보여서 가리고 볼 수가 없었다.
   document.getElementById('mock-wrong-list').innerHTML = `
     <div class="wrong-note-list">
       ${filtered.map(w => {
-        if (w.q.type === 'subj') {
-          return `
-            <div class="wrong-note-item">
-              <div class="wrong-note-meta">
-                <span class="subj-type-badge"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-pencil"/></svg>주관식</span>
-                <span class="mock-wrong-badge"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-pencil"/></svg> ${w.cat} ${w.round}회차 Q${w.q.num}</span>
-                <button onclick="deleteMockWrong('${escArg(w.id)}')" style="margin-left:auto; background:none; border:none; font-size:12px; color:var(--gray-400); cursor:pointer">삭제</button>
-              </div>
-              <div class="wrong-note-q">${w.q.question}</div>
-              ${w.mySubjText ? `<div style="margin:8px 0; padding:10px; background:var(--danger-light); border-radius:8px; font-size:13px; color:var(--danger); line-height:1.9; white-space:pre-wrap;">내 답: ${escHtml(w.mySubjText)}</div>` : ''}
-              <div style="margin:8px 0; padding:12px 14px; background:var(--success-light); border-radius:8px; font-size:13px; color:var(--success-deep); line-height:1.9; white-space:pre-wrap;"><b>모범 답안</b><br>${renderExp(w.q.answer || '')}</div>
-              ${w.q.explanation ? `<div class="wn-explain"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-bulb"/></svg> ${renderExp(w.q.explanation)}</div>` : ''}
-            </div>
-          `;
-        }
+        const q = w.q;
+        const isSubj = q.type === 'subj';
+        const sKey = getStarKey(w.cat, w.round, q.id || q.num);
+        const starLv = starLevelOf(getStarred()[sKey]);
+        const isFlag = !!getFlagged()[sKey];
+        const isMarked = !!getMarked()[sKey];
+        const bodyHtml = isSubj
+          ? `${w.mySubjText ? `<div style="margin:8px 0; padding:10px; background:var(--danger-light); border-radius:8px; font-size:13px; color:var(--danger); line-height:1.9; white-space:pre-wrap;">내 답: ${escHtml(w.mySubjText)}</div>` : ''}
+             <div style="margin:8px 0; padding:12px 14px; background:var(--success-light); border-radius:8px; font-size:13px; color:var(--success-deep); line-height:1.9; white-space:pre-wrap;"><b>모범 답안</b><br>${renderExp(q.answer || '')}</div>`
+          : `<div class="wrong-note-options">
+               ${(q.options || []).map((opt, i) => `
+                 <div class="wn-option ${i === q.correct ? 'correct' : (i === w.myAnswer ? 'my-wrong' : '')}">
+                   <span>${circleNums[i]||i+1}</span> ${escHtml(opt)}
+                 </div>
+               `).join('')}
+             </div>`;
         return `
-        <div class="wrong-note-item">
-          <div class="wrong-note-meta">
-            <span class="mock-wrong-badge"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-pencil"/></svg> ${w.cat} ${w.round}회차 Q${w.q.num}</span>
-            ${w.myAnswer >= 0 ? `<span>내 답: ${circleNums[w.myAnswer]||w.myAnswer+1}</span>` : '<span>미응답</span>'}
-            <span style="color:var(--success)">정답: ${circleNums[w.q.correct]||w.q.correct+1}</span>
-            <button onclick="deleteMockWrong('${escArg(w.id)}')" style="margin-left:auto; background:none; border:none; font-size:12px; color:var(--gray-400); cursor:pointer">삭제</button>
+          <div class="wrong-note-item ${isMarked ? 'marked' : ''}">
+            <div class="wrong-note-meta">
+              ${isSubj ? `<span class="subj-type-badge"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-pencil"/></svg>주관식</span>` : ''}
+              <span class="mock-wrong-badge"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-pencil"/></svg> ${w.cat} ${w.round}회차 Q${q.num}</span>
+              <button class="mark-btn ${isMarked ? 'on' : ''}" onclick="toggleMarkedFromMockWrong('${escArg(w.id)}', this)" title="${isMarked ? '표시 해제' : '여기까지 표시'}" style="margin-left:auto;">
+                <svg class="ic" viewBox="0 0 24 24"><use href="#ic-pin"/></svg>
+              </button>
+              ${starWidgetHTML(starLv, `setStarFromMockWrong('${escArg(w.id)}', {i}, this)`)}
+              <button class="flag-btn ${isFlag ? 'on' : ''}" onclick="toggleFlagFromMockWrong('${escArg(w.id)}', this)" title="${isFlag ? '체크 해제' : '체크'}" style="padding:0 2px;">
+                <svg class="ic" viewBox="0 0 24 24" style="width:17px;height:17px"><use href="${isFlag ? '#ic-check-square' : '#ic-square'}"/></svg>
+              </button>
+              <button onclick="deleteMockWrong('${escArg(w.id)}')" style="background:none; border:none; font-size:12px; color:var(--gray-400); cursor:pointer">삭제</button>
+            </div>
+            <div class="wrong-note-q">${q.question}</div>
+            <button class="wn-toggle" onclick="toggleAnswerCollapse(this)">
+              <span class="wn-toggle-txt-closed">정답·해설 보기</span>
+              <span class="wn-toggle-txt-open">접기</span>
+              <svg class="ic wn-toggle-caret" viewBox="0 0 24 24"><use href="#ic-chevron-down"/></svg>
+            </button>
+            <div class="wn-collapse"><div>
+              ${bodyHtml}
+              ${q.explanation ? `<div class="wn-explain"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-bulb"/></svg> ${renderExp(q.explanation)}</div>` : ''}${expImgSlot(q)}
+            </div></div>
           </div>
-          <div class="wrong-note-q">${w.q.question}</div>
-          <div class="wrong-note-options">
-            ${w.q.options.map((opt, i) => `
-              <div class="wn-option ${i === w.q.correct ? 'correct' : (i === w.myAnswer ? 'my-wrong' : '')}">
-                <span>${circleNums[i]||i+1}</span> ${escHtml(opt)}
-              </div>
-            `).join('')}
-          </div>
-          ${w.q.explanation ? `<div class="wn-explain"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-bulb"/></svg> ${renderExp(w.q.explanation)}</div>` : ''}
-        </div>
-      `;
+        `;
       }).join('')}
     </div>
   `;
@@ -18668,6 +18692,9 @@ applyRenderFlags();
 //   k: 'new'(새 기능) · 'fix'(고침) · 'chg'(바뀜)
 // ══════════════════════════════════════════════════════════════════════
 const PATCH_NOTES = [
+  { v: '260808-1623', at: '2026-08-08', items: [
+    { k: 'chg', t: '<b>모의고사 오답노트</b>를 오답 노트·별표와 같은 방식으로 바꿨습니다 — 정답과 해설이 바로 보이지 않고 <b>정답·해설 보기</b>를 눌러야 열립니다 (윗줄에 적혀 있던 <b>정답: ③</b> 도 없앴어요). 항목마다 <b>별표 · 체크 · 표시(핀)</b> 를 그 자리에서 바꿀 수 있습니다' },
+  ]},
   { v: '260808-0213', at: '2026-08-08', items: [
     { k: 'chg', t: '<b>판정 버튼</b> 모양을 앱의 다른 버튼들과 맞췄습니다 — 화살표와 같은 크기의 원에 연한 빨강·초록을 깔고, 누르는 순간에만 진하게 채웁니다 (꽉 찬 색은 이 앱에서 \'선택됨\'을 뜻해서 평소엔 쓰지 않아요). 화살표와 판정은 붙이고 막대와는 띄워서 이동·판정이 구분되게 했습니다' },
   ]},
@@ -19036,7 +19063,7 @@ function closePatchNotes() {
 // ── 앱 버전 ──
 // 폰이 옛 파일을 캐시해 두고 있는지 바로 확인할 수 있도록 화면에 표시한다.
 // (설정 맨 아래 · 개발자 도구 콘솔에도 찍힘)
-const APP_VERSION = '260808-0213';
+const APP_VERSION = '260808-1623';
 console.log('%c양진웅 Note 버전 ' + APP_VERSION, 'font-weight:bold');
 
 // PWA 서비스워커 등록
