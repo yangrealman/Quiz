@@ -1449,6 +1449,17 @@
     font: inherit; font-size: 11px; font-weight: 700; color: var(--gray-500); cursor: pointer;
   }
   .mock-deck-reset:hover { border-color: var(--mock); color: var(--mock); }
+  /* 출제 방식 고르기 — 고른 것만 채워지는, 앱의 다른 고르기 줄과 같은 어법 */
+  .mock-mode-row { display: flex; gap: 6px; }
+  .mock-mode-row .btn {
+    flex: 1; min-width: 0; padding: 9px 4px; font-size: 13px; white-space: nowrap;
+  }
+  /* 기록에 붙는 방식 꼬리표 (눈 돌리기는 기본이라 안 붙인다) */
+  .mock-mode-tag {
+    display: inline-block; margin-left: 6px; padding: 1px 7px; border-radius: 999px;
+    font-size: 11px; font-weight: 700; vertical-align: 1px;
+    background: var(--tint-primary); color: var(--mock); border: 1px solid var(--tint-primary-edge);
+  }
   .btn-mock { background: var(--mock); color: #fff; border: 1px solid var(--mock); }
   .btn-mock:hover { filter: brightness(1.06); }
   /* 다크에서 --mock 은 연보라라 흰 글자를 얹으면 잘 안 읽힌다 → 채워진 버튼은 진한 보라로 */
@@ -7449,6 +7460,10 @@
       <div class="form-group">
         <label class="form-label">자격증 선택</label>
         <select class="form-select" id="mock-cat-select"></select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">출제 방식</label>
+        <div class="mock-mode-row" id="mock-mode-row"></div>
       </div>
       <div class="form-group">
         <label class="form-label">문항 수</label>
@@ -14770,6 +14785,7 @@ function renderMockHome() {
   sel.onchange = paintMockCountHint;
   const countEl = document.getElementById('mock-count-input');
   if (countEl) countEl.value = getLastMockCount();   // 지난번에 쓴 문항 수로 시작
+  paintMockModeRow();                                // 지난번에 쓴 출제 방식도 그대로
   paintMockCountHint();
   renderMockResumeCard();
 
@@ -14794,6 +14810,9 @@ function renderMockHome() {
     const date = new Date(r.date).toLocaleDateString('ko-KR', {month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit'});
     const nWrong = liveWrong[r.id] || 0;
     const picked = _mockRecSel.has(r.id);
+    // 눈 돌리기(기본)로 낸 건 꼬리표 없이, 다른 방식으로 낸 것만 표시한다
+    const rMode = r.mode || 'deck';
+    const modeTag = rMode === 'deck' ? '' : `<span class="mock-mode-tag">${_mockModeLabel(rMode)}</span>`;
     return `
       <div class="mock-record-item ${picked ? 'selected' : ''}"
            onclick="${_mockRecSelMode ? `toggleMockRecSel(${r.id})` : `viewMockRecord(${records.length - 1 - i})`}">
@@ -14801,7 +14820,7 @@ function renderMockHome() {
           <input type="checkbox" ${picked ? 'checked' : ''} onclick="event.stopPropagation(); toggleMockRecSel(${r.id})">
         </label>` : ''}
         <div class="mock-record-left">
-          <div class="mock-record-title">${r.cat} · 모의고사 ${records.length - i}회</div>
+          <div class="mock-record-title">${r.cat} · 모의고사 ${records.length - i}회${modeTag}</div>
           <div class="mock-record-sub">${date} · ${r.total}문제 · 오답 ${nWrong}개</div>
         </div>
         <div class="mock-score-badge ${pass ? '' : 'fail'}">${pct}점</div>
@@ -14870,8 +14889,10 @@ function deleteSelectedMockRecords() {
   new Set(del.map(r => r.cat)).forEach(cat => {
     if (!Array.isArray(deck[cat])) return;
     // [주의] 키가 '회차||번호'라 자격증이 다르면 겹칠 수 있다 → 반드시 자격증별로 따로 센다
-    const inDel  = new Set(del .filter(r => r.cat === cat).flatMap(r => (r.questionLog || []).map(keyOf)));
-    const inKeep = new Set(keep.filter(r => r.cat === cat).flatMap(r => (r.questionLog || []).map(keyOf)));
+    // 진도를 먹은 건 '눈 돌리기'로 낸 시험뿐이라, 되돌릴지 판단할 때도 그것만 본다
+    const isDeck = r => r.cat === cat && (r.mode || 'deck') === 'deck';
+    const inDel  = new Set(del .filter(isDeck).flatMap(r => (r.questionLog || []).map(keyOf)));
+    const inKeep = new Set(keep.filter(isDeck).flatMap(r => (r.questionLog || []).map(keyOf)));
     const back = deck[cat].filter(k => inDel.has(k) && !inKeep.has(k));
     if (back.length) { plan[cat] = new Set(back); restore += back.length; }
   });
@@ -14938,6 +14959,57 @@ function saveLastMockCount(n) {
   try { if (n > 0) localStorage.setItem(MOCK_COUNT_KEY, String(n)); } catch (_) {}
 }
 
+// ── 출제 방식 ────────────────────────────────────────────────────────
+// deck   : 이번 바퀴에 아직 안 본 문제에서만 (기본)
+// random : 전체에서 매번 새로 — 이미 본 문제도 다시 나온다
+// wrong  : 모의고사에서 틀렸던 문제에서만
+const MOCK_MODES = [
+  { id: 'deck',   label: '눈 돌리기' },
+  { id: 'random', label: '완전 무작위' },
+  { id: 'wrong',  label: '오답에서만' },
+];
+const MOCK_MODE_KEY = 'mock_last_mode';
+function getMockMode() {
+  const m = localStorage.getItem(MOCK_MODE_KEY);
+  return MOCK_MODES.some(x => x.id === m) ? m : 'deck';
+}
+function setMockMode(m) {
+  try { localStorage.setItem(MOCK_MODE_KEY, m); } catch (_) {}
+  paintMockModeRow();
+  paintMockCountHint();
+}
+function _mockModeLabel(m) {
+  const f = MOCK_MODES.find(x => x.id === m);
+  return f ? f.label : '';
+}
+
+function paintMockModeRow() {
+  const el = document.getElementById('mock-mode-row');
+  if (!el) return;
+  const cur = getMockMode();
+  el.innerHTML = MOCK_MODES.map(m =>
+    `<button class="btn ${cur === m.id ? 'btn-mock' : 'btn-secondary'}" onclick="setMockMode('${m.id}')">${m.label}</button>`
+  ).join('');
+}
+
+// 모의고사 오답에서 낼 문제 통.
+// 같은 문제를 여러 번 틀리면 시험마다 따로 쌓여 있어서(3번 틀리면 항목 3개) 하나로 합친다.
+// 문제 내용은 저장해 둔 사본이 아니라 지금 회차에 있는 것을 쓴다 — 그 뒤에 고치거나 그림을 붙였으면 그게 반영된다.
+function _mockWrongPool(cat) {
+  const seen = new Set();
+  const pool = [];
+  getMockWrongs().forEach(w => {
+    if (!w || !w.q) return;
+    if (cat && w.cat !== cat) return;
+    const k = _deckKey(w.round, w.q.num);
+    if (seen.has(k)) return;
+    seen.add(k);
+    const live = getRound(w.cat, w.round).find(x => Number(x.num) === Number(w.q.num));
+    pool.push({ q: live || w.q, round: w.round, cat: w.cat });
+  });
+  return pool;
+}
+
 // ── 눈 돌리기 ────────────────────────────────────────────────────────
 // 예전엔 매번 전체에서 무작위로 뽑아서, 아직 한 번도 안 나온 문제가 한참 남아 있는데도
 // 이미 본 문제가 자꾸 다시 나왔다. 이제 '이번 바퀴에 이미 나온 문제'를 적어 두고
@@ -14953,7 +15025,8 @@ function getMockSeen(cat) {
   const deck = getMockDeck();
   if (Array.isArray(deck[cat])) return new Set(deck[cat]);
   const seeded = new Set();
-  getMockRecords().filter(r => r.cat === cat)
+  // '눈 돌리기'로 낸 시험만 진도로 친다 (완전 무작위·오답 모의고사는 진도를 건드리지 않는다)
+  getMockRecords().filter(r => r.cat === cat && (r.mode || 'deck') === 'deck')
     .flatMap(r => r.questionLog || [])
     .forEach(({ round, qNum }) => seeded.add(_deckKey(round, qNum)));
   deck[cat] = [...seeded];
@@ -14991,8 +15064,25 @@ function paintMockCountHint() {
   if (!el) return;
   const sel = document.getElementById('mock-cat-select');
   const cat = sel ? sel.value : '';
+  const mode = getMockMode();
+
+  // 오답에서만 — 낼 수 있는 건 오답 통의 크기다 (전체 문제 수와 상관없다)
+  if (mode === 'wrong') {
+    const n = _mockWrongPool(cat).length;
+    el.innerHTML = n
+      ? `모의고사 오답 <b>${n.toLocaleString()}개</b>에서 뽑아요 <span style="opacity:.7">(같은 문제는 하나로 셈)</span>`
+      : (cat ? '이 자격증은 모의고사 오답이 아직 없어요' : '');
+    return;
+  }
+
   const total = _catQuestionTotal(cat);
   if (!total) { el.innerHTML = ''; return; }
+
+  if (mode === 'random') {
+    el.innerHTML = `전체 <b>${total.toLocaleString()}문제</b>에서 매번 새로 뽑아요 · 이미 본 문제도 다시 나옵니다`;
+    return;
+  }
+
   const seen = getMockSeen(cat).size;
   const left = Math.max(0, total - seen);
   el.innerHTML = `전체 ${total.toLocaleString()}문제 중 <b>${seen.toLocaleString()}개</b>를 봤어요 · 남은 ${left.toLocaleString()}개에서 겹치지 않게 냅니다`
@@ -15014,20 +15104,30 @@ function _shuffle(arr) {
 //        ⓑ 문항 수가 "서로 다른 번호 개수"(회차 하나 분량)를 넘을 수 없었다.
 //        → 이제 이 자격증의 모든 문제를 한 통에 넣고 그 안에서 무작위로 뽑는다.
 //          객관식·필답형 구분은 하지 않는다.
-function buildMockQuestions(cat, count) {
-  const rounds = getRoundList(cat);
-  if (!rounds.length) return null;
+//        [추가] 출제 방식(mode)을 고를 수 있다 — 통을 만들고 걸러내는 부분만 갈린다.
+function buildMockQuestions(cat, count, mode) {
+  mode = mode || 'deck';
 
-  // ① 이 자격증의 모든 회차 · 모든 문제를 하나의 통으로
-  const pool = [];
-  for (const round of rounds) {
-    for (const q of getRound(cat, round)) pool.push({ q, round, cat });
+  // ① 낼 문제를 담을 통 — 방식마다 다르다
+  let pool;
+  if (mode === 'wrong') {
+    pool = _mockWrongPool(cat);                       // 모의고사에서 틀렸던 문제만
+  } else {
+    pool = [];                                        // 이 자격증의 모든 회차 · 모든 문제
+    for (const round of getRoundList(cat)) {
+      for (const q of getRound(cat, round)) pool.push({ q, round, cat });
+    }
   }
   if (!pool.length) return null;
 
   count = Math.max(1, Math.min(parseInt(count) || 60, pool.length));
 
-  // ② 이번 바퀴에 아직 안 나온 문제에서 뽑는다
+  // ② 완전 무작위 · 오답에서만 — 통 전체에서 그냥 뽑는다.
+  //    한 시험 안에서 같은 문제가 두 번 나오는 일은 어느 방식에서든 없다(통에서 골라내므로).
+  //    시험과 시험 사이의 중복만 감수하는 것이고, 눈 돌리기 진도는 건드리지 않는다.
+  if (mode !== 'deck') return _shuffle(pool).slice(0, count);
+
+  // ③ 이번 바퀴에 아직 안 나온 문제에서 뽑는다
   //    [수정] 예전엔 '뽑는 순간' 봤다고 쳐서, 시작만 하고 제출 안 한 시험도 문제를 까먹었고
   //          기록을 지워도 그건 되돌아오지 않았다 → 이제 제출할 때(submitMock)만 기록한다.
   const seen = getMockSeen(cat);
@@ -15046,7 +15146,7 @@ function buildMockQuestions(cat, count) {
   if (left.length >= count) {
     result = left.slice(0, count);
   } else {
-    // ③ 남은 걸 다 쓰고도 모자라면 한 바퀴를 마친 것 — 새로 섞어 이어서 채운다
+    // 남은 걸 다 쓰고도 모자라면 한 바퀴를 마친 것 — 새로 섞어 이어서 채운다
     result = left.slice();
     const usedNow = new Set(result.map(it => _deckKey(it.round, it.q.num)));
     const reshuffled = _shuffle(pool.filter(it => !usedNow.has(_deckKey(it.round, it.q.num))));
@@ -15064,34 +15164,45 @@ function startMockExam() {
   if (!cat) { showToast('자격증을 선택하세요'); return; }
   const count = parseInt(document.getElementById('mock-count-input').value) || 60;
   saveLastMockCount(count);        // 다음에도 같은 문항 수로 시작하도록 기억
+  const mode = getMockMode();
 
-  const built = buildMockQuestions(cat, count);
-  if (!built) { showToast('문제가 부족해요. 회차를 더 등록해주세요.'); return; }
+  const built = buildMockQuestions(cat, count, mode);
+  if (!built) {
+    showToast(mode === 'wrong' ? '이 자격증은 모의고사 오답이 아직 없어요' : '문제가 부족해요. 회차를 더 등록해주세요.');
+    return;
+  }
   if (built.length < count) showToast(`문제가 부족해서 ${built.length}문제로 만들었어요`);
 
   mqState = {
     cat,
+    mode,
     questions: built,
     idx: 0,
     answered: {},
     startTime: Date.now()
   };
 
-  document.getElementById('mq-title').textContent = `${cat} 모의고사`;
+  document.getElementById('mq-title').textContent = _mqTitleFor(cat, mode);
   paintMockCountHint();
   goPage('mock-quiz');
   renderMQ();
+}
+
+// 오답 모의고사는 제목에서 바로 구분되게 (기록에도 같은 이름으로 남는다)
+function _mqTitleFor(cat, mode) {
+  return mode === 'wrong' ? `${cat} 오답 모의고사` : `${cat} 모의고사`;
 }
 
 function startMockExamAgain() {
   const cat = mqState.cat;
   if (!cat) { goPage('mock'); return; }
   const count = mqState.questions.length;
-  const built = buildMockQuestions(cat, count);
+  const mode = mqState.mode || 'deck';      // 방금 푼 것과 같은 방식으로 한 번 더
+  const built = buildMockQuestions(cat, count, mode);
   if (!built) { showToast('문제가 부족해요. 회차를 더 등록해주세요.'); goPage('mock'); return; }
-  mqState = { cat, questions: built, idx: 0, answered: {}, startTime: Date.now() };
+  mqState = { cat, mode, questions: built, idx: 0, answered: {}, startTime: Date.now() };
 
-  document.getElementById('mq-title').textContent = `${cat} 모의고사`;
+  document.getElementById('mq-title').textContent = _mqTitleFor(cat, mode);
   goPage('mock-quiz');
   renderMQ();
 }
@@ -15271,6 +15382,7 @@ function _saveMQCheckpoint() {
   if (!mqState || !mqState.questions || !mqState.questions.length) return;
   saveMockQuizResume({
     cat: mqState.cat,
+    mode: mqState.mode || 'deck',
     picks: mqState.questions.map(it => ({ round: it.round, qNum: Number(it.q.num) })),
     idx: mqState.idx,
     answered: mqState.answered,
@@ -15301,12 +15413,13 @@ function resumeMockQuiz() {
   if (!questions.length) { clearMockQuizResume(); renderMockHome(); showToast('이어서 풀 모의고사가 없어요'); return; }
 
   mqState = {
-    cat: r.cat, questions, idx: Math.min(idx, questions.length - 1), answered, subjInputs,
+    cat: r.cat, mode: r.mode || 'deck',
+    questions, idx: Math.min(idx, questions.length - 1), answered, subjInputs,
     revealed: {},
     startTime: Date.now() - (r.elapsedSec || 0) * 1000   // 이미 쓴 시간을 이어받는다
   };
 
-  document.getElementById('mq-title').textContent = `${r.cat} 모의고사`;
+  document.getElementById('mq-title').textContent = _mqTitleFor(r.cat, r.mode || 'deck');
   goPage('mock-quiz');
   renderMQ();
 }
@@ -15340,6 +15453,7 @@ function submitMock() {
   clearMockQuizResume();          // 제출했으면 이어서 풀 것이 없다
 
   const { questions, answered, cat, startTime } = mqState;
+  const mode = mqState.mode || 'deck';
   let correct = 0;
   const wrongItems = [];
 
@@ -15375,15 +15489,18 @@ function submitMock() {
   // 기록 저장
   const records = getMockRecords();
   const recordId = Date.now();
-  records.push({ id: recordId, cat, date: Date.now(), correct, total, pct, timeUsed, wrongCount: wrongItems.length, questionLog });
+  records.push({ id: recordId, cat, mode, date: Date.now(), correct, total, pct, timeUsed, wrongCount: wrongItems.length, questionLog });
   saveMockRecords(records);
 
-  // 눈 돌리기 — 실제로 풀어서 제출한 문제만 '봤다'로 친다
-  try {
-    const seenSet = getMockSeen(cat);
-    questions.forEach(item => seenSet.add(_deckKey(item.round, item.q.num)));
-    setMockSeen(cat, seenSet);
-  } catch (_) {}
+  // 눈 돌리기 — 실제로 풀어서 제출한 문제만 '봤다'로 친다.
+  // 완전 무작위·오답 모의고사는 진도를 건드리지 않는다 (안 본 문제를 미리 까먹지 않게).
+  if (mode === 'deck') {
+    try {
+      const seenSet = getMockSeen(cat);
+      questions.forEach(item => seenSet.add(_deckKey(item.round, item.q.num)));
+      setMockSeen(cat, seenSet);
+    } catch (_) {}
+  }
 
   // 모의고사 오답 저장
   const existWrongs = getMockWrongs();
@@ -18699,6 +18816,12 @@ applyRenderFlags();
 //   k: 'new'(새 기능) · 'fix'(고침) · 'chg'(바뀜)
 // ══════════════════════════════════════════════════════════════════════
 const PATCH_NOTES = [
+  { v: '260809-2258', at: '2026-08-09', items: [
+    { k: 'new', t: '<b>모의고사 출제 방식</b>을 고를 수 있습니다 — <b>눈 돌리기</b>(지금까지의 방식, 한 바퀴 안에서는 안 겹침) · <b>완전 무작위</b>(전체에서 매번 새로, 본 문제도 다시 나옴) · <b>오답에서만</b>(모의고사에서 틀렸던 문제만). 마지막에 쓴 방식은 문항 수처럼 기억됩니다' },
+    { k: 'new', t: '<b>오답에서만</b>은 같은 문제를 여러 번 틀려 쌓인 것도 하나로 세서 한 시험에 중복으로 나오지 않습니다' },
+    { k: 'chg', t: '<b>완전 무작위 · 오답에서만</b>으로 푼 시험은 눈 돌리기 진도(몇 개 봤어요)를 건드리지 않습니다 — 아직 안 본 문제를 미리 까먹지 않게' },
+    { k: 'chg', t: '모의고사 기록에 <b>완전 무작위 · 오답에서만</b> 꼬리표가 붙어 실전 모의고사와 구분됩니다' },
+  ]},
   { v: '260808-1654', at: '2026-08-08', items: [
     { k: 'new', t: '<b>모의고사 오답노트</b> 제목을 누르면 핀으로 표시해 둔 문제로 바로 스크롤됩니다 (오답 노트·별표와 동일한 기능)' },
   ]},
@@ -19073,7 +19196,7 @@ function closePatchNotes() {
 // ── 앱 버전 ──
 // 폰이 옛 파일을 캐시해 두고 있는지 바로 확인할 수 있도록 화면에 표시한다.
 // (설정 맨 아래 · 개발자 도구 콘솔에도 찍힘)
-const APP_VERSION = '260808-1654';
+const APP_VERSION = '260809-2258';
 console.log('%c양진웅 Note 버전 ' + APP_VERSION, 'font-weight:bold');
 
 // PWA 서비스워커 등록
