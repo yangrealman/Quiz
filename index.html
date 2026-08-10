@@ -62,8 +62,10 @@
     --gray-100: #F3F4F6;
     --gray-200: #E5E7EB;
     --gray-300: #D1D5DB;
-    --gray-400: #9CA3AF;
-    --gray-500: #6B7280;
+    /* [수정] 회차·문항 같은 안내 글씨에 쓰던 회색이 흰 배경에서 대비 2.6:1 밖에 안 돼
+       밝은 데서 잘 안 읽혔다 → 흰 배경 4.5:1 을 넘도록 낮췄다 (단계 차이는 그대로 유지) */
+    --gray-400: #6E7684;
+    --gray-500: #5A6272;
     --gray-600: #4B5563;
     --gray-700: #374151;
     --gray-800: #1F2937;
@@ -116,8 +118,9 @@
     --gray-100: #16213E;
     --gray-200: #1E2D50;
     --gray-300: #2D4070;
-    --gray-400: #64748B;
-    --gray-500: #94A3B8;
+    /* [수정] 다크에서도 안내 글씨가 배경에 묻혀 있었다 (3.4:1) → 5.5:1 정도로 */
+    --gray-400: #8B95A6;
+    --gray-500: #A6B2C4;
     --gray-600: #CBD5E1;
     --gray-700: #E2E8F0;
     --gray-800: #F1F5F9;
@@ -1266,8 +1269,10 @@
   .scroll-top-btn.show { display: flex; }
 
   /* [수정] 계산기 — 상단바 상시 노출을 없애고 문제풀이 화면에서만 뜨는 플로팅 버튼으로 */
+  /* [수정] 왼쪽 아래에 떠 있어서 '이전' 버튼과 같은 자리에 겹쳤다.
+     → 맨 위로 버튼과 같은 오른쪽 줄에 세로로 쌓아 본문을 가리지 않게 한다. */
   .calc-fab {
-    position: fixed; bottom: 88px; left: 16px; z-index: 99;
+    position: fixed; bottom: 140px; right: 16px; z-index: 99;
     width: 40px; height: 40px; border-radius: 50%;
     background: var(--card); color: var(--gray-500);
     border: 1px solid var(--card-border);
@@ -1277,7 +1282,7 @@
   }
   .calc-fab.show { display: flex; }
   .calc-fab.on { color: var(--primary); border-color: var(--primary); }
-  @media (min-width: 601px) { .calc-fab { bottom: 88px; } }
+  @media (min-width: 601px) { .calc-fab { bottom: 140px; } }
 
   /* [수정] 배경에 --gray-900 을 쓰고 있었는데, 다크모드에선 이 값이 거의 흰색으로 뒤집혀
      흰 배경 + 흰 글자가 되어 글씨가 안 보였다.
@@ -2287,10 +2292,14 @@
   .review-card-arrow { font-size: 26px; color: var(--gray-300); font-weight: 300; }
   body.dark .review-card { background-color: var(--card); border-color: var(--card-border); }
   /* ══ 브랜드 그라데이션 헤더 (전역 공통) ══ */
+  /* [수정] 3단 그라데이션에 색 번짐 그림자까지 얹혀서 상단바가 화면에서 제일 튀었다.
+     테마 색은 그대로 두되 ⓐ 중간 색을 빼 2단으로 ⓑ 채도를 낮추고 ⓒ 색 그림자를 없앤다.
+     color-mix 를 못 읽는 브라우저는 위의 예전 방식이 그대로 적용된다. */
   nav, body.dark nav {
-    background: linear-gradient(120deg, var(--nav-g1) 0%, var(--nav-g2) 55%, var(--nav-g3) 100%);
+    /* 배경(그라데이션)은 아래 [컬러3] 한 군데에서만 정한다 — 예전엔 두 군데서 각자 선언해
+       뒤엣것이 조용히 이겨서 채도를 낮춰도 반영이 안 됐다 */
     border-bottom: none;
-    box-shadow: 0 2px 14px rgba(var(--primary-rgb),0.35);
+    box-shadow: 0 1px 8px rgba(15,23,42,0.14);
   }
   .nav-logo { color: #fff; }
   .nav-tab { color: rgba(255,255,255,0.82); }
@@ -2563,9 +2572,9 @@
   /* ⑦ 헤더 마감 — 스크롤 시 유리 느낌 */
   nav { transition: box-shadow 0.25s ease, backdrop-filter 0.25s ease; }
   nav.scrolled {
-    box-shadow: 0 6px 22px rgba(var(--primary-rgb),0.30);
-    backdrop-filter: saturate(140%) blur(6px);
-    -webkit-backdrop-filter: saturate(140%) blur(6px);
+    box-shadow: 0 6px 18px rgba(15,23,42,0.20);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
   }
   .nav-tab { transition: background 0.18s ease, color 0.18s ease; }
   .nav-tab::after { transition: width 0.28s cubic-bezier(0.22,1,0.36,1); }
@@ -3252,6 +3261,8 @@
     user-select: none;
   }
   .quiz-scrub-hint.hide { display: none; }
+  /* 폰·태블릿에는 Ctrl 키가 없다 — 단축키 안내는 키보드가 있는 기기에서만 */
+  @media (hover: none) and (pointer: coarse) { .kbd-only { display: none !important; } }
   /* ═══════════════════════════════════════════════════════════
      ✦ 입체(3D) 레이어 — 원근감 · 두께감 · 눌림
      ═══════════════════════════════════════════════════════════ */
@@ -3356,7 +3367,7 @@
   .mst-sl-thumb { box-shadow: 0 2px 0 -0.5px rgba(16,24,40,0.25), 0 4px 10px -2px rgba(16,24,40,0.35); }
 
   /* 상단 헤더 두께감 */
-  nav { box-shadow: 0 1px 0 rgba(255,255,255,0.18) inset, 0 6px 20px -8px rgba(var(--primary-rgb),0.45); }
+  nav { box-shadow: 0 1px 0 rgba(255,255,255,0.14) inset, 0 4px 14px -8px rgba(15,23,42,0.35); }
   .nav-tab.active { box-shadow: 0 2px 0 -0.5px rgba(15,23,42,0.18), 0 6px 14px -6px rgba(15,23,42,0.3); }
 
   body.dark .btn-primary { box-shadow: 0 3px 0 -1px rgba(0,0,0,0.55), 0 10px 20px -10px rgba(0,0,0,0.7); }
@@ -4358,7 +4369,10 @@
 
   /* [컬러3] 넓은 면적의 포인트 색만 채도 완화 */
   nav, body.dark nav {
-    background: linear-gradient(120deg, var(--nav-g1, var(--nav-g1)) 0%, var(--nav-g2, #6D46C8) 55%, var(--nav-g3, #7B4FD0) 100%);
+    background: linear-gradient(120deg, var(--nav-g1) 0%, var(--nav-g3) 100%);   /* color-mix 를 못 읽는 브라우저용 */
+    background: linear-gradient(120deg,
+      color-mix(in oklab, var(--nav-g1) 76%, #6B7280) 0%,
+      color-mix(in oklab, var(--nav-g3) 76%, #6B7280) 100%);
   }
 
   /* [컬러4] 읽기 영역은 아주 옅은 크림 (종이 느낌·눈 편안) */
@@ -6195,7 +6209,7 @@
   /* [디테일] 노치/홈바 있는 기기의 안전영역 확보 (탭바는 이미 처리되어 있음) */
   .app-footer { padding-bottom: calc(40px + env(safe-area-inset-bottom, 0px)); }
   .scroll-top { bottom: calc(88px + env(safe-area-inset-bottom, 0px)); }
-  .calc-fab { bottom: calc(88px + env(safe-area-inset-bottom, 0px)); }
+  .calc-fab { bottom: calc(140px + env(safe-area-inset-bottom, 0px)); }
 
   /* [디테일] 키보드로 이동할 때 초점이 어디 있는지 확실히 */
   .set-switch:focus-visible,
@@ -6708,7 +6722,7 @@
       <button class="btn btn-secondary" id="quiz-prev-btn" onclick="quizPrev()"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-arrow-left"/></svg>이전</button>
       <button class="btn btn-primary" id="quiz-next-btn" onclick="quizNext()">다음<svg class="ic" viewBox="0 0 24 24"><use href="#ic-arrow-right"/></svg></button>
     </div>
-    <div style="text-align:center; font-size:11px; color:var(--gray-400); margin-top:10px;"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-bulb"/></svg> Ctrl+Enter로 다음 문제 이동</div>
+    <div class="kbd-only" style="text-align:center; font-size:11px; color:var(--gray-400); margin-top:10px;"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-bulb"/></svg> Ctrl+Enter로 다음 문제 이동</div>
   </div>
 </div>
 
@@ -10864,6 +10878,26 @@ function startQuiz(cat, round) {
   renderQuestion();
 }
 
+// ── 안내 문구 정리 ────────────────────────────────────────────────────
+// ⓐ 폰에는 Ctrl·Tab 키가 없다 → 단축키 안내는 키보드가 있는 기기에서만 보여준다
+// ⓑ '판정 없이 넘어가도 된다'는 안내는 몇 번 보면 아는 내용이라 5번 뒤에 스스로 사라진다
+const HAS_KBD = !(window.matchMedia && window.matchMedia('(hover: none) and (pointer: coarse)').matches);
+
+function subjPlaceholderAttr() {
+  return HAS_KBD
+    ? '여기에 답을 써보세요...&#10;Tab 정답 보기 · Ctrl+Enter 다음 · Ctrl+⌫ 이전'
+    : '여기에 답을 써보세요…';
+}
+
+function subjHintHTML() {
+  let seen = 0;
+  try {
+    seen = parseInt(localStorage.getItem('subjHintSeen') || '0', 10) || 0;
+    if (seen < 5) localStorage.setItem('subjHintSeen', String(seen + 1));
+  } catch (_) {}
+  return seen >= 5 ? '' : '<div class="subj-hint">판정 없이 다음으로 넘어가도 돼요</div>';
+}
+
 function renderQuestion() {
   // 스크러버 안내는 익숙해지면 자동으로 감춤 (5회 노출 후)
   const _hint = document.getElementById('quiz-scrub-hint');
@@ -10928,7 +10962,7 @@ function renderQuestion() {
     document.getElementById('quiz-options').innerHTML = `
       <span class="subj-type-badge"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-pencil"/></svg>주관식</span>
       <div class="subj-input-wrap">
-        <textarea class="subj-input" id="subj-my-answer" spellcheck="false" placeholder="여기에 답을 써보세요...&#10;Tab 정답 보기 · Ctrl+Enter 다음 · Ctrl+⌫ 이전" oninput="saveSubjInput(this.value)" onkeydown="if(event.key==='Tab'){event.preventDefault();toggleSubjReveal();}">${savedSubj}</textarea>
+        <textarea class="subj-input" id="subj-my-answer" spellcheck="false" placeholder="${subjPlaceholderAttr()}" oninput="saveSubjInput(this.value)" onkeydown="if(event.key==='Tab'){event.preventDefault();toggleSubjReveal();}">${savedSubj}</textarea>
       </div>
 
       <div class="subj-answer-box ${revealed ? 'show' : ''}" id="subj-answer-box">
@@ -10947,7 +10981,7 @@ function renderQuestion() {
           <svg class="ic" viewBox="0 0 24 24"><use href="#ic-x-circle"/></svg><span>틀렸어요</span>
         </button>
       </div>
-      <div class="subj-hint">판정 없이 다음으로 넘어가도 돼요</div>
+      ${subjHintHTML()}
     `;
 
     // 정답 보기 여부와 상관없이 다음 버튼 항상 활성화
@@ -12825,7 +12859,7 @@ function renderWQ() {
     optEl.innerHTML = `
       <span class="subj-type-badge"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-pencil"/></svg>주관식</span>
       <div class="subj-input-wrap">
-        <textarea class="subj-input" id="wq-subj-input" spellcheck="false" placeholder="여기에 답을 써보세요...&#10;Tab 정답 보기 · Ctrl+Enter 다음 · Ctrl+⌫ 이전" oninput="wqState.subjInputs=wqState.subjInputs||{}; wqState.subjInputs[${idx}]=this.value" onkeydown="if(event.key==='Tab'){event.preventDefault();toggleWQReveal();}">${savedSubj}</textarea>
+        <textarea class="subj-input" id="wq-subj-input" spellcheck="false" placeholder="${subjPlaceholderAttr()}" oninput="wqState.subjInputs=wqState.subjInputs||{}; wqState.subjInputs[${idx}]=this.value" onkeydown="if(event.key==='Tab'){event.preventDefault();toggleWQReveal();}">${savedSubj}</textarea>
       </div>
       <div class="subj-answer-box ${revealed ? 'show' : ''}">
         <div class="subj-answer-title"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-check-square"/></svg>모범 답안</div>
@@ -12843,7 +12877,7 @@ function renderWQ() {
           <svg class="ic" viewBox="0 0 24 24"><use href="#ic-x-circle"/></svg><span>틀렸어요</span>
         </button>
       </div>
-      <div class="subj-hint">판정 없이 다음으로 넘어가도 돼요</div>
+      ${subjHintHTML()}
     `;
     expBox.classList.remove('show');
     document.getElementById('wq-next-btn').disabled = false;
@@ -14174,7 +14208,7 @@ function renderSQ() {
     optEl.innerHTML = `
       <span class="subj-type-badge"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-pencil"/></svg>주관식</span>
       <div class="subj-input-wrap">
-        <textarea class="subj-input" id="sq-subj-input" spellcheck="false" placeholder="여기에 답을 써보세요...&#10;Tab 정답 보기 · Ctrl+Enter 다음 · Ctrl+⌫ 이전" oninput="sqState.subjInputs=sqState.subjInputs||{}; sqState.subjInputs[${idx}]=this.value" onkeydown="if(event.key==='Tab'){event.preventDefault();toggleSQReveal();}">${savedSubj}</textarea>
+        <textarea class="subj-input" id="sq-subj-input" spellcheck="false" placeholder="${subjPlaceholderAttr()}" oninput="sqState.subjInputs=sqState.subjInputs||{}; sqState.subjInputs[${idx}]=this.value" onkeydown="if(event.key==='Tab'){event.preventDefault();toggleSQReveal();}">${savedSubj}</textarea>
       </div>
       <div class="subj-answer-box ${revealed ? 'show' : ''}">
         <div class="subj-answer-title"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-check-square"/></svg>모범 답안</div>
@@ -14192,7 +14226,7 @@ function renderSQ() {
           <svg class="ic" viewBox="0 0 24 24"><use href="#ic-x-circle"/></svg><span>틀렸어요</span>
         </button>
       </div>
-      <div class="subj-hint">판정 없이 다음으로 넘어가도 돼요</div>
+      ${subjHintHTML()}
     `;
     expBox.classList.remove('show');
     document.getElementById('sq-next-btn').disabled = false;
@@ -14549,7 +14583,7 @@ function renderFQ() {
     optEl.innerHTML = `
       <span class="subj-type-badge"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-pencil"/></svg>주관식</span>
       <div class="subj-input-wrap">
-        <textarea class="subj-input" id="fq-subj-input" spellcheck="false" placeholder="여기에 답을 써보세요...&#10;Tab 정답 보기 · Ctrl+Enter 다음 · Ctrl+⌫ 이전" oninput="fqState.subjInputs=fqState.subjInputs||{}; fqState.subjInputs[${idx}]=this.value" onkeydown="if(event.key==='Tab'){event.preventDefault();toggleFQReveal();}">${savedSubj}</textarea>
+        <textarea class="subj-input" id="fq-subj-input" spellcheck="false" placeholder="${subjPlaceholderAttr()}" oninput="fqState.subjInputs=fqState.subjInputs||{}; fqState.subjInputs[${idx}]=this.value" onkeydown="if(event.key==='Tab'){event.preventDefault();toggleFQReveal();}">${savedSubj}</textarea>
       </div>
       <div class="subj-answer-box ${revealed ? 'show' : ''}">
         <div class="subj-answer-title"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-check-square"/></svg>모범 답안</div>
@@ -14567,7 +14601,7 @@ function renderFQ() {
           <svg class="ic" viewBox="0 0 24 24"><use href="#ic-x-circle"/></svg><span>틀렸어요</span>
         </button>
       </div>
-      <div class="subj-hint">판정 없이 다음으로 넘어가도 돼요</div>
+      ${subjHintHTML()}
     `;
     expBox.classList.remove('show');
     document.getElementById('fq-next-btn').disabled = false;
@@ -14954,7 +14988,7 @@ function renderCQ() {
     optEl.innerHTML = `
       <span class="subj-type-badge"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-pencil"/></svg>주관식</span>
       <div class="subj-input-wrap">
-        <textarea class="subj-input" id="cq-subj-input" spellcheck="false" placeholder="여기에 답을 써보세요...&#10;Tab 정답 보기 · Ctrl+Enter 다음 · Ctrl+⌫ 이전" oninput="cqState.subjInputs=cqState.subjInputs||{}; cqState.subjInputs[${idx}]=this.value" onkeydown="if(event.key==='Tab'){event.preventDefault();toggleCQReveal();}">${savedSubj}</textarea>
+        <textarea class="subj-input" id="cq-subj-input" spellcheck="false" placeholder="${subjPlaceholderAttr()}" oninput="cqState.subjInputs=cqState.subjInputs||{}; cqState.subjInputs[${idx}]=this.value" onkeydown="if(event.key==='Tab'){event.preventDefault();toggleCQReveal();}">${savedSubj}</textarea>
       </div>
       <div class="subj-answer-box ${revealed ? 'show' : ''}">
         <div class="subj-answer-title"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-check-square"/></svg>모범 답안</div>
@@ -14972,7 +15006,7 @@ function renderCQ() {
           <svg class="ic" viewBox="0 0 24 24"><use href="#ic-x-circle"/></svg><span>틀렸어요</span>
         </button>
       </div>
-      <div class="subj-hint">판정 없이 다음으로 넘어가도 돼요</div>
+      ${subjHintHTML()}
     `;
     expBox.classList.remove('show');
     document.getElementById('cq-next-btn').disabled = false;
@@ -15742,7 +15776,7 @@ function renderMQ() {
     optEl.innerHTML = `
       <span class="subj-type-badge"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-pencil"/></svg>주관식</span>
       <div class="subj-input-wrap">
-        <textarea class="subj-input" id="mq-subj-input" spellcheck="false" placeholder="여기에 답을 써보세요...&#10;Tab 정답 보기 · Ctrl+Enter 다음 · Ctrl+⌫ 이전" oninput="mqState.subjInputs=mqState.subjInputs||{}; mqState.subjInputs[${idx}]=this.value" onkeydown="if(event.key==='Tab'){event.preventDefault();toggleMQReveal();}">${savedSubj}</textarea>
+        <textarea class="subj-input" id="mq-subj-input" spellcheck="false" placeholder="${subjPlaceholderAttr()}" oninput="mqState.subjInputs=mqState.subjInputs||{}; mqState.subjInputs[${idx}]=this.value" onkeydown="if(event.key==='Tab'){event.preventDefault();toggleMQReveal();}">${savedSubj}</textarea>
       </div>
       <div class="subj-answer-box ${revealed ? 'show' : ''}">
         <div class="subj-answer-title"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-check-square"/></svg>모범 답안</div>
@@ -15760,7 +15794,7 @@ function renderMQ() {
           <svg class="ic" viewBox="0 0 24 24"><use href="#ic-x-circle"/></svg><span>틀렸어요</span>
         </button>
       </div>
-      <div class="subj-hint">판정 없이 다음으로 넘어가도 돼요</div>
+      ${subjHintHTML()}
     `;
     expBox.classList.remove('show');
     document.getElementById('mq-next-btn').disabled = false;   // 판정 없이도 진행 가능
@@ -16234,7 +16268,7 @@ function renderMWQ() {
     optEl.innerHTML = `
       <span class="subj-type-badge"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-pencil"/></svg>주관식</span>
       <div class="subj-input-wrap">
-        <textarea class="subj-input" id="mwq-subj-input" spellcheck="false" placeholder="여기에 답을 써보세요...&#10;Tab 정답 보기 · Ctrl+Enter 다음 · Ctrl+⌫ 이전" oninput="mwqState.subjInputs=mwqState.subjInputs||{}; mwqState.subjInputs[${idx}]=this.value" onkeydown="if(event.key==='Tab'){event.preventDefault();toggleMWQReveal();}">${savedSubj}</textarea>
+        <textarea class="subj-input" id="mwq-subj-input" spellcheck="false" placeholder="${subjPlaceholderAttr()}" oninput="mwqState.subjInputs=mwqState.subjInputs||{}; mwqState.subjInputs[${idx}]=this.value" onkeydown="if(event.key==='Tab'){event.preventDefault();toggleMWQReveal();}">${savedSubj}</textarea>
       </div>
       <div class="subj-answer-box ${revealed ? 'show' : ''}">
         <div class="subj-answer-title"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-check-square"/></svg>모범 답안</div>
@@ -16252,7 +16286,7 @@ function renderMWQ() {
           <svg class="ic" viewBox="0 0 24 24"><use href="#ic-x-circle"/></svg><span>틀렸어요</span>
         </button>
       </div>
-      <div class="subj-hint">판정 없이 다음으로 넘어가도 돼요</div>
+      ${subjHintHTML()}
     `;
     expBox.classList.remove('show');
     document.getElementById('mwq-next-btn').disabled = false;
@@ -19356,6 +19390,12 @@ applyRenderFlags();
 //   k: 'new'(새 기능) · 'fix'(고침) · 'chg'(바뀜)
 // ══════════════════════════════════════════════════════════════════════
 const PATCH_NOTES = [
+  { v: '260811-0546', at: '2026-08-11', items: [
+    { k: 'chg', t: '문제 풀이 화면의 <b>안내 문구를 정리</b>했습니다 — 폰에는 없는 <b>Ctrl·Tab 단축키 안내</b>를 폰에서 감추고(PC에서는 그대로), <b>판정 없이 넘어가도 돼요</b> 안내는 다섯 번 본 뒤 스스로 사라집니다' },
+    { k: 'chg', t: '<b>계산기 버튼</b>을 왼쪽 아래에서 오른쪽(맨 위로 버튼 위)으로 옮겼습니다 — <b>이전</b> 버튼과 겹쳐서 본문을 가리던 문제를 없앴어요' },
+    { k: 'chg', t: '<b>상단바 색을 차분하게</b> 낮췄습니다 — 3단 그라데이션을 2단으로 줄이고 채도를 내렸으며, 헤더에 번지던 보라색 그림자를 없앴습니다 (스크롤하면 오히려 더 진해지던 것도 함께 수정)' },
+    { k: 'fix', t: '<b>회색 안내 글씨가 잘 안 읽히던 것</b>을 고쳤습니다 — 회차·문항 표시 등에 쓰던 회색의 대비를 밝은 곳에서도 읽히도록 올렸습니다 (라이트·다크 모두)' },
+  ]},
   { v: '260811-0340', at: '2026-08-11', items: [
     { k: 'new', t: '<b>문제 그림을 서랍처럼 접었다 펼</b> 수 있습니다 — 도면이 크면 답 쓰는 칸이 한참 아래로 밀렸는데, <b>그림 접기</b>를 누르면 답 칸이 바로 위로 올라옵니다' },
     { k: 'chg', t: '접어 둔 상태는 <b>다음 문제·다음 실행에도 그대로</b>입니다 — 한 번 접으면 계속 접힌 채로 나오고, 필요한 문제에서만 <b>그림 보기</b>를 누르면 됩니다' },
@@ -19747,7 +19787,7 @@ function closePatchNotes() {
 // ── 앱 버전 ──
 // 폰이 옛 파일을 캐시해 두고 있는지 바로 확인할 수 있도록 화면에 표시한다.
 // (설정 맨 아래 · 개발자 도구 콘솔에도 찍힘)
-const APP_VERSION = '260811-0340';
+const APP_VERSION = '260811-0546';
 console.log('%c양진웅 Note 버전 ' + APP_VERSION, 'font-weight:bold');
 
 // PWA 서비스워커 등록
