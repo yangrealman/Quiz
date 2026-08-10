@@ -6221,6 +6221,32 @@
      ═══════════════════════════════════════════════════════════ */
   .q-img-wrap { margin: 0 0 16px; }
   .q-img-wrap:empty { display: none; }
+
+  /* 문제 그림 서랍 — 도면이 크면 답 쓰는 칸이 한참 아래로 밀려서, 접어 둘 수 있게 했다.
+     접힘/펼침은 기기에 기억해 두므로 문제를 넘겨도 그대로 유지된다.
+     크기 조절 손잡이가 상자 밖(-6px)에 있어서 펼쳤을 때는 overflow 를 풀어 준다. */
+  .qimg-toggle {
+    display: flex; align-items: center; gap: 5px;
+    border: none; background: none; cursor: pointer; font-family: inherit;
+    font-size: 12.5px; font-weight: 700; color: var(--primary);
+    padding: 4px 0;
+  }
+  .qimg-caret { width: 13px; height: 13px; transition: transform 0.18s ease; }
+  .q-img-wrap.qimg-open .qimg-caret { transform: rotate(180deg); }
+  .qimg-txt-open { display: none; }
+  .q-img-wrap.qimg-open .qimg-txt-closed { display: none; }
+  .q-img-wrap.qimg-open .qimg-txt-open { display: inline; }
+  .qimg-collapse { height: 0; overflow: hidden; }
+  .q-img-wrap.qimg-open .qimg-collapse { height: auto; overflow: visible; margin-top: 8px; }
+  .qimg-collapse > div {
+    min-height: 0;
+    opacity: 0;
+    transform: translateY(-6px);
+    transition: opacity 0.16s ease, transform 0.16s ease;
+    will-change: opacity, transform;
+  }
+  .q-img-wrap.qimg-open .qimg-collapse > div { opacity: 1; transform: translateY(0); }
+  body.reduce-motion .qimg-collapse > div { transition: none; }
   /* [수정] 예전엔 width:100% 라 작은 도표도 화면 폭까지 억지로 늘어났다.
      → 원본 크기를 넘지 않게 하고, 넘칠 때만 줄인다 */
   .q-img-box {
@@ -17045,7 +17071,7 @@ function renderQImage(wrapId, q) {
   const wrap = document.getElementById(wrapId);
   if (!wrap) return;
   const imgId = q && q.imgId;
-  if (!imgId) { wrap.innerHTML = ''; delete wrap.dataset.imgId; return; }
+  if (!imgId) { wrap.innerHTML = ''; wrap.classList.remove('qimg-open'); delete wrap.dataset.imgId; return; }
 
   wrap.dataset.imgId = imgId;
   const mem = _memGet(imgId);
@@ -17098,10 +17124,32 @@ function unifyImgWidthsOnce() {
   if (Object.keys(getImgW()).length) syncToFirebase('quiz_imgw', {});
 }
 
+// ── 문제 그림 서랍 (접기·펼치기) ──
+// 접어 둔 상태는 이 기기에 기억한다 — 한 번 접으면 다음 문제·다음 실행에도 접힌 채로 나온다.
+// 그림 '크기'(getImgW) 와는 완전히 별개라, 접었다 펴도 조절해 둔 크기는 그대로다.
+const QIMG_OPEN_KEY = 'qimg_open';
+function isQImgOpen() {
+  try { return localStorage.getItem(QIMG_OPEN_KEY) !== '0'; } catch (_) { return true; }
+}
+function toggleQImgDrawer(btn) {
+  const wrap = btn.closest('.q-img-wrap');
+  if (!wrap) return;
+  const open = !wrap.classList.contains('qimg-open');
+  try { localStorage.setItem(QIMG_OPEN_KEY, open ? '1' : '0'); } catch (_) {}
+  // 화면에 떠 있는 문제 그림을 모두 같은 상태로 맞춘다 (문제를 넘겨도 그대로 유지되게)
+  document.querySelectorAll('.q-img-wrap[data-img-id]').forEach(w => {
+    w.classList.toggle('qimg-open', open);
+    const b = w.querySelector('.qimg-toggle');
+    if (b) b.setAttribute('aria-expanded', String(open));
+  });
+}
+
 function _paintQImage(wrap, data) {
   const id = wrap.dataset.imgId || wrap.dataset.expimg || '';
   const saved = id ? getImgW()[id] : null;
-  wrap.innerHTML = `
+  // 크기 조절·되돌리기 코드가 .q-img-box 와 .q-img-reset 이 같은 부모 밑에 있다고 보므로
+  // 서랍을 씌울 때도 이 둘은 반드시 한 상자 안에 나란히 둔다
+  const inner = `
     <div class="q-img-box" data-imgid="${escHtml(id)}"${saved ? ` style="width:${saved}px"` : ''}>
       <img class="q-img" src="${data}" alt="문제 그림" onclick="openImgLightbox(this.src)">
       <div class="q-img-size"></div>
@@ -17109,6 +17157,19 @@ function _paintQImage(wrap, data) {
     </div>
     ${saved ? `<button class="q-img-reset" onclick="resetQImgSize('${escArg(id)}', this)">원래 크기로</button>` : ''}
     <div class="q-img-hint">그림을 누르면 크게 볼 수 있어요</div>`;
+
+  // 해설 그림은 이미 '정답·해설 보기' 서랍 안에 있으므로 서랍을 겹치지 않는다
+  if (!wrap.dataset.imgId) { wrap.innerHTML = inner; return; }
+
+  const open = isQImgOpen();
+  wrap.classList.toggle('qimg-open', open);
+  wrap.innerHTML = `
+    <button class="qimg-toggle" onclick="toggleQImgDrawer(this)" aria-expanded="${open}">
+      <svg class="ic qimg-caret" viewBox="0 0 24 24"><use href="#ic-chevron-down"/></svg>
+      <span class="qimg-txt-closed">그림 보기</span>
+      <span class="qimg-txt-open">그림 접기</span>
+    </button>
+    <div class="qimg-collapse"><div>${inner}</div></div>`;
 }
 
 function resetQImgSize(id, btn) {
@@ -19295,6 +19356,11 @@ applyRenderFlags();
 //   k: 'new'(새 기능) · 'fix'(고침) · 'chg'(바뀜)
 // ══════════════════════════════════════════════════════════════════════
 const PATCH_NOTES = [
+  { v: '260811-0340', at: '2026-08-11', items: [
+    { k: 'new', t: '<b>문제 그림을 서랍처럼 접었다 펼</b> 수 있습니다 — 도면이 크면 답 쓰는 칸이 한참 아래로 밀렸는데, <b>그림 접기</b>를 누르면 답 칸이 바로 위로 올라옵니다' },
+    { k: 'chg', t: '접어 둔 상태는 <b>다음 문제·다음 실행에도 그대로</b>입니다 — 한 번 접으면 계속 접힌 채로 나오고, 필요한 문제에서만 <b>그림 보기</b>를 누르면 됩니다' },
+    { k: 'chg', t: '접었다 펴도 <b>손잡이로 조절해 둔 그림 크기는 그대로 보존</b>됩니다 (크기 조절·원래 크기로 되돌리기 모두 그대로 동작해요)' },
+  ]},
   { v: '260810-2238', at: '2026-08-10', items: [
     { k: 'new', t: '<b>복습 &gt; 계산문제만</b>이 생겼습니다 — <b>해설이나 답에 계산식(=)</b>이 있는 문제를 모아서 보여주고, 체크만 풀기처럼 목록 보기·모아 풀기·이어서 풀기를 할 수 있습니다 (자격증별로 걸러 볼 수도 있어요)' },
     { k: 'new', t: '<b>모의고사를 푸는 중에도 문제를 체크</b>할 수 있습니다 — 헤더의 체크 버튼을 누르면 <b>복습 &gt; 체크</b> 목록에 그대로 들어갑니다' },
@@ -19681,7 +19747,7 @@ function closePatchNotes() {
 // ── 앱 버전 ──
 // 폰이 옛 파일을 캐시해 두고 있는지 바로 확인할 수 있도록 화면에 표시한다.
 // (설정 맨 아래 · 개발자 도구 콘솔에도 찍힘)
-const APP_VERSION = '260810-2238';
+const APP_VERSION = '260811-0340';
 console.log('%c양진웅 Note 버전 ' + APP_VERSION, 'font-weight:bold');
 
 // PWA 서비스워커 등록
