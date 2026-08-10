@@ -6942,6 +6942,71 @@
   </div>
 </div>
 
+<!-- ─────────────────────────────── 계산문제만 ───────────────────────────────
+     오답·별표·체크와 달리 따로 저장해 두는 목록이 아니다 — 열 때마다 전체 문제에서
+     골라내므로 '해제'나 '전체 초기화'가 없다. -->
+<div id="page-calc" class="page">
+  <div class="container">
+    <div class="section-header">
+      <div>
+        <div class="page-title">🧮 계산문제</div>
+        <div class="page-sub">해설·답에 계산식(=)이 있는 문제</div>
+      </div>
+      <button class="btn btn-primary" id="calc-quiz-btn" onclick="startCalcQuiz()" style="display:none; white-space:nowrap">계산문제 풀기</button>
+    </div>
+    <div id="calc-resume-card" style="margin-bottom:12px;"></div>
+    <div id="calc-filter" style="margin-bottom:8px; display:flex; gap:8px; flex-wrap:wrap;"></div>
+    <div id="calc-list"></div>
+  </div>
+</div>
+
+<!-- ─────────────────────────────── 계산문제 풀기 ─────────────────────────────── -->
+<div id="page-calc-quiz" class="page">
+  <div class="container">
+    <button class="back-btn" onclick="goPage('calc')"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-arrow-left"/></svg>계산문제 목록으로</button>
+    <div class="quiz-header">
+      <div class="quiz-where">
+        <span class="quiz-where-t">🧮 계산문제 집중 풀기</span>
+        <span class="quiz-q-num" id="cq-q-num"></span>
+      </div>
+      <div style="display:flex; align-items:center; gap:6px;">
+        <span class="star-widget" id="cq-star-widget">
+          <span class="star-pip" onclick="setStarCQ(1)">★</span>
+          <span class="star-pip" onclick="setStarCQ(2)">★</span>
+          <span class="star-pip" onclick="setStarCQ(3)">★</span>
+          <span class="star-pip" onclick="setStarCQ(4)">★</span>
+          <span class="star-pip" onclick="setStarCQ(5)">★</span>
+        </span>
+        <button class="flag-btn" id="cq-flag-btn" onclick="toggleFlagCQ()" title="체크 표시">
+          <svg class="ic" viewBox="0 0 24 24"><use href="#ic-square"/></svg>
+        </button>
+        <span class="quiz-num" id="cq-num"></span>
+      </div>
+    </div>
+    <div class="quiz-scrub-row">
+      <button class="scrub-arrow" onclick="cqPrev()" title="이전 문제" aria-label="이전 문제"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-arrow-left"/></svg></button>
+      <div class="quiz-progress-bar scrub-bar" id="cq-progress-bar">
+        <div class="quiz-progress-fill" id="cq-progress-fill"></div>
+        <div class="quiz-progress-thumb" id="cq-progress-thumb"></div>
+        <div class="quiz-progress-tip" id="cq-progress-tip"></div>
+      </div>
+      <button class="scrub-arrow" onclick="cqNext()" title="다음 문제" aria-label="다음 문제"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-arrow-right"/></svg></button>
+    </div>
+    <div id="cq-source" style="margin-bottom:4px"></div>
+    <div class="quiz-question" id="cq-question"></div>
+    <div class="q-img-wrap" id="cq-img-wrap"></div>
+    <div class="quiz-options" id="cq-options"></div>
+    <div class="explanation-box" id="cq-explanation-box">
+      <div class="explanation-title"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-bulb"/></svg>해설</div>
+      <div class="explanation-text" id="cq-explanation-text"></div>
+    </div>
+    <div class="quiz-nav">
+      <button class="btn btn-secondary" id="cq-prev-btn" onclick="cqPrev()"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-arrow-left"/></svg>이전</button>
+      <button class="btn btn-primary" id="cq-next-btn" onclick="cqNext()">다음<svg class="ic" viewBox="0 0 24 24"><use href="#ic-arrow-right"/></svg></button>
+    </div>
+  </div>
+</div>
+
 <!-- ─────────────────────────────── 정답지 보기 ─────────────────────────────── -->
 <div id="page-answer-sheet" class="page">
   <div class="container">
@@ -7447,11 +7512,6 @@
 <!-- ─────────────────────────────── 모의고사 홈 ─────────────────────────────── -->
 <div id="page-mock" class="page">
   <div class="container">
-    <div class="mock-header">
-      <div class="mock-header-title"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-pencil"/></svg> 모의고사</div>
-      <div class="mock-header-sub">전체 문제에서 무작위 출제 · 실전 대비</div>
-    </div>
-
     <div id="mock-resume-card" style="margin-bottom:12px;"></div>
 
     <!-- 모의고사 생성 -->
@@ -7492,6 +7552,9 @@
         <span class="quiz-q-num" id="mq-q-num"></span>
       </div>
       <div style="display:flex; align-items:center; gap:8px;">
+        <button class="flag-btn" id="mq-flag-btn" onclick="toggleFlagMQ()" title="체크 표시">
+          <svg class="ic" viewBox="0 0 24 24"><use href="#ic-square"/></svg>
+        </button>
         <span class="quiz-where-t" id="mq-progress-txt"></span>
         <span class="quiz-num" id="mq-num"></span>
       </div>
@@ -8112,6 +8175,7 @@ function applyLiveRefresh() {
     else if (currentPage === 'wrong') renderWrongNote();
     else if (currentPage === 'star') renderStarNote();
     else if (currentPage === 'flag') renderFlagNote();
+    else if (currentPage === 'calc') renderCalcNote();
     else if (currentPage === 'review') renderReview();
   } catch (e) { console.warn('화면 갱신 오류:', e); }
 }
@@ -8860,6 +8924,10 @@ function toggleFlagEntry(cat, round, q, idx) {
   saveFlagged(flagged);
   return on;
 }
+// 체크가 저장되는 열쇠 — toggleFlagEntry 가 만드는 것과 반드시 같아야 버튼 색이 맞는다
+function _flagKeyOf(cat, round, q) {
+  return getStarKey(cat, round, (q && (q.id || q.num)) || 0);
+}
 function paintFlagBtn(btn, on) {
   if (!btn) return;
   btn.classList.toggle('on', !!on);
@@ -9104,7 +9172,7 @@ new MutationObserver(() => {
 }).observe(document.body, { childList: true, subtree: true });
 let _navBusy = false;          // popstate로 인한 이동인지 구분
 const _pageState = {};         // 화면별 스크롤·필터 기억
-const pages = ['dashboard','home','review','quiz','result','wrong','wrong-quiz','star','star-quiz','flag','flag-quiz','mock','mock-quiz','mock-result','mock-wrong','mock-wrong-quiz','answer-sheet','search','memo-tab','quick-check','settings'];
+const pages = ['dashboard','home','review','quiz','result','wrong','wrong-quiz','star','star-quiz','flag','flag-quiz','calc','calc-quiz','mock','mock-quiz','mock-result','mock-wrong','mock-wrong-quiz','answer-sheet','search','memo-tab','quick-check','settings'];
 
 // 탭 활성 표시만 먼저 갱신 (화면 전환 스냅샷에 이미 반영되게 → 끊김 방지)
 function _syncTabActive(name) {
@@ -9158,6 +9226,7 @@ function _goPageNow(name) {
   const tabMap = {
     home: 'practice',                        // [수정] '홈' 탭은 없앴다 (로고가 그 역할)
     review: 'review', wrong: 'review', star: 'review', flag: 'review', 'flag-quiz': 'review',
+    calc: 'review', 'calc-quiz': 'review',
     mock: 'review', 'mock-result': 'review', 'mock-wrong': 'review',
     search: 'search', 'memo-tab': 'memo-tab'
   };
@@ -9181,6 +9250,8 @@ function _goPageNow(name) {
     renderStarNote();
   } else if (name === 'flag') {
     renderFlagNote();
+  } else if (name === 'calc') {
+    renderCalcNote();
   } else if (name === 'mock' || name === 'mock-result' || name === 'mock-wrong') {
     if (name === 'mock') renderMockHome();
     if (name === 'mock-wrong') renderMockWrongNote();
@@ -9846,6 +9917,9 @@ function renderReview() {
   const wrongN = getWrongAnswers().length;
   const starN = Object.keys(getStarred()).length;
   const flagN = Object.keys(getFlagged()).length;
+  // 계산문제는 저장된 목록이 아니라 훑어서 세는 값이다 (문제가 많아도 한 번 훑는 정도라 가볍다)
+  let calcN = 0;
+  try { calcN = collectCalcQuestions(null).length; } catch (_) {}
   main.innerHTML = `
     <div class="section-header"><div class="section-label">🗂 복습</div></div>
     <div class="review-choices">
@@ -9870,6 +9944,14 @@ function renderReview() {
         <div class="review-card-body">
           <div class="review-card-title">체크</div>
           <div class="review-card-sub">체크한 문제만 모아 풀기${flagN ? ` · ${flagN}개` : ''}</div>
+        </div>
+        <div class="review-card-arrow"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-chevron-right"/></svg></div>
+      </div>
+      <div class="review-card" onclick="goPage('calc')">
+        <div class="review-card-icon" style="background:var(--success-light); color:var(--success);"><svg class="ic ic-lg" viewBox="0 0 24 24"><use href="#ic-bulb"/></svg></div>
+        <div class="review-card-body">
+          <div class="review-card-title">계산문제만</div>
+          <div class="review-card-sub">해설·답에 계산식(=)이 있는 문제${calcN ? ` · ${calcN}개` : ''}</div>
         </div>
         <div class="review-card-arrow"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-chevron-right"/></svg></div>
       </div>
@@ -11085,6 +11167,7 @@ function setupQuizScrubber() {
   makeScrubber('quiz', () => (currentQuiz && currentQuiz.questions) || [], i => goToQuestion(i));
   makeScrubber('sq',   () => (sqState && sqState.questions) || [],       i => sqGoTo(i));
   makeScrubber('fq',   () => (fqState && fqState.questions) || [],       i => fqGoTo(i));
+  makeScrubber('cq',   () => (cqState && cqState.questions) || [],       i => cqGoTo(i));
   // 모의고사 목록은 {q, round, cat} 꾸러미라 num 이 없다 → 툴팁이 순서 번호로 떨어지는데,
   // 화면 상단 표시(Q1, Q2…)도 순서 번호라 그게 오히려 맞다 (출처 문항번호를 쓰면 서로 어긋난다).
   makeScrubber('mq',   () => (mqState && mqState.questions) || [],       i => mqGoTo(i));
@@ -13570,6 +13653,14 @@ function setStarCurrent(level) {
   paintStarWidget(document.getElementById('quiz-star-widget'), lv);
 }
 
+// 모의고사를 푸는 중에 문제 체크하기 (별표는 오답 목록에서 하므로 여기엔 두지 않는다)
+function toggleFlagMQ() {
+  const item = mqState && mqState.questions && mqState.questions[mqState.idx];
+  if (!item) return;
+  const on = toggleFlagEntry(item.cat, item.round, item.q, 0);
+  paintFlagBtn(document.getElementById('mq-flag-btn'), on);
+}
+
 function toggleFlagCurrent() {
   const { questions, idx, cat, round } = currentQuiz;
   const on = toggleFlagEntry(cat, round, questions[idx], idx);
@@ -14597,6 +14688,389 @@ function renderFQSource() {
   el.innerHTML = `<span class="sq-source-badge">${escHtml(src.cat)} ${escHtml(src.round)}회차</span>`;
 }
 
+// ══════════════════════════════════════════════════════════════════════
+// 계산문제만
+// ══════════════════════════════════════════════════════════════════════
+// 오답·별표·체크는 눌러서 쌓아 둔 목록이지만, 계산문제는 저장하지 않는다 —
+// 열 때마다 등록된 모든 문제를 훑어서 '=' 가 들어간 것을 골라낸다.
+// 그래서 '체크 해제' 같은 게 없고, 문제를 고쳐 '=' 가 사라지면 목록에서도 저절로 빠진다.
+// 어디를 보나: 해설, 그리고 답 — 필답형은 모범 답안, 객관식은 정답 보기의 글자.
+const _EQ_RE = /[=＝]/;
+
+function _isCalcQuestion(q) {
+  if (!q) return false;
+  if (_EQ_RE.test(q.explanation || '')) return true;
+  const opts = Array.isArray(q.options) ? q.options : [];
+  const isSubj = q.type === 'subj' || opts.length === 0;
+  const ans = isSubj ? (q.answer || '') : (opts[q.correct] || '');
+  return _EQ_RE.test(ans);
+}
+
+// 오답노트 항목과 같은 모양({cat, round, qId, q})으로 돌려준다 — 목록·풀이 코드가 그대로 쓸 수 있게
+function collectCalcQuestions(cat) {
+  const out = [];
+  const cats = cat ? [cat] : getCategories();
+  cats.forEach(c => {
+    getRoundList(c).forEach(r => {
+      getRound(c, r).forEach((q, i) => {
+        if (_isCalcQuestion(q)) out.push({ cat: c, round: r, qId: (q.id || q.num) || i, q });
+      });
+    });
+  });
+  return out;
+}
+
+let calcFilter = { cat: null };
+function setCalcFilter(cat) { calcFilter.cat = cat; renderCalcNote(); }
+
+function renderCalcNote() {
+  const all = collectCalcQuestions(null);
+  const circleNums = ['①','②','③','④','⑤','⑥'];
+  renderCalcResumeCard();
+
+  const btn = document.getElementById('calc-quiz-btn');
+  if (btn) btn.style.display = all.length ? 'block' : 'none';
+
+  // 자격증이 하나뿐이면 거를 게 없으니 필터 줄을 숨긴다
+  const cats = [...new Set(all.map(x => x.cat))];
+  const filterEl = document.getElementById('calc-filter');
+  filterEl.innerHTML = (cats.length > 1) ? `
+    <button class="btn ${calcFilter.cat === null ? 'btn-primary' : 'btn-secondary'}" onclick="setCalcFilter(null)" style="font-size:13px; padding:6px 14px">전체 (${all.length})</button>
+    ${cats.map(c => {
+      const cnt = all.filter(x => x.cat === c).length;
+      return `<button class="btn ${calcFilter.cat === c ? 'btn-primary' : 'btn-secondary'}" onclick="setCalcFilter('${escArg(c)}')" style="font-size:13px; padding:6px 14px">${escHtml(c)} (${cnt})</button>`;
+    }).join('')}
+  ` : '';
+
+  if (!all.length) {
+    document.getElementById('calc-list').innerHTML = `<div class="empty-state"><div class="emoji"><svg class="ic ic-empty" viewBox="0 0 24 24"><use href="#ic-bulb"/></svg></div><p>계산문제를 찾지 못했어요.<br>해설이나 답에 <b>=</b> 가 들어간 문제를 모아서 보여줍니다.</p><button class="btn btn-secondary empty-cta" onclick="goPage('home')">문제 풀러 가기</button></div>`;
+    return;
+  }
+
+  const filtered = calcFilter.cat ? all.filter(x => x.cat === calcFilter.cat) : all;
+  if (!filtered.length) {
+    document.getElementById('calc-list').innerHTML = `<div class="empty-state"><p>이 자격증에는 계산문제가 없어요.</p></div>`;
+    return;
+  }
+
+  document.getElementById('calc-list').innerHTML = `
+    <div class="wrong-note-list">
+      ${filtered.map(w => {
+        const q = w.q;
+        const opts = Array.isArray(q.options) ? q.options : [];
+        const isSubj = q.type === 'subj' || opts.length === 0;
+        const starKey = getStarKey(w.cat, w.round, w.qId);
+        const starLv = starLevelOf(getStarred()[starKey]);
+        const flagOn = !!getFlagged()[_flagKeyOf(w.cat, w.round, q)];
+        const body = isSubj
+          ? `<div class="wn-option correct" style="align-items:flex-start">
+               <span style="flex-shrink:0"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-check-circle"/></svg> 정답</span>
+               <span style="line-height:1.9; white-space:pre-wrap">${(q.answer != null && q.answer !== '') ? renderExp(q.answer) : '<span style="color:var(--gray-400)">정답 정보 없음</span>'}</span>
+             </div>`
+          : `<div class="wrong-note-options">
+               ${opts.map((opt, i) => `
+                 <div class="wn-option ${i === q.correct ? 'correct' : ''}">
+                   <span>${circleNums[i]||i+1}</span> ${escHtml(opt)}
+                 </div>
+               `).join('')}
+             </div>`;
+        return `
+          <div class="wrong-note-item">
+            <div class="wrong-note-meta">
+              ${starWidgetHTML(starLv, `setStarFromCalc('${escArg(w.cat)}','${escArg(w.round)}',${Number(q.num) || 0}, {i}, this)`)}
+              <button class="flag-btn ${flagOn ? 'on' : ''}" onclick="toggleFlagFromCalc('${escArg(w.cat)}','${escArg(w.round)}',${Number(q.num) || 0}, this)" title="${flagOn ? '체크 해제' : '체크 표시'}">
+                <svg class="ic" viewBox="0 0 24 24"><use href="${flagOn ? '#ic-check-square' : '#ic-square'}"/></svg>
+              </button>
+              <span style="font-weight:600">${escHtml(w.cat)}</span>
+              <span>${escHtml(w.round)}회차</span>
+              <span>Q${q.num || ''}</span>
+            </div>
+            <div class="wrong-note-q"${hlAttr(w.cat, w.round, q, 'q')}>${q.question || ''}</div>
+            <button class="wn-toggle" onclick="toggleAnswerCollapse(this)">
+              <span class="wn-toggle-txt-closed">정답·해설 보기</span>
+              <span class="wn-toggle-txt-open">접기</span>
+              <svg class="ic wn-toggle-caret" viewBox="0 0 24 24"><use href="#ic-chevron-down"/></svg>
+            </button>
+            <div class="wn-collapse"><div>
+              ${body}
+              ${q.explanation ? `<div class="wn-explain"${hlAttr(w.cat, w.round, q, 'e')}><svg class="ic" viewBox="0 0 24 24"><use href="#ic-bulb"/></svg> ${renderExp(q.explanation)}</div>` : ''}${expImgSlot(q)}
+            </div></div>
+          </div>
+        `;
+      }).join('')}
+    </div>
+  `;
+  hlBindList('calc-list');
+}
+
+// 목록에서 별표·체크 — 계산문제는 저장된 항목이 아니라서 자격증·회차·번호로 원본을 다시 찾는다
+function _findCalcQ(cat, round, num) {
+  return getRound(cat, round).find(x => Number(x.num) === Number(num)) || null;
+}
+function setStarFromCalc(cat, round, num, level, pip) {
+  _setStarEntry(cat, round, _findCalcQ(cat, round, num), level, pip);
+}
+function toggleFlagFromCalc(cat, round, num, btn) {
+  _toggleFlagFromList(cat, round, _findCalcQ(cat, round, num), btn);
+}
+
+// ── 계산문제 풀기 ────────────────────────────────────────────────────
+let cqState = { questions: [], idx: 0, answered: {}, source: [] };
+
+function getCalcQuizResume() { return _getCache('calc_quiz_resume', null); }
+function saveCalcQuizResume(state) { syncToFirebase('calc_quiz_resume', state); }
+function clearCalcQuizResume() { saveCalcQuizResume(null); }
+
+function _saveCQCheckpoint() {
+  if (!cqState.source || !cqState.source.length) return;
+  saveCalcQuizResume({
+    ids: cqState.source.map(s => getStarKey(s.cat, s.round, s.qId)),
+    idx: cqState.idx,
+    answered: cqState.answered,
+    total: cqState.source.length,
+    savedAt: Date.now()
+  });
+}
+
+function resumeCalcQuiz() {
+  const r = getCalcQuizResume();
+  if (!r) return;
+  // 목록을 다시 만들어 맞춰본다 — 그 사이 '=' 가 사라졌거나 지워진 문제는 자연히 빠진다
+  const byKey = {};
+  collectCalcQuestions(null).forEach(x => { byKey[getStarKey(x.cat, x.round, x.qId)] = x; });
+  const source = [];
+  const questions = [];
+  const answered = {};
+  let idx = 0;
+  (r.ids || []).forEach((id, oldI) => {
+    const item = byKey[id];
+    if (!item) return;
+    const newI = source.length;
+    source.push(item);
+    questions.push(item.q);
+    if (r.answered && r.answered[oldI] !== undefined) answered[newI] = r.answered[oldI];
+    if (oldI <= r.idx) idx = newI;
+  });
+  if (!source.length) { clearCalcQuizResume(); renderCalcNote(); showToast('이어서 풀 계산문제가 없어요'); return; }
+  cqState = { questions, idx: Math.min(idx, questions.length - 1), answered, source };
+  goPage('calc-quiz');
+  renderCQ();
+}
+
+function renderCalcResumeCard() {
+  const el = document.getElementById('calc-resume-card');
+  if (!el) return;
+  const r = getCalcQuizResume();
+  el.innerHTML = r ? `
+    <div class="home-card resume-card" onclick="resumeCalcQuiz()">
+      <div class="rc-left">
+        <div class="rc-emoji"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-pin"/></svg></div>
+        <div>
+          <div class="rc-title">이어서 풀기</div>
+          <div class="rc-sub">계산문제 ${r.idx + 1} / ${r.total}번째부터</div>
+        </div>
+      </div>
+      <button class="rc-close" onclick="event.stopPropagation(); clearCalcQuizResume(); renderCalcNote();" aria-label="지우기"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-x"/></svg></button>
+    </div>
+  ` : '';
+}
+
+function startCalcQuiz() {
+  try {
+    const src = collectCalcQuestions(calcFilter.cat);
+    if (!src.length) { showToast('계산문제가 없어요'); return; }
+    cqState = { questions: src.map(x => x.q), idx: 0, answered: {}, source: src };
+    goPage('calc-quiz');
+    renderCQ();
+  } catch (e) {
+    console.error('계산문제 풀기 시작 실패:', e);
+    showToast('계산문제 풀기를 시작하지 못했어요');
+  }
+}
+
+function renderCQ() {
+  const { questions, idx, answered, source } = cqState;
+  const q = questions[idx];
+  if (!q) return;
+  const circleNums = ['①','②','③','④','⑤','⑥'];
+  const opts = Array.isArray(q.options) ? q.options : [];
+  const isSubj = q.type === 'subj' || opts.length === 0;
+  const src = source[idx];
+
+  document.getElementById('cq-q-num').textContent = `Q${q.num || idx + 1}`;
+  document.getElementById('cq-num').textContent = `${idx + 1} / ${questions.length}`;
+  const pct = questions.length > 1 ? (idx / (questions.length - 1)) * 100 : 0;
+  document.getElementById('cq-progress-fill').style.width = `${pct}%`;
+  const thumb = document.getElementById('cq-progress-thumb');
+  if (thumb) thumb.style.left = `${pct}%`;
+
+  if (src) {
+    document.getElementById('cq-source').innerHTML = `<span class="sq-source-badge">${escHtml(src.cat)} ${escHtml(src.round)}회차</span>`;
+    paintStarWidget(document.getElementById('cq-star-widget'), starLevelOf(getStarred()[getStarKey(src.cat, src.round, src.qId)]));
+    paintFlagBtn(document.getElementById('cq-flag-btn'), !!getFlagged()[_flagKeyOf(src.cat, src.round, q)]);
+  }
+  document.getElementById('cq-question').textContent = q.question;
+  renderQImage('cq-img-wrap', q);
+  {   // 형광펜 (일반 풀이와 같은 기록을 공유)
+    const hk = src ? srsKey(src.cat, src.round, q, idx) : '';
+    hlBind('cq-question', hk, 'q');
+    hlBind('cq-explanation-text', hk, 'e');
+  }
+
+  const optEl = document.getElementById('cq-options');
+  const expBox = document.getElementById('cq-explanation-box');
+  setExplanation('cq-explanation-text', q);
+
+  if (isSubj) {
+    const savedSubj = cqState.subjInputs ? (cqState.subjInputs[idx] || '') : '';
+    const revealed = cqState.revealed ? cqState.revealed[idx] : false;
+    const judged = answered[idx];
+    optEl.innerHTML = `
+      <span class="subj-type-badge"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-pencil"/></svg>주관식</span>
+      <div class="subj-input-wrap">
+        <textarea class="subj-input" id="cq-subj-input" spellcheck="false" placeholder="여기에 답을 써보세요...&#10;Tab 정답 보기 · Ctrl+Enter 다음 · Ctrl+⌫ 이전" oninput="cqState.subjInputs=cqState.subjInputs||{}; cqState.subjInputs[${idx}]=this.value" onkeydown="if(event.key==='Tab'){event.preventDefault();toggleCQReveal();}">${savedSubj}</textarea>
+      </div>
+      <div class="subj-answer-box ${revealed ? 'show' : ''}">
+        <div class="subj-answer-title"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-check-square"/></svg>모범 답안</div>
+        <div class="subj-answer-text">${renderExp(q.answer || '')}</div>
+        ${q.explanation ? `<div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--success-border);font-size:13px;color:var(--success-deep);"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-bulb"/></svg> ${renderExp(q.explanation)}</div>` : ''}
+      </div>
+      <div class="subj-actions">
+        <button class="sja sja-ok ${judged==='correct' ? 'on' : ''}" onclick="cqJudge('correct')">
+          <svg class="ic" viewBox="0 0 24 24"><use href="#ic-check-square"/></svg><span>맞았어요</span>
+        </button>
+        <button class="sja sja-reveal ${revealed ? 'on' : ''}" onclick="toggleCQReveal()">
+          <svg class="ic" viewBox="0 0 24 24"><use href="#ic-eye"/></svg><span>${revealed ? '정답 숨기기' : '정답 보기'}</span>
+        </button>
+        <button class="sja sja-no ${judged==='wrong' ? 'on' : ''}" onclick="cqJudge('wrong')">
+          <svg class="ic" viewBox="0 0 24 24"><use href="#ic-x-circle"/></svg><span>틀렸어요</span>
+        </button>
+      </div>
+      <div class="subj-hint">판정 없이 다음으로 넘어가도 돼요</div>
+    `;
+    expBox.classList.remove('show');
+    document.getElementById('cq-next-btn').disabled = false;
+  } else {
+    optEl.innerHTML = opts.map((opt, i) => `
+      <button class="quiz-option" onclick="cqAnswer(${i})" ${idx in answered ? 'disabled' : ''}>
+        <span class="opt-num">${circleNums[i]||i+1}</span>
+        <span>${escHtml(opt)}</span>
+      </button>
+    `).join('');
+    if (idx in answered) {
+      const chosen = answered[idx];
+      document.querySelectorAll('#cq-options .quiz-option').forEach((el, i) => {
+        if (i === q.correct) el.classList.add('correct');
+        else if (i === chosen && chosen !== q.correct) el.classList.add('wrong');
+      });
+      expBox.classList.toggle('show', !!q.explanation);
+    } else {
+      expBox.classList.remove('show');
+    }
+    document.getElementById('cq-next-btn').disabled = !(idx in answered);
+  }
+
+  document.getElementById('cq-next-btn').innerHTML = idx === questions.length - 1 ? '완료' : '다음<svg class="ic" viewBox="0 0 24 24"><use href="#ic-arrow-right"/></svg>';
+  document.getElementById('cq-prev-btn').disabled = idx === 0;
+}
+
+function toggleCQReveal() {
+  const textarea = document.getElementById('cq-subj-input');
+  const cursorPos = textarea ? textarea.selectionStart : null;
+  if (!cqState.subjInputs) cqState.subjInputs = {};
+  cqState.subjInputs[cqState.idx] = textarea ? textarea.value : '';
+  if (!cqState.revealed) cqState.revealed = {};
+  cqState.revealed[cqState.idx] = !cqState.revealed[cqState.idx];
+  renderCQ();
+  setTimeout(() => {
+    const t = document.getElementById('cq-subj-input');
+    if (t) { t.focus(); if (cursorPos !== null) t.setSelectionRange(cursorPos, cursorPos); }
+  }, 0);
+}
+
+function cqJudge(result) {
+  cqState.answered[cqState.idx] = result;
+  if (cqState.revealed && cqState.revealed[cqState.idx]) cqState.revealed[cqState.idx] = false;
+  _saveCQCheckpoint();
+  renderCQ();
+  _autoNextAfterJudge(cqState.idx, cqState.questions.length, cqNext);
+}
+
+function cqAnswer(chosen) {
+  const { questions, idx } = cqState;
+  if (idx in cqState.answered) return;
+  const q = questions[idx];
+  cqState.answered[idx] = chosen;
+
+  document.querySelectorAll('#cq-options .quiz-option').forEach((el, i) => {
+    el.disabled = true;
+    if (i === q.correct) el.classList.add('correct');
+    else if (i === chosen) el.classList.add('wrong');
+  });
+
+  if (q.explanation) {
+    setExplanation('cq-explanation-text', q);
+    document.getElementById('cq-explanation-box').classList.add('show');
+  }
+  document.getElementById('cq-next-btn').disabled = false;
+  document.getElementById('cq-next-btn').innerHTML = idx === questions.length - 1 ? '완료' : '다음<svg class="ic" viewBox="0 0 24 24"><use href="#ic-arrow-right"/></svg>';
+  _saveCQCheckpoint();
+}
+
+function cqNext() {
+  const { questions, idx, answered } = cqState;
+  if (idx >= questions.length - 1) {
+    // 필답형은 맞았어요/틀렸어요 판정, 객관식은 고른 번호가 들어 있다 (섞여 있어도 각각 맞게 센다)
+    let correct = 0;
+    questions.forEach((q, i) => {
+      const a = answered[i];
+      if (q.type === 'subj' || !Array.isArray(q.options)) { if (a === 'correct') correct++; }
+      else if (a === q.correct) correct++;
+    });
+    showToast(`완료! ${correct}/${questions.length} 정답 ✔`);
+    clearCalcQuizResume();
+    goPage('calc');
+    renderCalcNote();
+  } else {
+    cqState.idx++;
+    _saveCQCheckpoint();
+    renderCQ();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+}
+
+function cqPrev() {
+  if (cqState.idx > 0) {
+    cqState.idx--;
+    _saveCQCheckpoint();
+    renderCQ();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+}
+
+function cqGoTo(i) {
+  if (!cqState || !cqState.questions.length) return;
+  cqState.idx = Math.max(0, Math.min(cqState.questions.length - 1, i));
+  renderCQ();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function toggleFlagCQ() {
+  const { questions, idx, source } = cqState;
+  const src = source[idx];
+  if (!src) return;
+  const on = toggleFlagEntry(src.cat, src.round, questions[idx], idx);
+  paintFlagBtn(document.getElementById('cq-flag-btn'), on);
+}
+
+function setStarCQ(level) {
+  const { questions, idx, source } = cqState;
+  const src = source[idx];
+  if (!src) return;
+  const lv = setStarLevel(src.cat, src.round, questions[idx], idx, level);
+  paintStarWidget(document.getElementById('cq-star-widget'), lv);
+}
+
 // JSON 을 어느 자격증·회차로 넣을지 묻는다 (파일에 적힌 값을 기본으로)
 function askImportTarget(fileCat, fileRound, n) {
   const cats = getCategories();
@@ -15223,6 +15697,8 @@ function renderMQ() {
   const mqThumb = document.getElementById('mq-progress-thumb');
   if (mqThumb) mqThumb.style.left = `${mqPct}%`;
   document.getElementById('mq-source').innerHTML = `<span class="mock-source-badge"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-pencil"/></svg> ${item.cat} ${item.round}회차 Q${q.num}</span>`;
+  // 모의고사 중에도 문제를 체크해 둘 수 있다 — 복습 > 체크 목록으로 그대로 들어간다
+  paintFlagBtn(document.getElementById('mq-flag-btn'), !!getFlagged()[_flagKeyOf(item.cat, item.round, q)]);
   document.getElementById('mq-question').textContent = q.question;
   renderQImage('mq-img-wrap', q);   // [추가] 문제 그림
 
@@ -17322,6 +17798,7 @@ document.addEventListener('keydown', function(e) {
     'wrong-quiz':      [wqNext,   wqPrev],
     'star-quiz':       [sqNext,   sqPrev],
     'flag-quiz':       [fqNext,   fqPrev],
+    'calc-quiz':       [cqNext,   cqPrev],
     'mock-quiz':       [mqNext,   mqPrev],
     'mock-wrong-quiz': [mwqNext,  mwqPrev]
   };
@@ -17341,6 +17818,7 @@ document.addEventListener('keydown', function(e) {
     'wrong-quiz':      [wqNext,   wqPrev],
     'star-quiz':       [sqNext,   sqPrev],
     'flag-quiz':       [fqNext,   fqPrev],
+    'calc-quiz':       [cqNext,   cqPrev],
     'mock-quiz':       [mqNext,   mqPrev],
     'mock-wrong-quiz': [mwqNext,  mwqPrev]
   };
@@ -17927,6 +18405,7 @@ const RESUME_PAGES = {
   'wrong-quiz': { has: () => getWrongQuizResume(), resume: () => resumeWrongQuiz(), list: 'wrong' },
   'star-quiz':  { has: () => getStarQuizResume(),  resume: () => resumeStarQuiz(),  list: 'star'  },
   'flag-quiz':  { has: () => getFlagQuizResume(),  resume: () => resumeFlagQuiz(),  list: 'flag'  },
+  'calc-quiz':  { has: () => getCalcQuizResume(),  resume: () => resumeCalcQuiz(),  list: 'calc'  },
   'mock-quiz':  { has: () => getMockQuizResume(),  resume: () => resumeMockQuiz(),  list: 'mock'  },
 };
 
@@ -18816,6 +19295,12 @@ applyRenderFlags();
 //   k: 'new'(새 기능) · 'fix'(고침) · 'chg'(바뀜)
 // ══════════════════════════════════════════════════════════════════════
 const PATCH_NOTES = [
+  { v: '260810-2238', at: '2026-08-10', items: [
+    { k: 'new', t: '<b>복습 &gt; 계산문제만</b>이 생겼습니다 — <b>해설이나 답에 계산식(=)</b>이 있는 문제를 모아서 보여주고, 체크만 풀기처럼 목록 보기·모아 풀기·이어서 풀기를 할 수 있습니다 (자격증별로 걸러 볼 수도 있어요)' },
+    { k: 'new', t: '<b>모의고사를 푸는 중에도 문제를 체크</b>할 수 있습니다 — 헤더의 체크 버튼을 누르면 <b>복습 &gt; 체크</b> 목록에 그대로 들어갑니다' },
+    { k: 'chg', t: '<b>모의고사</b> 화면 맨 위의 보라색 배너를 없앴습니다 — 이어서 풀기와 새 모의고사 시작이 바로 보입니다' },
+    { k: 'chg', t: '계산문제는 따로 저장하지 않고 볼 때마다 찾아냅니다 — 문제를 고쳐 <b>=</b> 가 없어지면 목록에서도 저절로 빠집니다' },
+  ]},
   { v: '260809-2258', at: '2026-08-09', items: [
     { k: 'new', t: '<b>모의고사 출제 방식</b>을 고를 수 있습니다 — <b>눈 돌리기</b>(지금까지의 방식, 한 바퀴 안에서는 안 겹침) · <b>완전 무작위</b>(전체에서 매번 새로, 본 문제도 다시 나옴) · <b>오답에서만</b>(모의고사에서 틀렸던 문제만). 마지막에 쓴 방식은 문항 수처럼 기억됩니다' },
     { k: 'new', t: '<b>오답에서만</b>은 같은 문제를 여러 번 틀려 쌓인 것도 하나로 세서 한 시험에 중복으로 나오지 않습니다' },
@@ -19196,7 +19681,7 @@ function closePatchNotes() {
 // ── 앱 버전 ──
 // 폰이 옛 파일을 캐시해 두고 있는지 바로 확인할 수 있도록 화면에 표시한다.
 // (설정 맨 아래 · 개발자 도구 콘솔에도 찍힘)
-const APP_VERSION = '260809-2258';
+const APP_VERSION = '260810-2238';
 console.log('%c양진웅 Note 버전 ' + APP_VERSION, 'font-weight:bold');
 
 // PWA 서비스워커 등록
