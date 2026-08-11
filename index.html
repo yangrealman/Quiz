@@ -4661,7 +4661,7 @@
   body.reduce-motion .mg-btn.arm { animation: none; }
 
   /* 옆의 "체크한 것만 풀기" 버튼과 높이를 맞춘다 */
-  #flag-clear-btn {
+  #flag-clear-btn, #star-clear-btn {
     display: inline-flex; align-items: center; justify-content: center;
     min-height: 44px; padding: 0 14px;
   }
@@ -6867,9 +6867,12 @@
     <div class="section-header">
       <div>
         <div class="page-title" onclick="scrollToMarkedStar()" style="cursor:pointer" title="표시한 문제로 이동">★ 별표 문제</div>
-        <div class="page-sub">별표 표시한 문제를 모아 복습하세요</div>
+        <div class="page-sub">별표 표시한 문제 모아보기</div>
       </div>
-      <button class="btn btn-primary" id="star-quiz-btn" onclick="startStarQuiz()" style="display:none; background:var(--warning)">★ 별표만 풀기</button>
+      <div style="display:flex; align-items:center; gap:6px;">
+        <button class="mg-btn danger" id="star-clear-btn" onclick="askClearAllStarred(this)" title="전체 별표 해제 · 두 번 누르면 해제됩니다" style="display:none">X</button>
+        <button class="btn btn-primary" id="star-quiz-btn" onclick="startStarQuiz()" style="display:none; background:var(--warning); white-space:nowrap">★ 별표만 풀기</button>
+      </div>
     </div>
     <div id="star-resume-card" style="margin-bottom:12px;"></div>
     <div id="star-filter" style="margin-bottom:8px; display:flex; gap:8px; flex-wrap:wrap;"></div>
@@ -9257,6 +9260,13 @@ function _goPageNow(name) {
     if (clearBtn && clearBtn.dataset.arm === '1') {
       clearTimeout(_clearFlagTimer);
       clearBtn.dataset.arm = ''; clearBtn.classList.remove('arm'); clearBtn.textContent = 'X';
+    }
+  }
+  if (currentPage === 'star' && name !== 'star') {
+    const sBtn = document.getElementById('star-clear-btn');
+    if (sBtn && sBtn.dataset.arm === '1') {
+      clearTimeout(_clearStarTimer);
+      sBtn.dataset.arm = ''; sBtn.classList.remove('arm'); sBtn.textContent = 'X';
     }
   }
   const target = document.getElementById('page-' + name);
@@ -13884,6 +13894,8 @@ function renderStarNote() {
 
   const starBtn = document.getElementById('star-quiz-btn');
   starBtn.style.display = items.length ? 'block' : 'none';
+  const starClearBtn = document.getElementById('star-clear-btn');
+  if (starClearBtn) starClearBtn.style.display = items.length ? 'inline-flex' : 'none';
 
   const cats = [...new Set(items.map(w => w.cat))];
   const byCat = starFilter.cat ? items.filter(w => w.cat === starFilter.cat) : items;
@@ -14465,15 +14477,26 @@ function deleteFlagged(key) {
   showToast('체크 해제했습니다');
 }
 
+// 전체 해제 버튼을 원래 모습(X)으로 되돌린다
+function _disarmClearBtn(btn, timer) {
+  clearTimeout(timer);
+  if (!btn) return;
+  btn.dataset.arm = '';
+  btn.classList.remove('arm');
+  btn.textContent = 'X';
+}
+
 // 전체 체크 해제 — 실수로 지우지 않도록 두 번 눌러야 한다 (회차 삭제와 같은 방식)
 let _clearFlagTimer = null;
 function askClearAllFlagged(btn) {
-  if (!Object.keys(getFlagged()).length) return;
+  const n = Object.keys(getFlagged()).length;
+  if (!n) return;
   if (btn.dataset.arm === '1') {
-    clearTimeout(_clearFlagTimer);
+    _disarmClearBtn(btn, _clearFlagTimer);
     saveFlagged({});
+    clearFlagQuizResume();        // 체크로 풀던 게 있으면 그것도 이어질 곳이 없다
     renderFlagNote();
-    showToast('전체 해제했습니다');
+    showToast(`체크 ${n}개를 모두 해제했습니다`);
     return;
   }
   btn.dataset.arm = '1';
@@ -14481,6 +14504,28 @@ function askClearAllFlagged(btn) {
   btn.textContent = '정말?';
   clearTimeout(_clearFlagTimer);
   _clearFlagTimer = setTimeout(() => {
+    btn.dataset.arm = ''; btn.classList.remove('arm'); btn.textContent = 'X';
+  }, 4000);
+}
+
+// 전체 별표 해제 — 실수로 지우지 않도록 두 번 눌러야 한다 (체크 해제와 같은 방식)
+let _clearStarTimer = null;
+function askClearAllStarred(btn) {
+  const n = Object.keys(getStarred()).length;
+  if (!n) return;
+  if (btn.dataset.arm === '1') {
+    _disarmClearBtn(btn, _clearStarTimer);
+    saveStarred({});
+    clearStarQuizResume();        // 별표로 풀던 게 있으면 그것도 이어질 곳이 없다
+    renderStarNote();
+    showToast(`별표 ${n}개를 모두 해제했습니다`);
+    return;
+  }
+  btn.dataset.arm = '1';
+  btn.classList.add('arm');
+  btn.textContent = '정말?';
+  clearTimeout(_clearStarTimer);
+  _clearStarTimer = setTimeout(() => {
     btn.dataset.arm = ''; btn.classList.remove('arm'); btn.textContent = 'X';
   }, 4000);
 }
@@ -19485,6 +19530,11 @@ applyRenderFlags();
 //   k: 'new'(새 기능) · 'fix'(고침) · 'chg'(바뀜)
 // ══════════════════════════════════════════════════════════════════════
 const PATCH_NOTES = [
+  { v: '260812-0014', at: '2026-08-12', items: [
+    { k: 'new', t: '<b>별표 문제</b> 화면에 <b>전체 해제</b> 버튼이 생겼습니다 — 오른쪽 위 <b>X</b> 를 <b>두 번</b> 눌러야 지워지고, 화면을 나갔다 오면 확인 상태가 풀립니다 (체크 화면과 같은 방식)' },
+    { k: 'fix', t: '전체 해제 뒤 버튼이 <b>정말?</b> 상태로 남아 있던 것을 고쳤습니다 — 나중에 별표(체크)를 다시 달면 버튼이 그 상태로 나타나 <b>한 번만 눌러도 전부 지워지던</b> 위험이 있었습니다 (별표·체크 둘 다 수정)' },
+    { k: 'chg', t: '전체 해제하면 그 목록으로 <b>풀던 이어하기</b>도 함께 정리되고, 해제한 개수를 안내합니다' },
+  ]},
   { v: '260811-2029', at: '2026-08-11', items: [
     { k: 'fix', t: '<b>풀던 문제로</b> 버튼이 <b>모든 풀이 화면</b>에서 뜹니다 — 예전엔 문제 풀기에서만 떠서, 오답·별표·체크·계산문제·모의고사를 풀다가 다른 탭에 다녀오면 돌아갈 길이 안 보였습니다 (풀던 내용은 그대로 남아 있었는데 버튼이 없었을 뿐이에요). 이제 <b>한 번만 누르면</b> 풀던 자리 그대로 돌아갑니다' },
     { k: 'new', t: '<b>모의고사 오답 풀기</b>에도 이어서 풀기가 생겼습니다 — 일곱 풀이 화면 중 여기만 저장을 안 해서 앱을 껐다 켜면 진짜로 처음부터였습니다' },
@@ -19888,7 +19938,7 @@ function closePatchNotes() {
 // ── 앱 버전 ──
 // 폰이 옛 파일을 캐시해 두고 있는지 바로 확인할 수 있도록 화면에 표시한다.
 // (설정 맨 아래 · 개발자 도구 콘솔에도 찍힘)
-const APP_VERSION = '260811-2029';
+const APP_VERSION = '260812-0014';
 console.log('%c양진웅 Note 버전 ' + APP_VERSION, 'font-weight:bold');
 
 // PWA 서비스워커 등록
