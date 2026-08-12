@@ -3739,6 +3739,19 @@
   }
 
   /* 7) 회차 카드 버튼이 카드 기울기와 어긋나 보이던 것 → 같은 평면 고정 */
+  /* 숨긴 문항 — 흐리게 남겨 두고 누르면 되살린다 */
+  /* 회차 타일에 붙는 '숨김 N' 표시 */
+  .rt-hid {
+    position: absolute; left: 4px; top: 3px;
+    min-width: 14px; height: 14px; padding: 0 3px;
+    display: inline-flex; align-items: center; justify-content: center;
+    border-radius: 999px; background: var(--gray-300); color: var(--gray-700);
+    font-size: 9px; font-weight: 800; line-height: 1;
+  }
+  .qg-cell.hid { opacity: 0.4; border-style: dashed; text-decoration: line-through; }
+  .qg-cell.hid:hover { opacity: 0.85; }
+  .qg-dot.hid { background: var(--gray-300); }
+
   .round-btn-grid { transform: translateZ(0); }
 
   /* 8) 다크모드에서 카드 상단 흰 선이 과하던 것 완화 */
@@ -4502,6 +4515,21 @@
      누르면 펴진다. 예전엔 접히면 흔적이 없어서 어디로 갔는지 알 수 없었다.
      ═══════════════════════════════════════════════════════════ */
   .qmemo { margin-top: var(--sp-2); }
+  /* [수정] 주석 줄 오른쪽에 '암기칸' 보내기를 둔다 (헤더가 빡빡해서 그쪽에서 옮겨 왔다) */
+  .qmemo-row { display: flex; align-items: center; gap: 8px; border-top: 1px solid var(--card-border); }
+  .qmemo-row .qmemo-bar { flex: 1; min-width: 0; border-top: none; }
+  .qmemo-send {
+    flex-shrink: 0;
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 6px 10px; border-radius: 999px;
+    border: 1px solid var(--card-border); background: var(--card);
+    font: inherit; font-size: 12px; font-weight: 700; color: var(--gray-500);
+    cursor: pointer; -webkit-tap-highlight-color: transparent;
+    transition: color 0.15s, border-color 0.15s;
+  }
+  .qmemo-send:hover { color: var(--primary); border-color: var(--primary); }
+  .qmemo-send .ic { width: 14px; height: 14px; }
+
   .qmemo-bar {
     display: flex; align-items: center; gap: 7px;
     width: 100%; padding: 7px 4px;
@@ -4661,7 +4689,7 @@
   body.reduce-motion .mg-btn.arm { animation: none; }
 
   /* 옆의 "체크한 것만 풀기" 버튼과 높이를 맞춘다 */
-  #flag-clear-btn, #star-clear-btn {
+  #flag-clear-btn, #star-clear-btn, #hidden-clear-btn {
     display: inline-flex; align-items: center; justify-content: center;
     min-height: 44px; padding: 0 14px;
   }
@@ -6600,6 +6628,7 @@
     <g id="ic-moon"><path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5z"/></g>
     <g id="ic-home-fill"><path d="M4 10.5L12 4l8 6.5V20a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1z" fill="currentColor"/></g>
     <g id="ic-eye"><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="3"/></g>
+    <g id="ic-eye-off"><path d="M9.9 5.9A9 9 0 0 1 12 5.5c6 0 9.5 6.5 9.5 6.5a17 17 0 0 1-3.2 4"/><path d="M6.3 7.8A17 17 0 0 0 2.5 12S6 18.5 12 18.5a9 9 0 0 0 3.6-.75"/><path d="M10 10a3 3 0 0 0 4.1 4.1"/><path d="M3.5 3.5l17 17"/></g>
     <g id="ic-calc"><rect x="4.5" y="2.8" width="15" height="18.4" rx="2.4"/><path d="M8 7.2h8"/><path d="M8.6 12h.01M12 12h.01M15.4 12h.01M8.6 16.4h.01M12 16.4h.01M15.4 16.4h.01"/></g>
     <g id="ic-sun"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2.2M12 19.3v2.2M21.5 12h-2.2M4.7 12H2.5M18.7 5.3l-1.6 1.6M6.9 17.1l-1.6 1.6M18.7 18.7l-1.6-1.6M6.9 6.9 5.3 5.3"/></g>
     <g id="ic-trash"><path d="M4.5 6.5h15"/><path d="M9.5 6.5V4.2h5v2.3"/><path d="M6.5 6.5l1 13.5h9l1-13.5"/><path d="M10.5 10v6.5M13.5 10v6.5"/></g>
@@ -6679,8 +6708,8 @@
         <button class="flag-btn" id="quiz-flag-btn" onclick="toggleFlagCurrent()" title="체크 표시">
           <svg class="ic" viewBox="0 0 24 24"><use href="#ic-square"/></svg>
         </button>
-        <button class="quiz-act" onclick="sendCurrentQuizToMemo()" title="암기칸에 보내기" aria-label="암기칸에 보내기">
-          <svg class="ic" viewBox="0 0 24 24"><use href="#ic-note"/></svg><span>암기</span>
+        <button class="quiz-act" onclick="hideCurrentQuestion()" title="이 문제 숨기기" aria-label="이 문제 숨기기">
+          <svg class="ic" viewBox="0 0 24 24"><use href="#ic-eye-off"/></svg><span>숨기기</span>
         </button>
         <button class="quiz-act" onclick="setResumeBookmark()" title="여기서부터 이어하기" aria-label="여기서부터 이어하기">
           <svg class="ic" viewBox="0 0 24 24"><use href="#ic-bookmark"/></svg><span>이어하기</span>
@@ -6711,12 +6740,17 @@
     </div>
     <!-- 주석 — 늘 같은 자리에 접혀 있고, 줄을 누르면 펴진다 -->
     <div class="qmemo" id="qmemo-box">
-      <button class="qmemo-bar" id="qmemo-bar" onclick="toggleQMemo()" aria-expanded="false" aria-controls="qmemo-body">
-        <svg class="ic qmemo-caret" viewBox="0 0 24 24"><use href="#ic-chevron-right"/></svg>
-        <span class="qmemo-title">주석</span>
-        <span class="qmemo-peek" id="qmemo-peek"></span>
-        <span class="qmemo-status" id="qmemo-status"></span>
-      </button>
+      <div class="qmemo-row">
+        <button class="qmemo-bar" id="qmemo-bar" onclick="toggleQMemo()" aria-expanded="false" aria-controls="qmemo-body">
+          <svg class="ic qmemo-caret" viewBox="0 0 24 24"><use href="#ic-chevron-right"/></svg>
+          <span class="qmemo-title">주석</span>
+          <span class="qmemo-peek" id="qmemo-peek"></span>
+          <span class="qmemo-status" id="qmemo-status"></span>
+        </button>
+        <button class="qmemo-send" onclick="sendCurrentQuizToMemo()" title="암기칸에 보내기" aria-label="암기칸에 보내기">
+          <svg class="ic" viewBox="0 0 24 24"><use href="#ic-note"/></svg><span>암기칸</span>
+        </button>
+      </div>
       <div class="qmemo-body" id="qmemo-body">
         <div>
           <textarea id="qmemo-input" class="qmemo-input" placeholder="이 문제에 대한 나만의 주석… (암기 포인트, 헷갈린 이유 등)"></textarea>
@@ -6993,6 +7027,22 @@
       <button class="btn btn-secondary" id="fq-prev-btn" onclick="fqPrev()"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-arrow-left"/></svg>이전</button>
       <button class="btn btn-primary" id="fq-next-btn" onclick="fqNext()">다음<svg class="ic" viewBox="0 0 24 24"><use href="#ic-arrow-right"/></svg></button>
     </div>
+  </div>
+</div>
+
+<!-- ─────────────────────────────── 숨긴 문제 ───────────────────────────────
+     지운 게 아니라 안 나오게만 해 둔 문제들. 여기서 언제든 되살릴 수 있다. -->
+<div id="page-hidden" class="page">
+  <div class="container">
+    <div class="section-header">
+      <div>
+        <div class="page-title">🙈 숨긴 문제</div>
+        <div class="page-sub">안 나오게 해 둔 문제 · 언제든 되살릴 수 있어요</div>
+      </div>
+      <button class="mg-btn danger" id="hidden-clear-btn" onclick="askUnhideAll(this)" title="전체 되살리기 · 두 번 누르면 되살아납니다" style="display:none">X</button>
+    </div>
+    <div id="hidden-filter" style="margin-bottom:8px; display:flex; gap:8px; flex-wrap:wrap;"></div>
+    <div id="hidden-list"></div>
   </div>
 </div>
 
@@ -8014,7 +8064,7 @@ async function syncFromFirebase() {
   _syncing = true;
   showSyncStatus('☁️ 동기화 중...'); setSyncDot('busy');
   try {
-    const keys = ['quiz_progress','quiz_wrong','quiz_categories','quiz_starred','quiz_flagged','quiz_marked','mock_records','mock_wrong','cal_data','quiz_checks','resume_bookmark','quiz_mastery','quiz_daily','quiz_qmemo','quiz_memo_links','quiz_img_index','quiz_srs','quiz_hl','quiz_imgw','quiz_quick_links','wrong_quiz_resume','star_quiz_resume','flag_quiz_resume','calc_quiz_resume','mock_quiz_resume','mock_wrong_quiz_resume','mock_deck'];
+    const keys = ['quiz_progress','quiz_wrong','quiz_categories','quiz_starred','quiz_flagged','quiz_marked','quiz_hidden','mock_records','mock_wrong','cal_data','quiz_checks','resume_bookmark','quiz_mastery','quiz_daily','quiz_qmemo','quiz_memo_links','quiz_img_index','quiz_srs','quiz_hl','quiz_imgw','quiz_quick_links','wrong_quiz_resume','star_quiz_resume','flag_quiz_resume','calc_quiz_resume','mock_quiz_resume','mock_wrong_quiz_resume','mock_deck'];
     // [추가] 문제 데이터는 회차별 구조라 따로 맞춘다 (색인 먼저 → 바뀐 회차만)
     await syncQuizData();
 
@@ -8234,6 +8284,7 @@ function applyLiveRefresh() {
     else if (currentPage === 'star') renderStarNote();
     else if (currentPage === 'flag') renderFlagNote();
     else if (currentPage === 'calc') renderCalcNote();
+    else if (currentPage === 'hidden') renderHiddenNote();
     else if (currentPage === 'review') renderReview();
   } catch (e) { console.warn('화면 갱신 오류:', e); }
 }
@@ -8600,6 +8651,46 @@ function saveStarred(s) { syncToFirebase('quiz_starred', s); }
 // (회차 목록의 "완료" 체크(quiz_checks)와도 다른, 문제 단위 체크)
 function getFlagged() { return _getCache('quiz_flagged', {}); }
 function saveFlagged(s) { syncToFirebase('quiz_flagged', s); }
+
+// ── 숨긴 문제 ────────────────────────────────────────────────────────
+// 작업형처럼 사실상 같은 걸 묻는 문제가 여러 개일 때, 하나만 남기고 나머지를 안 나오게 한다.
+// 문제 자체는 절대 지우지 않는다 — 표시만 붙였다 뗐다 하는 것이라 언제든 되살아난다.
+// 저장 모양은 체크(quiz_flagged)와 완전히 같다.
+function getHidden() { return _getCache('quiz_hidden', {}); }
+function saveHidden(h) { syncToFirebase('quiz_hidden', h); }
+
+function isHiddenQ(cat, round, q) {
+  if (!q) return false;
+  return !!getHidden()[_flagKeyOf(cat, round, q)];
+}
+
+// 켜고 끄기 — 되살릴 때도 같은 함수를 쓴다
+function toggleHiddenEntry(cat, round, q) {
+  const hidden = getHidden();
+  const key = _flagKeyOf(cat, round, q);
+  let on;
+  if (hidden[key]) { delete hidden[key]; on = false; }
+  else { hidden[key] = { cat, round, qId: (q && (q.id || q.num)) || 0, addedAt: Date.now() }; on = true; }
+  saveHidden(hidden);
+  return on;
+}
+
+// 이 회차에서 숨긴 문제 수 (회차 타일·완료 판정에 쓴다)
+function hiddenCountIn(cat, round) {
+  const hidden = getHidden();
+  let n = 0;
+  for (const k in hidden) {
+    const h = hidden[k];
+    if (h && h.cat === cat && String(h.round) === String(round)) n++;
+  }
+  return n;
+}
+
+// 숨긴 것을 뺀 목록 — 문제를 꺼내 쓰는 곳은 모두 이걸 거친다
+function visibleRound(cat, round) {
+  const hidden = getHidden();
+  return getRound(cat, round).filter(q => !hidden[_flagKeyOf(cat, round, q)]);
+}
 
 // 오답노트·별표 목록에서 "여기까지 봤다" 표시용 하이라이트 — 별표·체크와도 완전히 별개.
 // 순서(정렬·필터)에 상관없이 문제 자체에 붙는 단순 켬/끔이라 구분은 사용자가 알아서 한다.
@@ -9230,7 +9321,7 @@ new MutationObserver(() => {
 }).observe(document.body, { childList: true, subtree: true });
 let _navBusy = false;          // popstate로 인한 이동인지 구분
 const _pageState = {};         // 화면별 스크롤·필터 기억
-const pages = ['dashboard','home','review','quiz','result','wrong','wrong-quiz','star','star-quiz','flag','flag-quiz','calc','calc-quiz','mock','mock-quiz','mock-result','mock-wrong','mock-wrong-quiz','answer-sheet','search','memo-tab','quick-check','settings'];
+const pages = ['dashboard','home','review','quiz','result','wrong','wrong-quiz','star','star-quiz','flag','flag-quiz','hidden','calc','calc-quiz','mock','mock-quiz','mock-result','mock-wrong','mock-wrong-quiz','answer-sheet','search','memo-tab','quick-check','settings'];
 
 // 탭 활성 표시만 먼저 갱신 (화면 전환 스냅샷에 이미 반영되게 → 끊김 방지)
 function _syncTabActive(name) {
@@ -9271,6 +9362,13 @@ function _goPageNow(name) {
       clearBtn.dataset.arm = ''; clearBtn.classList.remove('arm'); clearBtn.textContent = 'X';
     }
   }
+  if (currentPage === 'hidden' && name !== 'hidden') {
+    const hBtn = document.getElementById('hidden-clear-btn');
+    if (hBtn && hBtn.dataset.arm === '1') {
+      clearTimeout(_unhideAllTimer);
+      hBtn.dataset.arm = ''; hBtn.classList.remove('arm'); hBtn.textContent = 'X';
+    }
+  }
   if (currentPage === 'star' && name !== 'star') {
     const sBtn = document.getElementById('star-clear-btn');
     if (sBtn && sBtn.dataset.arm === '1') {
@@ -9291,7 +9389,7 @@ function _goPageNow(name) {
   const tabMap = {
     home: 'practice',                        // [수정] '홈' 탭은 없앴다 (로고가 그 역할)
     review: 'review', wrong: 'review', star: 'review', flag: 'review', 'flag-quiz': 'review',
-    calc: 'review', 'calc-quiz': 'review',
+    calc: 'review', 'calc-quiz': 'review', hidden: 'review',
     mock: 'review', 'mock-result': 'review', 'mock-wrong': 'review',
     search: 'search', 'memo-tab': 'memo-tab'
   };
@@ -9317,6 +9415,8 @@ function _goPageNow(name) {
     renderFlagNote();
   } else if (name === 'calc') {
     renderCalcNote();
+  } else if (name === 'hidden') {
+    renderHiddenNote();
   } else if (name === 'mock' || name === 'mock-result' || name === 'mock-wrong') {
     if (name === 'mock') renderMockHome();
     if (name === 'mock-wrong') renderMockWrongNote();
@@ -9401,10 +9501,21 @@ function renderCategoryList() {
         const rounds = roundNames.length;
         let totalQ = 0, doneRounds = 0;
         roundNames.forEach(r => {
-          const rn = getRoundCount(cat, r);
+          // [수정] 숨긴 문제는 안 나오므로 문항 수·완료 판정에서 뺀다.
+          //        안 그러면 60문제 중 10개를 숨긴 회차는 50개를 다 풀어도 영영 '완료'가 안 된다.
+          const rn = Math.max(0, getRoundCount(cat, r) - hiddenCountIn(cat, r));
           totalQ += rn;
           const k = cat + '_' + r;
-          if (rn && progress[k] && Object.keys(progress[k].answered||{}).length === rn) doneRounds++;
+          if (!rn) return;
+          const hidden = getHidden();
+          const answered = (progress[k] && progress[k].answered) || {};
+          // 진행 기록은 숨긴 문제 몫도 남아 있으므로, 지금 보이는 문제만 세어 비교한다
+          let done = 0;
+          getRound(cat, r).forEach((q, oi) => {
+            if (hidden[_flagKeyOf(cat, r, q)]) return;
+            if (answered[oi] !== undefined) done++;
+          });
+          if (done === rn) doneRounds++;
         });
         const badge = rounds === 0 ? '' :
           doneRounds === rounds ? `<span class="exam-badge badge-done">완료</span>` :
@@ -9584,6 +9695,14 @@ function renderQGrid() {
   const starred = getStarred();
   const memos = (typeof getQMemos === 'function') ? getQMemos() : {};
 
+  // [추가] 숨긴 문항도 흐리게 남겨 둔다 — 누르면 그 자리에서 되살아난다.
+  //        아예 안 보이면 숨겼다는 사실 자체를 잊어버려서 되돌릴 방법이 없다.
+  const hidden = getHidden();
+  const hiddenCells = getRound(cat, round)
+    .filter(q => hidden[_flagKeyOf(cat, round, q)])
+    .map(q => `<button class="qg-cell hid" onclick="unhideFromGrid('${escArg(cat)}','${escArg(round)}','${escArg(String((q.id || q.num) || 0))}')"
+                 title="숨긴 문제 · 눌러서 되살리기">${escHtml(q.num ?? '?')}</button>`).join('');
+
   let nCorrect = 0, nWrong = 0;
   const cells = questions.map((q, i) => {
     const a = answered[i];
@@ -9610,9 +9729,10 @@ function renderQGrid() {
       <span class="qg-legend"><i class="qg-dot ok"></i>맞음 ${nCorrect}</span>
       <span class="qg-legend"><i class="qg-dot no"></i>틀림 ${nWrong}</span>
       <span class="qg-legend"><i class="qg-dot todo"></i>남음 ${left}</span>
+      ${hiddenCells ? '<span class="qg-legend"><i class="qg-dot hid"></i>숨김</span>' : ''}
       <button class="qg-close" onclick="closeQGrid()" aria-label="닫기">✕</button>
     </div>
-    <div class="qg-cells">${cells}</div>
+    <div class="qg-cells">${cells}${hiddenCells}</div>
     ${nWrong ? `<button class="qg-jump" onclick="qgridFirstWrong()">틀린 문제로 이동</button>` : ''}`;
   box.classList.add('open');
 }
@@ -9986,6 +10106,7 @@ function renderReview() {
   // 계산문제는 저장된 목록이 아니라 훑어서 세는 값이다 (문제가 많아도 한 번 훑는 정도라 가볍다)
   let calcN = 0;
   try { calcN = collectCalcQuestions(null).length; } catch (_) {}
+  const hiddenN = Object.keys(getHidden()).length;
   main.innerHTML = `
     <div class="section-header"><div class="section-label">🗂 복습</div></div>
     <div class="review-choices">
@@ -10010,6 +10131,14 @@ function renderReview() {
         <div class="review-card-body">
           <div class="review-card-title">체크</div>
           <div class="review-card-sub">체크한 문제만 모아 풀기${flagN ? ` · ${flagN}개` : ''}</div>
+        </div>
+        <div class="review-card-arrow"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-chevron-right"/></svg></div>
+      </div>
+      <div class="review-card" onclick="goPage('hidden')">
+        <div class="review-card-icon" style="background:var(--gray-100); color:var(--gray-500);"><svg class="ic ic-lg" viewBox="0 0 24 24"><use href="#ic-eye-off"/></svg></div>
+        <div class="review-card-body">
+          <div class="review-card-title">숨긴 문제</div>
+          <div class="review-card-sub">안 나오게 해 둔 문제 되살리기${hiddenN ? ` · ${hiddenN}개` : ''}</div>
         </div>
         <div class="review-card-arrow"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-chevron-right"/></svg></div>
       </div>
@@ -10487,10 +10616,12 @@ function renderRoundList(cat) {
     const pct = mastery[cat + '||' + r] || 0;
     const nm = splitRoundName(r);
     const isChecked = !!checks[cat + '||' + r];
+    const nHid = hiddenCountIn(cat, r);             // [추가] 숨긴 게 있다는 걸 잊지 않게 표시
     return `
       <button class="rt${isChecked ? ' done' : ''}" data-idx="${i}" data-round="${escHtml(r)}"
-              onclick="toggleRoundTile(${i})" title="${escHtml(r)}회차 · ${qs.length}문제 · 암기도 ${pct}%">
+              onclick="toggleRoundTile(${i})" title="${escHtml(r)}회차 · ${qs.length - nHid}문제${nHid ? ` (숨김 ${nHid})` : ''} · 암기도 ${pct}%">
         ${isChecked ? '<span class="rt-check"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-check"/></svg></span>' : ''}
+        ${nHid ? `<span class="rt-hid" title="숨긴 문제 ${nHid}개">${nHid}</span>` : ''}
         ${nm.top ? `<span class="rt-top">${escHtml(nm.top)}</span>` : ''}
         ${nm.bottom ? `<span class="rt-bottom">${escHtml(nm.bottom)}</span>` : ''}
         <span class="rt-bars"><i class="rt-mst" style="width:${pct}%; background:${mstColor(pct)}"></i></span>
@@ -10894,21 +11025,40 @@ function finishQuickCheck() {
 }
 
 function startQuiz(cat, round) {
-  const questions = [...getRound(cat, round)];
-  if (!questions.length) { showToast('문제가 없습니다'); return; }
+  const all = getRound(cat, round);
+  if (!all.length) { showToast('문제가 없습니다'); return; }
 
   // 저장된 진행 상태 불러오기
   const progress = getProgress();
   const key = cat + '_' + round;
   const saved = progress[key] || { answered: {} };
 
-  currentQuiz = { cat, round, questions, idx: 0, answered: { ...saved.answered } };
+  // [추가] 숨긴 문제를 뺀 목록으로 푼다.
+  //   진행 기록(answered)은 '회차 전체에서 몇 번째'(원래 순번)로 저장돼 있다.
+  //   그래서 그냥 걸러내면 뒤쪽 문제들의 순번이 밀려 이미 푼 기록이 엉뚱한 문제에 붙는다.
+  //   → 화면용 순번 ↔ 원래 순번 대응표(origIdx)를 들고 다니며, 저장할 땐 원래 순번으로 되돌린다.
+  const hidden = getHidden();
+  const questions = [];
+  const origIdx = [];
+  const answered = {};
+  all.forEach((q, oi) => {
+    if (hidden[_flagKeyOf(cat, round, q)]) return;
+    const ni = questions.length;
+    questions.push(q);
+    origIdx.push(oi);
+    if (saved.answered && saved.answered[oi] !== undefined) answered[ni] = saved.answered[oi];
+  });
+  if (!questions.length) { showToast('이 회차는 문제를 모두 숨겼어요'); return; }
+
+  currentQuiz = { cat, round, questions, origIdx, idx: 0, answered };
   _qgridOpen = false;
   quizInProgress = true;
 
   // [수정] 마지막으로 보던 문항이 있으면 그 자리부터, 없으면 아직 안 푼 첫 문제부터
+  //        저장된 자리는 원래 순번이라 화면용 순번으로 바꿔서 찾는다
   let startIdx = -1;
-  const savedIdx = parseInt(saved.idx, 10);
+  const savedOrig = parseInt(saved.idx, 10);
+  const savedIdx = isNaN(savedOrig) ? NaN : origIdx.indexOf(savedOrig);
   if (!isNaN(savedIdx) && savedIdx >= 0 && savedIdx < questions.length) {
     startIdx = savedIdx;
   } else {
@@ -11284,7 +11434,7 @@ function setupQuizScrubber() {
 }
 
 function saveQuizProgress(justAnswered) {
-  const { cat, round, answered } = currentQuiz;
+  const { cat, round, answered, origIdx } = currentQuiz;
   const progress = getProgress();
   const key = cat + '_' + round;
   const prev = progress[key];
@@ -11293,7 +11443,21 @@ function saveQuizProgress(justAnswered) {
   //        주관식을 재채점하면 개수는 그대로라 시각이 영영 안 바뀌는 문제가 있었다.
   //        그냥 화면만 열었다 나가는 경우(justAnswered 없이 호출)엔 이전 시각을 그대로 둔다.
   const at = justAnswered ? Date.now() : (prev ? prev.at : 0);
-  progress[key] = { answered: { ...answered }, at, idx: currentQuiz.idx };
+
+  // [추가] 화면용 순번을 원래 순번으로 되돌려 적는다.
+  //        숨긴 문제의 예전 기록은 지우지 않고 그대로 둔다 — 되살리면 다시 살아난다.
+  const keep = { ...((prev && prev.answered) || {}) };
+  const map = origIdx || null;
+  if (map) {
+    map.forEach(oi => { delete keep[oi]; });                       // 지금 보이는 문제들 몫만 새로 쓴다
+    Object.keys(answered).forEach(ni => { keep[map[ni]] = answered[ni]; });
+  } else {
+    Object.keys(keep).forEach(k => { delete keep[k]; });
+    Object.assign(keep, answered);
+  }
+  const savedIdx = map ? (map[currentQuiz.idx] != null ? map[currentQuiz.idx] : currentQuiz.idx) : currentQuiz.idx;
+
+  progress[key] = { answered: keep, at, idx: savedIdx };
   saveProgress(progress);
 }
 
@@ -12554,10 +12718,20 @@ function toggleWrongSel(id) {
 
 // 자격증·회차(여러 개 동시 선택 가능) 필터를 함께 적용한 목록
 // (선택·삭제·목록 표시에서 공통으로 쓴다)
+// 오답·별표·체크 항목 중 숨긴 문제를 걸러낸다 (항목엔 문제 원본이 없어서 회차에서 찾아 본다)
+function _dropHidden(items) {
+  const hidden = getHidden();
+  if (!Object.keys(hidden).length) return items;
+  return items.filter(w => {
+    const q = resolveEntryQ(w);
+    return !q || !hidden[_flagKeyOf(w.cat, w.round, q)];
+  });
+}
+
 function _wrongFiltered(wrongs) {
   let list = wrongFilter.cat ? wrongs.filter(w => w.cat === wrongFilter.cat) : wrongs;
   if (wrongFilter.rounds.size) list = list.filter(w => wrongFilter.rounds.has(w.round));
-  return list;
+  return _dropHidden(list);
 }
 
 function selectAllWrong() {
@@ -13789,6 +13963,51 @@ function toggleFlagMQ() {
   paintFlagBtn(document.getElementById('mq-flag-btn'), on);
 }
 
+// 풀다가 이 문제를 숨긴다 — 목록에서 빼고 바로 다음 문제로 넘어간다.
+// 지운 게 아니라서 '복습 > 숨긴 문제'에서 언제든 되살릴 수 있다.
+// 문항 격자에서 숨긴 문항을 눌러 되살린다 — 그 자리에서 목록에 다시 들어간다
+function unhideFromGrid(cat, round, qId) {
+  const q = getRound(cat, round).find(x => String(x.id || x.num) === String(qId));
+  if (!q) return;
+  toggleHiddenEntry(cat, round, q);
+  const keepOpen = _qgridOpen;
+  const at = currentQuiz.origIdx ? currentQuiz.origIdx[currentQuiz.idx] : currentQuiz.idx;
+  saveQuizProgress();
+  startQuiz(cat, round);                       // 목록을 다시 만들어 되살아난 문제를 넣는다
+  if (currentQuiz.origIdx) {
+    const back = currentQuiz.origIdx.indexOf(at);
+    if (back >= 0) currentQuiz.idx = back;     // 보던 문제 자리는 유지
+  }
+  _qgridOpen = keepOpen;
+  renderQuestion();
+  showToast('다시 나오게 했어요');
+}
+
+function hideCurrentQuestion() {
+  const { cat, round, questions, idx, origIdx, answered } = currentQuiz;
+  const q = questions[idx];
+  if (!q) return;
+  if (questions.length <= 1) { showToast('마지막 한 문제는 숨길 수 없어요'); return; }
+
+  saveQuizProgress();                       // 숨기기 전 상태를 원래 순번으로 확정해 둔다
+  toggleHiddenEntry(cat, round, q);
+
+  // 화면 목록에서 빼고, 대응표·답안도 같이 당긴다
+  questions.splice(idx, 1);
+  if (origIdx) origIdx.splice(idx, 1);
+  const shifted = {};
+  Object.keys(answered).forEach(k => {
+    const i = Number(k);
+    if (i < idx) shifted[i] = answered[k];
+    else if (i > idx) shifted[i - 1] = answered[k];
+  });
+  currentQuiz.answered = shifted;
+  currentQuiz.idx = Math.min(idx, questions.length - 1);
+
+  renderQuestion();
+  showToast('숨겼어요 · 복습 > 숨긴 문제에서 되살릴 수 있어요');
+}
+
 function toggleFlagCurrent() {
   const { questions, idx, cat, round } = currentQuiz;
   const on = toggleFlagEntry(cat, round, questions[idx], idx);
@@ -13911,7 +14130,115 @@ function _starFiltered() {
   let list = starFilter.cat ? items.filter(w => w.cat === starFilter.cat) : items;
   if (starFilter.rounds.size) list = list.filter(w => starFilter.rounds.has(w.round));
   if (starFilter.lv) list = list.filter(w => starLevelOf(w) === starFilter.lv);
-  return list;
+  return _dropHidden(list);
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// 숨긴 문제 목록
+// ══════════════════════════════════════════════════════════════════════
+let hiddenFilter = { cat: null };
+function setHiddenFilter(cat) { hiddenFilter.cat = cat; renderHiddenNote(); }
+
+function renderHiddenNote() {
+  const items = Object.values(getHidden());
+  const circleNums = ['①','②','③','④','⑤','⑥'];
+
+  const clearBtn = document.getElementById('hidden-clear-btn');
+  if (clearBtn) clearBtn.style.display = items.length ? 'inline-flex' : 'none';
+
+  const cats = [...new Set(items.map(w => w.cat))];
+  const filterEl = document.getElementById('hidden-filter');
+  filterEl.innerHTML = (cats.length > 1) ? `
+    <button class="btn ${hiddenFilter.cat === null ? 'btn-primary' : 'btn-secondary'}" onclick="setHiddenFilter(null)" style="font-size:13px; padding:6px 14px">전체 (${items.length})</button>
+    ${cats.map(c => {
+      const cnt = items.filter(w => w.cat === c).length;
+      return `<button class="btn ${hiddenFilter.cat === c ? 'btn-primary' : 'btn-secondary'}" onclick="setHiddenFilter('${escArg(c)}')" style="font-size:13px; padding:6px 14px">${escHtml(c)} (${cnt})</button>`;
+    }).join('')}` : '';
+
+  if (!items.length) {
+    document.getElementById('hidden-list').innerHTML = `<div class="empty-state"><div class="emoji"><svg class="ic ic-empty" viewBox="0 0 24 24"><use href="#ic-eye-off"/></svg></div><p>숨긴 문제가 없어요.<br>문제를 풀다가 <b>숨기기</b>를 누르면 여기에 모입니다.</p></div>`;
+    return;
+  }
+
+  const filtered = hiddenFilter.cat ? items.filter(w => w.cat === hiddenFilter.cat) : items;
+  // qId 는 '1_10' 같은 문자열일 수 있어 숫자로 못 센다 → 실제 문항 번호로 정렬한다
+  const numOf = w => { const q = resolveEntryQ(w); return Number(q && q.num) || 0; };
+  const sorted = filtered.slice().sort((a, b) =>
+    String(a.cat).localeCompare(String(b.cat), 'ko') ||
+    String(a.round).localeCompare(String(b.round), 'ko', { numeric: true }) ||
+    numOf(a) - numOf(b));
+
+  document.getElementById('hidden-list').innerHTML = `
+    <div class="wrong-note-list">
+      ${sorted.map(w => {
+        const q = resolveEntryQ(w) || {};
+        const opts = Array.isArray(q.options) ? q.options : [];
+        const isSubj = q.type === 'subj' || opts.length === 0;
+        const body = isSubj
+          ? `<div class="wn-option correct" style="align-items:flex-start">
+               <span style="flex-shrink:0"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-check-circle"/></svg> 정답</span>
+               <span style="line-height:1.9; white-space:pre-wrap">${(q.answer != null && q.answer !== '') ? renderExp(q.answer) : '<span style="color:var(--gray-400)">정답 정보 없음</span>'}</span>
+             </div>`
+          : `<div class="wrong-note-options">
+               ${opts.map((opt, i) => `
+                 <div class="wn-option ${i === q.correct ? 'correct' : ''}">
+                   <span>${circleNums[i]||i+1}</span> ${escHtml(opt)}
+                 </div>`).join('')}
+             </div>`;
+        return `
+          <div class="wrong-note-item">
+            <div class="wrong-note-meta">
+              <span style="font-weight:600">${escHtml(w.cat)}</span>
+              <span>${escHtml(w.round)}회차</span>
+              <span>Q${escHtml(q.num || w.qId || '')}</span>
+              <button class="btn btn-secondary" style="margin-left:auto; font-size:12px; padding:4px 12px"
+                      onclick="unhideOne('${escArg(getStarKey(w.cat, w.round, w.qId))}')">다시 보기</button>
+            </div>
+            <div class="wrong-note-q">${q.question || '(문제를 찾을 수 없어요)'}</div>
+            <button class="wn-toggle" onclick="toggleAnswerCollapse(this)">
+              <span class="wn-toggle-txt-closed">정답·해설 보기</span>
+              <span class="wn-toggle-txt-open">접기</span>
+              <svg class="ic wn-toggle-caret" viewBox="0 0 24 24"><use href="#ic-chevron-down"/></svg>
+            </button>
+            <div class="wn-collapse"><div>
+              ${body}
+              ${q.explanation ? `<div class="wn-explain"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-bulb"/></svg> ${renderExp(q.explanation)}</div>` : ''}
+            </div></div>
+          </div>`;
+      }).join('')}
+    </div>`;
+}
+
+// 하나 되살리기 — 저장할 때 쓴 열쇠를 그대로 받는다
+// (문제 id 가 '1_2' 같은 문자열일 수 있어서 번호로 다시 찾으면 못 찾는다)
+function unhideOne(key) {
+  const hidden = getHidden();
+  if (!(key in hidden)) return;
+  delete hidden[key];
+  saveHidden(hidden);
+  renderHiddenNote();
+  showToast('다시 나오게 했어요');
+}
+
+// 전체 되살리기 — 실수 방지로 두 번 눌러야 한다 (별표·체크 전체 해제와 같은 방식)
+let _unhideAllTimer = null;
+function askUnhideAll(btn) {
+  const n = Object.keys(getHidden()).length;
+  if (!n) return;
+  if (btn.dataset.arm === '1') {
+    _disarmClearBtn(btn, _unhideAllTimer);
+    saveHidden({});
+    renderHiddenNote();
+    showToast(`숨긴 문제 ${n}개를 모두 되살렸습니다`);
+    return;
+  }
+  btn.dataset.arm = '1';
+  btn.classList.add('arm');
+  btn.textContent = '정말?';
+  clearTimeout(_unhideAllTimer);
+  _unhideAllTimer = setTimeout(() => {
+    btn.dataset.arm = ''; btn.classList.remove('arm'); btn.textContent = 'X';
+  }, 4000);
 }
 
 function renderStarNote() {
@@ -14432,7 +14759,7 @@ function renderSQSource() {
 // ══════════════════════════════════════════════════════════════════════
 function renderFlagNote() {
   const flagged = getFlagged();
-  const items = Object.values(flagged);
+  const items = _dropHidden(Object.values(flagged));
   const circleNums = ['①','②','③','④','⑤','⑥'];
   renderFlagResumeCard();
 
@@ -14625,7 +14952,7 @@ function startFlagQuiz() {
   if (_askResumeFirst(getFlagQuizResume, resumeFlagQuiz, '체크')) return;
   try {
     const flagged = getFlagged();
-    const items = Object.values(flagged);
+    const items = _dropHidden(Object.values(flagged));
     if (!items.length) { showToast('체크한 문제가 없어요'); return; }
     const source = [];
     const questions = [];
@@ -14897,7 +15224,7 @@ function collectCalcQuestions(cat) {
   const cats = cat ? [cat] : getCategories();
   cats.forEach(c => {
     getRoundList(c).forEach(r => {
-      getRound(c, r).forEach((q, i) => {
+      visibleRound(c, r).forEach((q, i) => {          // 숨긴 문제는 계산문제 목록에도 안 나온다
         if (_isCalcQuestion(q)) out.push({ cat: c, round: r, qId: (q.id || q.num) || i, q });
       });
     });
@@ -15606,7 +15933,8 @@ let mqState = {
 
 // 고른 자격증에 문제가 총 몇 개인지 = 낼 수 있는 최대 문항 수
 function _catQuestionTotal(cat) {
-  return cat ? getRoundList(cat).reduce((n, r) => n + getRoundCount(cat, r), 0) : 0;
+  // 숨긴 문제는 모의고사에 안 나오므로 전체 수에서도 뺀다 (안 그러면 '남은 개수'가 영영 안 줄어든다)
+  return cat ? getRoundList(cat).reduce((n, r) => n + Math.max(0, getRoundCount(cat, r) - hiddenCountIn(cat, r)), 0) : 0;
 }
 
 // 지난번에 낸 문항 수를 기억해 다음에도 그대로 띄운다 (이 기기 전용)
@@ -15661,6 +15989,7 @@ function _mockWrongPool(cat) {
   getMockWrongs().forEach(w => {
     if (!w || !w.q) return;
     if (cat && w.cat !== cat) return;
+    if (isHiddenQ(w.cat, w.round, w.q)) return;      // 숨긴 문제는 빼고 낸다
     const k = _deckKey(w.round, w.q.num);
     if (seen.has(k)) return;
     seen.add(k);
@@ -15773,9 +16102,9 @@ function buildMockQuestions(cat, count, mode) {
   if (mode === 'wrong') {
     pool = _mockWrongPool(cat);                       // 모의고사에서 틀렸던 문제만
   } else {
-    pool = [];                                        // 이 자격증의 모든 회차 · 모든 문제
+    pool = [];                                        // 이 자격증의 모든 회차 · 모든 문제 (숨긴 건 뺀다)
     for (const round of getRoundList(cat)) {
-      for (const q of getRound(cat, round)) pool.push({ q, round, cat });
+      for (const q of visibleRound(cat, round)) pool.push({ q, round, cat });
     }
   }
   if (!pool.length) return null;
@@ -19314,7 +19643,7 @@ function renderSettings() {
 //    → 백업/복원에서 캘린더 메모·시험일이 통째로 빠져 있었음
 //  - 모의고사 기록(mock_records / mock_wrong)도 빠져 있어서 추가
 const BACKUP_KEYS = ['quiz_categories','quiz_data','quiz_progress','quiz_wrong','quiz_checks',
-                     'resume_bookmark','quiz_mastery','quiz_starred','quiz_flagged','quiz_marked','quiz_daily','quiz_qmemo',
+                     'resume_bookmark','quiz_mastery','quiz_starred','quiz_flagged','quiz_marked','quiz_hidden','quiz_daily','quiz_qmemo',
                      'quiz_memo_links','cal_data','mock_records','mock_wrong','quiz_srs','quiz_hl','quiz_imgw','quiz_quick_links',
                      'wrong_quiz_resume','star_quiz_resume','flag_quiz_resume','calc_quiz_resume','mock_quiz_resume','mock_wrong_quiz_resume','mock_deck'];
 
@@ -19584,6 +19913,13 @@ applyRenderFlags();
 //   k: 'new'(새 기능) · 'fix'(고침) · 'chg'(바뀜)
 // ══════════════════════════════════════════════════════════════════════
 const PATCH_NOTES = [
+  { v: '260813-0432', at: '2026-08-12', items: [
+    { k: 'new', t: '<b>문제 숨기기</b>가 생겼습니다 — 사실상 같은 걸 묻는 문제가 여러 개일 때, 풀다가 <b>숨기기</b>를 누르면 다음부터 안 나옵니다 (문제 풀기·모의고사·오답·별표·체크·계산문제 모두)' },
+    { k: 'new', t: '<b>복습 &gt; 숨긴 문제</b>에서 언제든 <b>다시 보기</b>로 되살릴 수 있고, 문항 번호판에도 흐리게 남아 있어 눌러서 바로 되돌릴 수 있습니다. 회차 타일에는 숨긴 개수가 표시돼요' },
+    { k: 'chg', t: '숨겨도 <b>이미 푼 기록은 그대로</b>입니다 — 되살리면 그때 답까지 같이 돌아옵니다 (문제를 지우는 게 아니라 안 보이게만 하는 것이라서요)' },
+    { k: 'chg', t: '숨긴 만큼 <b>회차 문항 수·완료 판정·모의고사 남은 문제 수</b>가 함께 줄어듭니다 — 60문제 중 10개를 숨기면 50개를 다 풀었을 때 완료가 됩니다' },
+    { k: 'chg', t: '헤더가 빡빡해서 <b>암기칸 보내기</b>를 <b>주석 줄 오른쪽</b>으로 옮기고, 그 자리에 숨기기를 넣었습니다' },
+  ]},
   { v: '260812-2042', at: '2026-08-12', items: [
     { k: 'fix', t: '<b>체크한 것만 풀기</b> 같은 시작 버튼을 눌렀을 때, 풀던 게 남아 있으면 <b>이어서 풀지 물어봅니다</b> — 예전엔 무조건 1번부터 새로 시작해서, 이어서 풀려고 눌렀다가 진도가 조용히 날아갔습니다 (이어서 풀기 카드가 따로 있었지만 시작 버튼이 더 눈에 띄었죠)' },
     { k: 'chg', t: '<b>오답만 · 별표만 · 체크만 · 계산문제만 · 모의고사 오답 · 모의고사</b> 여섯 곳 모두 같습니다 — <b>확인</b>은 이어서, <b>취소</b>는 처음부터. 풀던 게 없으면 묻지 않고 바로 시작해요' },
@@ -20001,7 +20337,7 @@ function closePatchNotes() {
 // ── 앱 버전 ──
 // 폰이 옛 파일을 캐시해 두고 있는지 바로 확인할 수 있도록 화면에 표시한다.
 // (설정 맨 아래 · 개발자 도구 콘솔에도 찍힘)
-const APP_VERSION = '260812-2042';
+const APP_VERSION = '260813-0432';
 console.log('%c양진웅 Note 버전 ' + APP_VERSION, 'font-weight:bold');
 
 // PWA 서비스워커 등록
