@@ -12853,7 +12853,25 @@ function renderWrongResumeCard() {
   ` : '';
 }
 
+// '모아 풀기' 시작 버튼을 눌렀는데 풀던 게 남아 있으면 먼저 물어본다.
+// 예전엔 버튼이 무조건 1번부터 새로 시작했다. 이어서 풀기 카드가 따로 있긴 했지만
+// 시작 버튼이 더 크고 눈에 띄어서 그쪽을 누르게 되고, 그러면 풀던 진도가 조용히 날아갔다.
+function _askResumeFirst(getResume, resumeFn, label) {
+  let r = null;
+  try { r = getResume(); } catch (_) { return false; }
+  // 화면마다 저장 모양이 조금 다르다 — 모의고사는 picks, 나머지는 ids/total
+  const total = r && (r.total || (r.picks && r.picks.length) || (r.ids && r.ids.length) || 0);
+  if (!total) return false;
+  const at = (r.idx || 0) + 1;
+  if (confirm(`${label} ${at} / ${total}번째까지 풀던 게 있어요.\n\n확인 — 이어서 풀기\n취소 — 처음부터 새로 시작`)) {
+    resumeFn();
+    return true;             // 이어서 풀기로 넘어갔으니 새로 시작하지 않는다
+  }
+  return false;              // 처음부터 — 아래에서 새 판을 만든다
+}
+
 function startWrongQuiz() {
+  if (_askResumeFirst(getWrongQuizResume, resumeWrongQuiz, '오답')) return;
   // [수정] 자격증만 보고 회차 필터(여러 개 선택)는 무시하고 있었다 → 화면에 보이는 것과 똑같이 푼다.
   startWrongQuizWithData(_wrongFiltered(getWrongAnswers()));
 }
@@ -14209,6 +14227,7 @@ function renderStarResumeCard() {
 }
 
 function startStarQuiz() {
+  if (_askResumeFirst(getStarQuizResume, resumeStarQuiz, '별표')) return;
   // [수정] 자격증만 보고 회차·중요도 필터는 무시하고 있었다 → 화면에 보이는 것과 똑같이 푼다.
   // [수정] 목록과 같은 순서(중요도 높은 순 → 최근 표시순)로 풀리도록 정렬한다
   const items = _starFiltered().sort((a, b) => starLevelOf(b) - starLevelOf(a) || (b.addedAt || 0) - (a.addedAt || 0));
@@ -14603,6 +14622,7 @@ function renderFlagResumeCard() {
 }
 
 function startFlagQuiz() {
+  if (_askResumeFirst(getFlagQuizResume, resumeFlagQuiz, '체크')) return;
   try {
     const flagged = getFlagged();
     const items = Object.values(flagged);
@@ -15041,6 +15061,7 @@ function renderCalcResumeCard() {
 }
 
 function startCalcQuiz() {
+  if (_askResumeFirst(getCalcQuizResume, resumeCalcQuiz, '계산문제')) return;
   try {
     const src = collectCalcQuestions(calcFilter.cat);
     if (!src.length) { showToast('계산문제가 없어요'); return; }
@@ -15799,6 +15820,7 @@ function buildMockQuestions(cat, count, mode) {
 }
 
 function startMockExam() {
+  if (_askResumeFirst(getMockQuizResume, resumeMockQuiz, '모의고사')) return;
   const cat = document.getElementById('mock-cat-select').value;
   if (!cat) { showToast('자격증을 선택하세요'); return; }
   const count = parseInt(document.getElementById('mock-count-input').value) || 60;
@@ -16387,6 +16409,7 @@ function renderMockWrongResumeCard() {
 }
 
 function startMockWrongQuiz() {
+  if (_askResumeFirst(getMockWrongQuizResume, resumeMockWrongQuiz, '모의고사 오답')) return;
   const wrongs = mockWrongFilter.cat
     ? getMockWrongs().filter(w => w.cat === mockWrongFilter.cat)
     : getMockWrongs();
@@ -19561,6 +19584,11 @@ applyRenderFlags();
 //   k: 'new'(새 기능) · 'fix'(고침) · 'chg'(바뀜)
 // ══════════════════════════════════════════════════════════════════════
 const PATCH_NOTES = [
+  { v: '260812-2042', at: '2026-08-12', items: [
+    { k: 'fix', t: '<b>체크한 것만 풀기</b> 같은 시작 버튼을 눌렀을 때, 풀던 게 남아 있으면 <b>이어서 풀지 물어봅니다</b> — 예전엔 무조건 1번부터 새로 시작해서, 이어서 풀려고 눌렀다가 진도가 조용히 날아갔습니다 (이어서 풀기 카드가 따로 있었지만 시작 버튼이 더 눈에 띄었죠)' },
+    { k: 'chg', t: '<b>오답만 · 별표만 · 체크만 · 계산문제만 · 모의고사 오답 · 모의고사</b> 여섯 곳 모두 같습니다 — <b>확인</b>은 이어서, <b>취소</b>는 처음부터. 풀던 게 없으면 묻지 않고 바로 시작해요' },
+    { k: 'chg', t: '특히 <b>모의고사</b>는 50문제짜리를 풀다 말고 시작 버튼을 눌러도 시험이 통째로 날아가지 않습니다' },
+  ]},
   { v: '260812-2030', at: '2026-08-12', items: [
     { k: 'new', t: '<b>오답만 풀기 · 별표만 풀기 · 모의고사 오답 풀기</b>에서도 문제를 푸는 도중에 <b>별표 옆 체크 버튼</b>으로 체크할 수 있습니다 — 문제 풀기·체크만 풀기·계산문제만에 이미 있던 것과 같은 자리, 같은 방식이에요' },
     { k: 'chg', t: '여기서 켠 체크는 <b>복습 &gt; 체크</b> 목록과 <b>체크한 것만 풀기</b>에 그대로 들어갑니다 (별표와는 완전히 별개라 별표는 건드리지 않아요)' },
@@ -19973,7 +20001,7 @@ function closePatchNotes() {
 // ── 앱 버전 ──
 // 폰이 옛 파일을 캐시해 두고 있는지 바로 확인할 수 있도록 화면에 표시한다.
 // (설정 맨 아래 · 개발자 도구 콘솔에도 찍힘)
-const APP_VERSION = '260812-2030';
+const APP_VERSION = '260812-2042';
 console.log('%c양진웅 Note 버전 ' + APP_VERSION, 'font-weight:bold');
 
 // PWA 서비스워커 등록
