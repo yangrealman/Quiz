@@ -6840,6 +6840,9 @@
           <span class="star-pip" onclick="setStarWQ(4)">★</span>
           <span class="star-pip" onclick="setStarWQ(5)">★</span>
         </span>
+        <button class="flag-btn" id="wq-flag-btn" onclick="toggleFlagWQ()" title="체크 표시">
+          <svg class="ic" viewBox="0 0 24 24"><use href="#ic-square"/></svg>
+        </button>
         <span class="quiz-num" id="wq-num"></span>
       </div>
     </div>
@@ -6898,6 +6901,9 @@
           <span class="star-pip" onclick="setStarSQ(4)">★</span>
           <span class="star-pip" onclick="setStarSQ(5)">★</span>
         </span>
+        <button class="flag-btn" id="sq-flag-btn" onclick="toggleFlagSQ()" title="체크 표시">
+          <svg class="ic" viewBox="0 0 24 24"><use href="#ic-square"/></svg>
+        </button>
         <span class="quiz-num" id="sq-num"></span>
       </div>
     </div>
@@ -7682,6 +7688,9 @@
           <span class="star-pip" onclick="setStarMWQ(4)">★</span>
           <span class="star-pip" onclick="setStarMWQ(5)">★</span>
         </span>
+        <button class="flag-btn" id="mwq-flag-btn" onclick="toggleFlagMWQ()" title="체크 표시">
+          <svg class="ic" viewBox="0 0 24 24"><use href="#ic-square"/></svg>
+        </button>
         <span class="quiz-num" id="mwq-num"></span>
       </div>
     </div>
@@ -12874,6 +12883,7 @@ function renderWQ() {
   if (src) {
     const starKey = getStarKey(src.cat, src.round, q.id || q.num || idx);
     paintStarWidget(document.getElementById('wq-star-widget'), starLevelOf(getStarred()[starKey]));
+    _paintFlagInQuiz(wqState, 'wq-flag-btn');
   }
   const sourceEl = document.getElementById('wq-source');
   if (sourceEl && src) {
@@ -14230,6 +14240,7 @@ function renderSQ() {
     renderSQSource();
     const key = getStarKey(src.cat, src.round, q.id || q.num || idx);
     paintStarWidget(document.getElementById('sq-star-widget'), starLevelOf(getStarred()[key]));
+    _paintFlagInQuiz(sqState, 'sq-flag-btn');
   }
   document.getElementById('sq-question').textContent = q.question;
   renderQImage('sq-img-wrap', q);   // [추가] 문제 그림
@@ -14791,6 +14802,25 @@ function toggleFlagFQ() {
 
 // 체크 풀기 중에도 별표를 매길 수 있다 (별표 저장소는 그대로, 체크와는 별개)
 // 오답 풀기 화면에서 그 자리에서 별표 개수 보기·바꾸기
+// 오답·별표·모의고사 오답을 푸는 중에도 그 자리에서 체크할 수 있다.
+// 별표와는 완전히 다른 저장소(quiz_flagged)라, 여기서 켠 체크는 '복습 > 체크'에 그대로 들어간다.
+function _toggleFlagInQuiz(state, btnId) {
+  const src = state && state.source && state.source[state.idx];
+  const q = state && state.questions && state.questions[state.idx];
+  if (!src || !q) return;
+  const on = toggleFlagEntry(src.cat, src.round, q, 0);
+  paintFlagBtn(document.getElementById(btnId), on);
+}
+function _paintFlagInQuiz(state, btnId) {
+  const src = state && state.source && state.source[state.idx];
+  const q = state && state.questions && state.questions[state.idx];
+  if (!src || !q) return;
+  paintFlagBtn(document.getElementById(btnId), !!getFlagged()[_flagKeyOf(src.cat, src.round, q)]);
+}
+function toggleFlagWQ()  { _toggleFlagInQuiz(wqState,  'wq-flag-btn'); }
+function toggleFlagSQ()  { _toggleFlagInQuiz(sqState,  'sq-flag-btn'); }
+function toggleFlagMWQ() { _toggleFlagInQuiz(mwqState, 'mwq-flag-btn'); }
+
 function setStarWQ(level) {
   const { questions, idx, source } = wqState;
   const src = source && source[idx];
@@ -16388,6 +16418,7 @@ function renderMWQ() {
   if (src) {
     const starKey = getStarKey(src.cat, src.round, q.id || q.num || idx);
     paintStarWidget(document.getElementById('mwq-star-widget'), starLevelOf(getStarred()[starKey]));
+    _paintFlagInQuiz(mwqState, 'mwq-flag-btn');
   }
   document.getElementById('mwq-question').textContent = q.question;
   renderQImage('mwq-img-wrap', q);   // [추가] 문제 그림
@@ -19530,6 +19561,10 @@ applyRenderFlags();
 //   k: 'new'(새 기능) · 'fix'(고침) · 'chg'(바뀜)
 // ══════════════════════════════════════════════════════════════════════
 const PATCH_NOTES = [
+  { v: '260812-2030', at: '2026-08-12', items: [
+    { k: 'new', t: '<b>오답만 풀기 · 별표만 풀기 · 모의고사 오답 풀기</b>에서도 문제를 푸는 도중에 <b>별표 옆 체크 버튼</b>으로 체크할 수 있습니다 — 문제 풀기·체크만 풀기·계산문제만에 이미 있던 것과 같은 자리, 같은 방식이에요' },
+    { k: 'chg', t: '여기서 켠 체크는 <b>복습 &gt; 체크</b> 목록과 <b>체크한 것만 풀기</b>에 그대로 들어갑니다 (별표와는 완전히 별개라 별표는 건드리지 않아요)' },
+  ]},
   { v: '260812-0014', at: '2026-08-12', items: [
     { k: 'new', t: '<b>별표 문제</b> 화면에 <b>전체 해제</b> 버튼이 생겼습니다 — 오른쪽 위 <b>X</b> 를 <b>두 번</b> 눌러야 지워지고, 화면을 나갔다 오면 확인 상태가 풀립니다 (체크 화면과 같은 방식)' },
     { k: 'fix', t: '전체 해제 뒤 버튼이 <b>정말?</b> 상태로 남아 있던 것을 고쳤습니다 — 나중에 별표(체크)를 다시 달면 버튼이 그 상태로 나타나 <b>한 번만 눌러도 전부 지워지던</b> 위험이 있었습니다 (별표·체크 둘 다 수정)' },
@@ -19938,7 +19973,7 @@ function closePatchNotes() {
 // ── 앱 버전 ──
 // 폰이 옛 파일을 캐시해 두고 있는지 바로 확인할 수 있도록 화면에 표시한다.
 // (설정 맨 아래 · 개발자 도구 콘솔에도 찍힘)
-const APP_VERSION = '260812-0014';
+const APP_VERSION = '260812-2030';
 console.log('%c양진웅 Note 버전 ' + APP_VERSION, 'font-weight:bold');
 
 // PWA 서비스워커 등록
