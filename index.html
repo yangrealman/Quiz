@@ -5303,6 +5303,9 @@
   body.rf-noTilt .home-hero::after, body.rf-noTilt .weather-chip::after,
   body.rf-noTilt .hero-mini::after, body.rf-noTilt .dday-card::after,
   body.rf-noTilt .resume-card::after, body.rf-noTilt .mst-card::after { display: none !important; }
+  /* [주의] 이 규칙은 배경 '이미지'를 전부 지운다. 그라데이션도 배경 이미지라서,
+     색 자체가 의미인 곳(테마 색 고르기 · 흰 글씨를 얹은 머리띠)은
+     반드시 background-color 를 같이 깔아 둬야 한다 — 안 그러면 투명해져서 안 보인다. */
   body.rf-noGlass * { background-image: none !important; }
   /* [수정] "카드 유리 질감" 끄면 상단바 그라데이션(배경 이미지)이 사라져
      투명 배경 + 흰 글씨가 되어 안 보이던 문제 → 단색 배경을 깔아준다 */
@@ -5951,6 +5954,10 @@
   .set-card > .set-row,
   .set-card > .set-row-btn,
   .set-card > .set-more { border-radius: 0; }
+  /* [수정] 배경이 투명이라 흰 칸이 '전체 애니메이션' 줄에서 끊기고,
+     '세부 설정'은 카드 밖에 떠 있는 것처럼 보였다 (위는 둥글고 아래는 각진 모양)
+     → 같은 카드 색을 깔아 한 칸으로 이어지게 한다 */
+  .set-card > .set-more { background: var(--card); }
 
   /* [추가] 아직 다듬는 중인 기능 표시 */
   .beta-tag {
@@ -7115,7 +7122,7 @@
 <div id="page-answer-sheet" class="page">
   <div class="container">
     <button class="back-btn" id="answer-sheet-back-btn"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-arrow-left"/></svg>돌아가기</button>
-    <div style="background:linear-gradient(135deg,var(--success),#047857); border-radius:var(--radius); padding:16px 20px; margin-bottom:20px; color:#fff;">
+    <div style="background-color:var(--success); background-image:linear-gradient(135deg,var(--success),#047857); border-radius:var(--radius); padding:16px 20px; margin-bottom:20px; color:#fff;">
       <div style="font-size:16px; font-weight:800;" id="answer-sheet-title">정답지</div>
       <div style="font-size:12px; opacity:0.85; margin-top:2px;" id="answer-sheet-sub"></div>
     </div>
@@ -7127,7 +7134,7 @@
 <div id="page-quick-check" class="page">
   <div class="container">
     <button class="back-btn" onclick="exitQuickCheck()"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-arrow-left"/></svg>돌아가기</button>
-    <div style="background:linear-gradient(135deg,var(--nav-g1),var(--nav-g2)); border-radius:var(--radius); padding:16px 20px; margin-bottom:16px; color:#fff;">
+    <div style="background-color:var(--nav-g2); background-image:linear-gradient(135deg,var(--nav-g1),var(--nav-g2)); border-radius:var(--radius); padding:16px 20px; margin-bottom:16px; color:#fff;">
       <div style="font-size:16px; font-weight:800;" id="qc-title">문제만 보기</div>
       <div style="font-size:12px; opacity:0.85; margin-top:2px;" id="qc-sub">문제를 읽고 알면 ✅, 모르면 ❌ 체크하세요</div>
     </div>
@@ -19621,7 +19628,7 @@ function renderSettings() {
   if (box) {
     box.innerHTML = Object.entries(THEMES).map(([k, t]) => `
       <button class="theme-sw ${s.theme === k ? 'active' : ''}"
-              style="background:linear-gradient(135deg, ${t.g1}, ${t.g3})"
+              style="background-color:${t.main}; background-image:linear-gradient(135deg, ${t.g1}, ${t.g3})"
               title="${t.name}" onclick="setTheme('${k}')"></button>
     `).join('');
   }
@@ -19913,6 +19920,10 @@ applyRenderFlags();
 //   k: 'new'(새 기능) · 'fix'(고침) · 'chg'(바뀜)
 // ══════════════════════════════════════════════════════════════════════
 const PATCH_NOTES = [
+  { v: '260813-0533', at: '2026-08-13', items: [
+    { k: 'fix', t: '<b>테마 색 고르는 칸이 안 보이던 것</b>을 고쳤습니다 — <b>세부 설정 &gt; 카드 유리 질감</b>을 끄면 색이 통째로 투명해져 있었습니다 (자리를 기억해 누르면 바뀌긴 했지만 색이 안 보였죠). <b>정답지</b>와 <b>문제만 보기</b> 머리띠도 같은 이유로 흰 글씨만 남던 것을 함께 고쳤습니다' },
+    { k: 'fix', t: '<b>움직임</b> 설정 칸 아래쪽이 각져 보이던 것을 고쳤습니다 — <b>세부 설정</b>이 카드 밖에 떠 있는 것처럼 보였는데, 이제 한 칸으로 이어지고 누르면 그 칸이 넓어집니다' },
+  ]},
   { v: '260813-0432', at: '2026-08-12', items: [
     { k: 'new', t: '<b>문제 숨기기</b>가 생겼습니다 — 사실상 같은 걸 묻는 문제가 여러 개일 때, 풀다가 <b>숨기기</b>를 누르면 다음부터 안 나옵니다 (문제 풀기·모의고사·오답·별표·체크·계산문제 모두)' },
     { k: 'new', t: '<b>복습 &gt; 숨긴 문제</b>에서 언제든 <b>다시 보기</b>로 되살릴 수 있고, 문항 번호판에도 흐리게 남아 있어 눌러서 바로 되돌릴 수 있습니다. 회차 타일에는 숨긴 개수가 표시돼요' },
@@ -20337,7 +20348,7 @@ function closePatchNotes() {
 // ── 앱 버전 ──
 // 폰이 옛 파일을 캐시해 두고 있는지 바로 확인할 수 있도록 화면에 표시한다.
 // (설정 맨 아래 · 개발자 도구 콘솔에도 찍힘)
-const APP_VERSION = '260813-0432';
+const APP_VERSION = '260813-0533';
 console.log('%c양진웅 Note 버전 ' + APP_VERSION, 'font-weight:bold');
 
 // PWA 서비스워커 등록
