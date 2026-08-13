@@ -6766,13 +6766,15 @@
       </div>
     </div>
     <div class="qgrid" id="qgrid"></div>
-    <div class="quiz-scrub-row">
+    <div class="quiz-scrub-row judge-row">
       <button class="scrub-arrow" onclick="quizPrev()" title="이전 문제" aria-label="이전 문제"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-arrow-left"/></svg></button>
+      <button class="judge-dot judge-no" id="quiz-judge-no" onclick="quizJudgeGo('wrong')" title="틀렸어요" aria-label="틀렸어요"></button>
       <div class="quiz-progress-bar scrub-bar" id="quiz-progress-bar">
         <div class="quiz-progress-fill" id="quiz-progress-fill"></div>
         <div class="quiz-progress-thumb" id="quiz-progress-thumb"></div>
         <div class="quiz-progress-tip" id="quiz-progress-tip"></div>
       </div>
+      <button class="judge-dot judge-ok" id="quiz-judge-ok" onclick="quizJudgeGo('correct')" title="맞았어요" aria-label="맞았어요"></button>
       <button class="scrub-arrow" onclick="quizNext()" title="다음 문제" aria-label="다음 문제"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-arrow-right"/></svg></button>
     </div>
     <div class="quiz-scrub-hint" id="quiz-scrub-hint">드래그해서 문항 이동</div>
@@ -11233,6 +11235,7 @@ function renderQuestion() {
   document.getElementById('explanation-box').classList.remove('show');
 
   const isSubj = q.type === 'subj';
+  _paintJudgeDots('quiz', isSubj);   // [추가] 진행바 양옆 판정 버튼 (필답형에서만 보인다)
 
   if (isSubj) {
     // ── 주관식 ──
@@ -17102,6 +17105,28 @@ function _paintJudgeDots(prefix, isSubj) {
 }
 
 // 모의고사 — 판정하고 다음으로. 마지막 문제에서는 넘기지 않는다(거기서 다음은 '제출'이라 실수로 끝난다).
+// [추가] 문제 풀기 — 진행바 양옆 판정 버튼. 판정하고 바로 다음 문제로 간다.
+//   아래 3칸(맞았어요·정답 보기·틀렸어요)과 겹치지만, 손이 가 있는 자리가 달라서
+//   문항을 옮기던 손 그대로 판정하고 넘어갈 수 있다 — 모의고사에 있던 것과 같은 자리·같은 모양.
+//   [주의] 객관식에서는 숨긴다(_paintJudgeDots). 객관식 답은 '고른 보기 번호'라
+//          판정값('correct')을 넣으면 채점에서 번호와 비교되어 무조건 틀린 것이 된다.
+function quizJudgeGo(result) {
+  if (!currentQuiz || !currentQuiz.questions.length) return;
+  const { questions, idx } = currentQuiz;
+  const q = questions[idx];
+  if (!q || q.type !== 'subj') return;
+
+  // 판정 후 자동으로 다음 문제 설정이 켜져 있으면 judgeSubj 가 알아서 넘긴다 → 두 번 넘기지 않는다
+  let auto = false;
+  try { auto = !!getSettings().autoNextOnJudge; } catch (_) {}
+
+  judgeSubj(result);
+
+  // 마지막 문제에서는 넘기지 않는다 — 거기서 '다음'은 채점이라 실수로 끝나 버린다
+  if (idx >= questions.length - 1 || auto) return;
+  quizNext();
+}
+
 function mqJudgeGo(result) {
   if (!mqState || !mqState.questions.length) return;
   const last = mqState.idx >= mqState.questions.length - 1;
@@ -20164,6 +20189,11 @@ applyRenderFlags();
 //   k: 'new'(새 기능) · 'fix'(고침) · 'chg'(바뀜)
 // ══════════════════════════════════════════════════════════════════════
 const PATCH_NOTES = [
+  { v: '260813-2050', at: '2026-08-13', items: [
+    { k: 'new', t: '<b>문제 풀기</b>의 문항 이동 막대 <b>양옆에 판정 버튼</b>이 생겼습니다 — 왼쪽 빨간 점이 <b>틀렸어요</b>, 오른쪽 초록 점이 <b>맞았어요</b>고, 누르면 <b>바로 다음 문제로</b> 넘어갑니다. 문항을 옮기던 손 그대로 판정하고 넘어갈 수 있어요 (모의고사에 있던 것과 같은 자리·같은 모양)' },
+    { k: 'chg', t: '아래 <b>맞았어요 · 정답 보기 · 틀렸어요</b> 3칸은 그대로 있습니다. 판정 버튼은 <b>필답형에서만</b> 보여요 — 객관식은 보기를 고르는 것이 곧 채점이라서요' },
+    { k: 'chg', t: '<b>마지막 문제</b>에서는 판정만 되고 넘어가지 않습니다 — 거기서 다음은 채점이라 실수로 끝나 버리지 않게 했어요. <b>판정 후 자동으로 다음</b>을 켜 두었어도 한 문제씩만 넘어갑니다' },
+  ]},
   { v: '260813-1852', at: '2026-08-13', items: [
     { k: 'new', t: '<b>설정 &gt; 모드 전환</b>에 <b>간단 모드</b>가 생겼습니다 — 움직이는 것이 하나도 없는 목록 화면이에요. <b>문제 풀기 · 모의고사 · 오답노트 · 별표 · 체크</b> 다섯 가지만 있고, 시계·배너·꾸밈은 없습니다. 위에 <b>정식</b>을 누르면 언제든 돌아옵니다' },
     { k: 'chg', t: '간단 모드는 <b>기록을 정식 화면과 그대로 함께 씁니다</b> — 진도·오답·별표·체크·모의고사 기록이 같은 곳에 쌓이고, 기기 사이 동기화도 똑같이 됩니다. 어느 쪽에서 풀어도 이어집니다' },
@@ -20616,7 +20646,7 @@ function closePatchNotes() {
 // ── 앱 버전 ──
 // 폰이 옛 파일을 캐시해 두고 있는지 바로 확인할 수 있도록 화면에 표시한다.
 // (설정 맨 아래 · 개발자 도구 콘솔에도 찍힘)
-const APP_VERSION = '260813-1852';
+const APP_VERSION = '260813-2050';
 console.log('%c양진웅 Note 버전 ' + APP_VERSION, 'font-weight:bold');
 
 // PWA 서비스워커 등록
