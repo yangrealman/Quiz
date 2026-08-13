@@ -7468,6 +7468,14 @@
       <div class="set-group-label">모드 전환</div>
       <div class="set-card">
 
+        <button class="set-row set-row-btn" onclick="openSimpleHome()">
+          <div class="set-row-main">
+            <div class="set-row-title">간단 모드</div>
+            <div class="set-row-desc">움직이는 것 없이 목록만 · 문제 풀기 · 모의고사 · 오답노트 · 별표 · 체크<br>기록은 이 화면과 그대로 함께 씁니다</div>
+          </div>
+          <svg class="ic set-chev" viewBox="0 0 24 24"><use href="#ic-chevron-right"/></svg>
+        </button>
+
         <button class="set-row set-row-btn" onclick="openLightHome()">
           <div class="set-row-main">
             <div class="set-row-title">라이트 버전</div>
@@ -19820,6 +19828,7 @@ async function _leaveTo(url, label) {
   location.href = url;
 }
 function openLightHome() { return _leaveTo('light.html', '라이트 버전'); }
+function openSimpleHome() { return _leaveTo('simple.html', '간단 모드'); }
 
 function renderSettings() {
   if (typeof renderDiagList === 'function') renderDiagList();
@@ -20155,6 +20164,11 @@ applyRenderFlags();
 //   k: 'new'(새 기능) · 'fix'(고침) · 'chg'(바뀜)
 // ══════════════════════════════════════════════════════════════════════
 const PATCH_NOTES = [
+  { v: '260813-1852', at: '2026-08-13', items: [
+    { k: 'new', t: '<b>설정 &gt; 모드 전환</b>에 <b>간단 모드</b>가 생겼습니다 — 움직이는 것이 하나도 없는 목록 화면이에요. <b>문제 풀기 · 모의고사 · 오답노트 · 별표 · 체크</b> 다섯 가지만 있고, 시계·배너·꾸밈은 없습니다. 위에 <b>정식</b>을 누르면 언제든 돌아옵니다' },
+    { k: 'chg', t: '간단 모드는 <b>기록을 정식 화면과 그대로 함께 씁니다</b> — 진도·오답·별표·체크·모의고사 기록이 같은 곳에 쌓이고, 기기 사이 동기화도 똑같이 됩니다. 어느 쪽에서 풀어도 이어집니다' },
+    { k: 'chg', t: '간단 모드의 <b>별표는 5단계 그대로</b>고, <b>숨긴 문제</b>도 정식과 똑같이 빠집니다. 모의고사는 <b>전체 회차</b>에서 무작위로 내고(안 받아온 회차는 시작할 때 받아옵니다), <b>다 풀어야 채점</b>되는 것도 같습니다' },
+  ]},
   { v: '260813-1831', at: '2026-08-13', items: [
     { k: 'chg', t: '<b>회차를 펼쳤을 때 나오는 체크·정답지·문제만</b> 칸에 마우스를 올리면 칸이 훌쩍 커지던 것을 다듬었습니다 — 작은 아이콘 단추용 확대(1.15배)를 그대로 물려받고 있었어요. 이제 다른 카드들처럼 살짝 떠오르기만 합니다' },
     { k: 'new', t: '<b>복습 탭의 칸 순서를 바꿀 수 있습니다</b> — 오른쪽 위 <b>⚙ 순서</b>를 누르면 ▲▼ 가 나오고, 자주 쓰는 것을 위로 올릴 수 있어요. <b>처음 순서로</b> 버튼으로 언제든 되돌립니다 (순서는 기기 사이에도 따라갑니다)' },
@@ -20602,7 +20616,7 @@ function closePatchNotes() {
 // ── 앱 버전 ──
 // 폰이 옛 파일을 캐시해 두고 있는지 바로 확인할 수 있도록 화면에 표시한다.
 // (설정 맨 아래 · 개발자 도구 콘솔에도 찍힘)
-const APP_VERSION = '260813-1831';
+const APP_VERSION = '260813-1852';
 console.log('%c양진웅 Note 버전 ' + APP_VERSION, 'font-weight:bold');
 
 // PWA 서비스워커 등록

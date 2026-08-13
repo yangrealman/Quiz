@@ -1,0 +1,992 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#F2F2F7">
+<title>양진웅 Note — 간단</title>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<script>
+  const firebaseConfig = {
+    apiKey: "AIzaSyC6fOvzE69mucSuCgDVl-sB5s1eFgKQQaA",
+    authDomain: "quiz-app-f6c45.firebaseapp.com",
+    projectId: "quiz-app-f6c45",
+    storageBucket: "quiz-app-f6c45.firebasestorage.app",
+    messagingSenderId: "66139024814",
+    appId: "1:66139024814:web:7e1ac161bee6308fee6c3f"
+  };
+  const USER_ID = 'main';
+  let db, FIREBASE_OK = false;
+  try {
+    firebase.initializeApp(firebaseConfig);
+    db = firebase.firestore();
+    FIREBASE_OK = true;
+  } catch (e) {
+    const _fail = () => Promise.reject(new Error('offline'));
+    db = { collection: () => ({ doc: () => ({ collection: () => ({ doc: () => ({ get: _fail, set: _fail }) }) }) }) };
+  }
+</script>
+
+<style>
+/* ══════════════════════════════════════════════════════════════
+   간단 모드 — iOS 기본 앱 어법. 움직이는 것은 하나도 없다.
+   transition · animation · transform 을 일부러 쓰지 않는다.
+   화면에 없어도 되는 것(시계·날씨·배너·꾸밈)은 넣지 않는다.
+   ══════════════════════════════════════════════════════════════ */
+:root {
+  --bg: #F2F2F7;
+  --card: #FFFFFF;
+  --line: #C6C6C8;
+  --line-soft: #E5E5EA;
+  --text: #000000;
+  --text2: #8E8E93;
+  --blue: #007AFF;
+  --green: #34C759;
+  --red: #FF3B30;
+  --orange: #FF9500;
+  --press: #D1D1D6;
+}
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { margin: 0; padding: 0; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 17px;
+  line-height: 1.45;
+  -webkit-text-size-adjust: 100%;
+  padding-bottom: env(safe-area-inset-bottom, 0);
+  /* 내용이 짧아도 아래 이동 바가 화면 밑에 붙어 있도록 (안 그러면 중간에 떠 있다) */
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex; flex-direction: column;
+}
+#view { flex: 1; display: flex; flex-direction: column; }
+#view > .q-wrap { flex: 1; }
+button, input, textarea { font-family: inherit; font-size: inherit; color: inherit; }
+
+/* ── 상단 바 ── */
+.nav {
+  position: sticky; top: 0; z-index: 10;
+  background: #F9F9F9;
+  border-bottom: 0.5px solid var(--line);
+  padding: calc(env(safe-area-inset-top, 0) + 6px) 8px 6px;
+  display: flex; align-items: center; gap: 4px;
+  min-height: 44px;
+}
+.nav-back {
+  border: none; background: none; color: var(--blue);
+  padding: 6px 6px 6px 2px; cursor: pointer;
+  display: flex; align-items: center; font-size: 17px;
+}
+.nav-back::before {
+  content: ""; width: 10px; height: 10px;
+  border-left: 2.5px solid var(--blue); border-bottom: 2.5px solid var(--blue);
+  transform: rotate(45deg); margin-right: 4px;
+}
+.nav-title { flex: 1; text-align: center; font-size: 17px; font-weight: 600;
+             white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.nav-side { min-width: 64px; }
+.nav-right { min-width: 64px; text-align: right; }
+.nav-act { border: none; background: none; color: var(--blue); cursor: pointer; padding: 6px 8px; font-size: 16px; }
+
+.big-title { font-size: 34px; font-weight: 700; letter-spacing: -0.6px; padding: 10px 20px 8px; }
+
+/* ── 목록 ── */
+.group-label { font-size: 13px; color: var(--text2); padding: 22px 20px 6px; }
+.list { background: var(--card); border-top: 0.5px solid var(--line-soft); border-bottom: 0.5px solid var(--line-soft); }
+.row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 12px 16px; min-height: 48px;
+  border: none; border-bottom: 0.5px solid var(--line-soft);
+  background: var(--card); width: 100%;
+  text-align: left; cursor: pointer; color: inherit;
+}
+.row:last-child { border-bottom: none; }
+.row:active { background: var(--press); }
+.row-main { flex: 1; min-width: 0; }
+.row-title { font-size: 17px; }
+.row-sub { font-size: 13px; color: var(--text2); margin-top: 2px;
+           overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.row-val { font-size: 16px; color: var(--text2); flex-shrink: 0; }
+.chev { width: 8px; height: 8px; flex-shrink: 0;
+        border-top: 2px solid #C7C7CC; border-right: 2px solid #C7C7CC; transform: rotate(45deg); }
+
+/* 회차 격자 */
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(78px, 1fr)); gap: 10px; padding: 12px 16px; }
+.tile {
+  background: var(--card); border: none; border-radius: 10px;
+  padding: 10px 4px 12px; cursor: pointer; text-align: center;
+  position: relative; overflow: hidden; color: inherit;
+}
+.tile:active { background: var(--press); }
+.tile-y { display: block; font-size: 11px; color: var(--text2); }
+.tile-n { display: block; font-size: 17px; font-weight: 600; margin-top: 1px; }
+.tile-bar { position: absolute; left: 0; bottom: 0; height: 3px; background: var(--green); }
+.tile-done .tile-n { color: var(--green); }
+
+/* ── 문제 ── */
+.q-wrap { padding: 16px; }
+.q-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 8px; }
+.q-meta { font-size: 13px; color: var(--text2); }
+.q-mark { display: flex; align-items: center; gap: 4px; }
+.pip { border: none; background: none; cursor: pointer; padding: 2px 1px;
+       font-size: 17px; line-height: 1; color: #D1D1D6; }
+.pip.on { color: var(--orange); }
+.chk {
+  border: 1px solid var(--line); background: var(--card); color: var(--text2);
+  border-radius: 7px; padding: 4px 9px; font-size: 13px; cursor: pointer; margin-left: 6px;
+}
+.chk.on { background: var(--blue); border-color: var(--blue); color: #fff; }
+.q-text { font-size: 18px; line-height: 1.5; white-space: pre-wrap; word-break: break-word; margin-bottom: 16px; }
+.q-img { max-width: 100%; border-radius: 10px; margin-bottom: 14px; display: block; }
+.opts { display: flex; flex-direction: column; gap: 8px; }
+.opt {
+  display: flex; align-items: flex-start; gap: 10px;
+  background: var(--card); border: 1.5px solid transparent; border-radius: 10px;
+  padding: 12px 14px; cursor: pointer; text-align: left; width: 100%;
+  font-size: 16px; line-height: 1.4; color: inherit;
+}
+.opt:active { background: var(--press); }
+.opt-no {
+  flex-shrink: 0; width: 22px; height: 22px; border-radius: 50%;
+  background: var(--line-soft); color: var(--text2);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px; font-weight: 600;
+}
+.opt.pick { border-color: var(--blue); }
+.opt.pick .opt-no { background: var(--blue); color: #fff; }
+.opt.ok { border-color: var(--green); background: #EBFBEE; }
+.opt.ok .opt-no { background: var(--green); color: #fff; }
+.opt.no { border-color: var(--red); background: #FFF0EF; }
+.opt.no .opt-no { background: var(--red); color: #fff; }
+
+.subj-in { width: 100%; min-height: 110px; padding: 12px 14px;
+           background: var(--card); border: none; border-radius: 10px; resize: vertical; line-height: 1.5; }
+.subj-in:focus { outline: 2px solid var(--blue); }
+.ans-box { background: #EBFBEE; border-radius: 10px; padding: 14px; margin-top: 12px; }
+.ans-t { font-size: 13px; color: #248A3D; font-weight: 600; margin-bottom: 6px; }
+.ans-b { font-size: 16px; white-space: pre-wrap; }
+.expl { margin-top: 12px; background: var(--card); border-radius: 10px; padding: 14px; }
+.expl-t { font-size: 13px; color: var(--text2); font-weight: 600; margin-bottom: 6px; }
+.expl-b { font-size: 15px; white-space: pre-wrap; line-height: 1.5; }
+
+.acts { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-top: 14px; }
+.act { padding: 12px 4px; border: none; border-radius: 10px;
+       background: var(--card); color: var(--blue); font-size: 15px; cursor: pointer; }
+.act:active { background: var(--press); }
+.act.on-ok { background: var(--green); color: #fff; }
+.act.on-no { background: var(--red); color: #fff; }
+.act.on { background: var(--blue); color: #fff; }
+
+/* 하단 이동 바 */
+.foot {
+  position: sticky; bottom: 0;
+  display: flex; gap: 8px; padding: 8px 16px calc(8px + env(safe-area-inset-bottom, 0));
+  background: #F9F9F9; border-top: 0.5px solid var(--line);
+}
+.foot button { flex: 1; padding: 13px; border: none; border-radius: 10px;
+               background: var(--card); color: var(--blue); font-size: 16px; cursor: pointer; }
+.foot button:active { background: var(--press); }
+.foot button:disabled { color: #C7C7CC; }
+.foot .main { background: var(--blue); color: #fff; }
+.foot .main:disabled { background: var(--line-soft); color: #fff; }
+
+/* 큰 버튼 (모의고사 시작 등) */
+.cta { display: block; width: calc(100% - 32px); margin: 20px 16px;
+       padding: 15px; border: none; border-radius: 12px;
+       background: var(--blue); color: #fff; font-size: 17px; font-weight: 600; cursor: pointer; }
+.cta:active { background: #0062CC; }
+.cta:disabled { background: var(--line-soft); }
+
+/* 점수 */
+.score { text-align: center; padding: 40px 20px 10px; }
+.score-n { font-size: 64px; font-weight: 700; letter-spacing: -2px; }
+.score-s { font-size: 16px; color: var(--text2); }
+
+.empty { text-align: center; color: var(--text2); font-size: 15px; padding: 60px 24px; }
+.note { font-size: 13px; color: var(--text2); padding: 10px 20px 0; }
+.toast {
+  position: fixed; left: 50%; bottom: 90px; margin-left: -45vw; width: 90vw;
+  text-align: center; z-index: 50; display: none;
+}
+.toast.show { display: block; }
+.toast span { background: rgba(0,0,0,0.82); color: #fff; padding: 10px 18px;
+              border-radius: 20px; font-size: 14px; display: inline-block; }
+.dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%;
+       background: var(--green); margin-left: 6px; vertical-align: middle; }
+.dot.off { background: var(--orange); }
+.hide { display: none !important; }
+</style>
+</head>
+<body>
+
+<div class="nav">
+  <div class="nav-side"><button class="nav-back hide" id="back" onclick="goBack()">뒤로</button></div>
+  <div class="nav-title" id="title">양진웅 Note</div>
+  <div class="nav-right"><button class="nav-act hide" id="navact" onclick="navAction()"></button></div>
+</div>
+
+<div id="view"></div>
+<div class="toast" id="toast"><span id="toast-t"></span></div>
+
+<script>
+/* ══════════════════════════════════════════════════════════════
+   간단 모드 — 문제 풀기 · 모의고사 · 오답노트 · 별표 · 체크
+
+   정식 버전(index.html)과 같은 저장소·같은 형식을 쓴다. 형식이 한 군데라도
+   어긋나면 두 화면이 서로 다른 걸 보게 되므로, 아래 '형식 계약' 주석의
+   모양을 절대 바꾸지 않는다.
+
+     quiz_progress  { 자격증_회차: { answered: { 원래문항자리: 답 }, at, idx } }
+     quiz_wrong     [ { id: 자격증_회차_문항id, cat, round, q, myAnswer, addedAt } ]
+     quiz_starred   { 자격증||회차||문항id: { cat, round, qId, level(1~5), addedAt } }
+     quiz_flagged   { 자격증||회차||문항id: { cat, round, qId, addedAt } }
+     quiz_hidden    { 자격증||회차||문항id: { cat, round, qId, addedAt } }
+     mock_records   [ { id, cat, mode, date, correct, total, pct, timeUsed, wrongCount, questionLog } ]
+     mock_wrong     [ { id: mock_기록번호_자격증_회차_문항번호, cat, round, q, myAnswer, mockId, addedAt } ]
+
+   답(answered) 값: 객관식은 고른 보기 번호(0부터), 필답형은 'correct'/'wrong'.
+   0 이 유효한 값이라 참·거짓으로 판단하면 안 된다 — 항상 (i in answered) 로 본다.
+   ══════════════════════════════════════════════════════════════ */
+
+/* ── 저장소 (정식 버전과 동일 규칙: 판 번호가 큰 쪽이 최신) ── */
+const _cache = {};
+function _get(k, d) {
+  if (_cache[k] !== undefined) return _cache[k];
+  try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch (e) { return d; }
+}
+function _set(k, v) {
+  _cache[k] = v;
+  try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {}
+}
+function _ts(k)      { try { return parseInt(localStorage.getItem(k + '_ts') || '0'); } catch (e) { return 0; } }
+function _setTs(k, v){ try { localStorage.setItem(k + '_ts', String(v)); } catch (e) {} }
+function _rev(k)     { try { return parseInt(localStorage.getItem(k + '_rev') || '0'); } catch (e) { return 0; } }
+function _setRev(k,v){ try { localStorage.setItem(k + '_rev', String(v)); } catch (e) {} }
+
+const FB_TIMEOUT = 10000;
+function withTimeout(p, ms) {
+  return Promise.race([p, new Promise((_, rj) => setTimeout(() => rj(new Error('시간 초과')), ms))]);
+}
+async function fbGet(id) {
+  try {
+    const d = await withTimeout(db.collection('users').doc(USER_ID).collection('data').doc(id).get(), FB_TIMEOUT);
+    return d.exists ? d.data() : null;
+  } catch (e) { return null; }
+}
+async function fbSet(id, value) {
+  try {
+    await withTimeout(db.collection('users').doc(USER_ID).collection('data').doc(id)
+      .set({ value, updatedAt: Date.now(), rev: _rev(id) }), FB_TIMEOUT);
+    return true;
+  } catch (e) { return false; }
+}
+// 저장 = 이 기기에 즉시 + 서버에 배경 업로드 (판 번호 하나 올림)
+async function save(key, value) {
+  const ts = Date.now(), rev = _rev(key) + 1;
+  _set(key, value); _setTs(key, ts); _setRev(key, rev);
+  setDot('busy');
+  const ok = await fbSet(key, value);
+  setDot(ok ? 'ok' : 'off');
+}
+
+// 간단 모드가 건드리는 키만 동기화한다 (나머지는 정식 버전 몫으로 그대로 둔다)
+const KEYS = ['quiz_index', 'quiz_categories', 'quiz_progress', 'quiz_wrong',
+              'quiz_starred', 'quiz_flagged', 'quiz_hidden',
+              'mock_records', 'mock_wrong', 'resume_bookmark'];
+let _syncing = false;
+async function syncDown(silent) {
+  if (_syncing || !FIREBASE_OK) return;
+  _syncing = true; setDot('busy');
+  try {
+    await Promise.all(KEYS.map(async key => {
+      const remote = await fbGet(key);
+      if (!remote) return;
+      const rRev = remote.rev || 0, rTs = remote.updatedAt || 0;
+      const lRev = _rev(key),      lTs = _ts(key);
+      // 판 번호가 큰 쪽이 최신 (기기마다 시계가 달라도 안전)
+      if (rRev > lRev || (rRev === lRev && rTs > lTs)) {
+        _set(key, remote.value); _setTs(key, rTs); _setRev(key, rRev);
+      } else if (lRev > rRev || (lRev === rRev && lTs > rTs)) {
+        const v = _get(key, null);
+        if (v !== null && JSON.stringify(v) !== JSON.stringify(remote.value)) await fbSet(key, v);
+      }
+    }));
+    setDot('ok');
+    if (!silent) toast('최신 상태예요');
+  } catch (e) { setDot('off'); if (!silent) toast('동기화하지 못했어요'); }
+  finally { _syncing = false; render(); }
+}
+
+/* ── 문제 데이터 (정식 버전과 같은 구조) ──
+   색인 quiz_index + 회차별 항목 qd::자격증::회차
+   옛 구조(quiz_data 통짜)만 있는 기기를 위해 그쪽도 함께 본다 */
+const qdKey = (c, r) => 'qd::' + c + '::' + r;
+function _b64u(str) {
+  return btoa(unescape(encodeURIComponent(str)))
+    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+const qdDocId = (c, r) => 'qd~' + _b64u(c) + '~' + _b64u(r);
+
+const getIndex  = () => { const i = _get('quiz_index', null); return (i && i.cats) ? i : { cats: {}, del: [] }; };
+const getLegacy = () => _get('quiz_data', {});
+
+function catList() {
+  const c = Object.keys(getIndex().cats);
+  return c.length ? c : Object.keys(getLegacy());
+}
+function roundList(c) {
+  const idx = getIndex();
+  return sortRounds(idx.cats[c] ? Object.keys(idx.cats[c]) : Object.keys(getLegacy()[c] || {}));
+}
+function roundCount(c, r) {
+  const e = (getIndex().cats[c] || {})[r];
+  if (e) return e.n || 0;
+  return ((getLegacy()[c] || {})[r] || []).length;
+}
+function getRoundQs(c, r) {
+  const v = _get(qdKey(c, r), null);
+  if (Array.isArray(v)) return v;
+  const l = (getLegacy()[c] || {})[r];
+  return Array.isArray(l) ? l : [];
+}
+// 이 기기에 없으면 그 회차만 서버에서 받아온다
+async function ensureRound(c, r) {
+  if (getRoundQs(c, r).length) return true;
+  if (!FIREBASE_OK) return false;
+  try {
+    const d = await withTimeout(
+      db.collection('users').doc(USER_ID).collection('data').doc(qdDocId(c, r)).get(), FB_TIMEOUT);
+    if (d.exists && Array.isArray(d.data().value)) { _set(qdKey(c, r), d.data().value); return true; }
+  } catch (e) {}
+  return false;
+}
+
+const getCats    = () => _get('quiz_categories', []);
+const getProg    = () => _get('quiz_progress', {});
+const getWrong   = () => _get('quiz_wrong', []);
+const getStarred = () => _get('quiz_starred', {});
+const getFlagged = () => _get('quiz_flagged', {});
+const getHidden  = () => _get('quiz_hidden', {});
+const getMockRecords = () => _get('mock_records', []);
+const getMockWrongs  = () => _get('mock_wrong', []);
+
+function sortRounds(a) {
+  return a.slice().sort((x, y) => {
+    const px = String(x).split('-'), py = String(y).split('-');
+    for (let i = 0; i < Math.max(px.length, py.length); i++) {
+      const nx = parseInt(px[i] || 0, 10), ny = parseInt(py[i] || 0, 10);
+      if (!isNaN(nx) && !isNaN(ny) && nx !== ny) return nx - ny;
+    }
+    return String(x).localeCompare(String(y));
+  });
+}
+const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const arg = (s) => String(s == null ? '' : s).replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+
+/* ── 별표 · 체크 · 숨김 (키 규칙: 자격증||회차||문항id) ── */
+const qidOf = (q) => (q && (q.id || q.num)) || 0;
+const markKey = (c, r, q) => c + '||' + r + '||' + qidOf(q);
+
+function starLevel(c, r, q) {
+  const e = getStarred()[markKey(c, r, q)];
+  if (!e) return 0;
+  const v = parseInt(e.level, 10);
+  return (v >= 1 && v <= 5) ? v : 1;      // 값이 없던 시절 = 1
+}
+function setStar(c, r, q, level) {
+  const st = getStarred(), key = markKey(c, r, q);
+  const cur = starLevel(c, r, q);
+  const next = (level === cur) ? 0 : level;     // 같은 별을 다시 누르면 해제
+  if (next === 0) delete st[key];
+  else st[key] = { cat: c, round: r, qId: qidOf(q), level: next,
+                   addedAt: (st[key] && st[key].addedAt) || Date.now() };
+  save('quiz_starred', st);
+  return next;
+}
+function isFlagged(c, r, q) { return !!getFlagged()[markKey(c, r, q)]; }
+function toggleFlag(c, r, q) {
+  const f = getFlagged(), key = markKey(c, r, q);
+  let on;
+  if (f[key]) { delete f[key]; on = false; }
+  else { f[key] = { cat: c, round: r, qId: qidOf(q), addedAt: Date.now() }; on = true; }
+  save('quiz_flagged', f);
+  return on;
+}
+function isHidden(c, r, q) { return !!getHidden()[markKey(c, r, q)]; }
+
+// 숨긴 문제를 뺀 회차 (map: 화면 순번 → 원래 순번. 진도를 원래 자리에 적기 위해 필요)
+function visibleRound(c, r) {
+  const all = getRoundQs(c, r);
+  const items = [], map = [];
+  all.forEach((q, i) => { if (!isHidden(c, r, q)) { items.push(q); map.push(i); } });
+  return { items, map };
+}
+
+/* ── 오답노트 (형식 계약: id = 자격증_회차_문항id) ── */
+function wrongId(c, r, q) { return c + '_' + r + '_' + qidOf(q); }
+function addWrong(c, r, q, myAnswer) {
+  const id = wrongId(c, r, q);
+  const list = getWrong().filter(w => w.id !== id);
+  list.push({ id, cat: c, round: r, q, myAnswer, addedAt: Date.now() });
+  save('quiz_wrong', list);
+}
+
+/* ── 화면 상태 ── */
+let view = 'home';        // home | rounds | quiz | list | mockSet | mock | mockResult
+let cat = null, round = null;
+let quiz = null;          // { items:[{q,cat,round}], idx, answered, revealed, inputs, src, map }
+let listKind = 'wrong';   // wrong | star | flag
+let mockCat = null, mockResult = null;
+
+function setDot(state) {
+  const el = document.getElementById('sync-dot');
+  if (el) el.className = 'dot' + (state === 'ok' ? '' : ' off');
+}
+let _toastT = null;
+function toast(msg) {
+  const t = document.getElementById('toast');
+  document.getElementById('toast-t').textContent = msg;
+  t.classList.add('show');
+  clearTimeout(_toastT);
+  _toastT = setTimeout(() => t.classList.remove('show'), 1700);
+}
+
+/* ── 이동 ── */
+function go(v, opts) {
+  view = v;
+  if (opts && 'cat' in opts) cat = opts.cat;
+  if (opts && 'round' in opts) round = opts.round;
+  window.scrollTo(0, 0);
+  saveSpot();
+  render();
+}
+function goBack() {
+  if (view === 'quiz') {
+    saveProgress();
+    if (quiz && quiz.src === 'round') return go('rounds');
+    return go('list');
+  }
+  if (view === 'mock') {
+    if (!confirm('시험을 그만둘까요? 푼 내용은 저장되지 않아요.')) return;
+    return go('home');
+  }
+  go('home');
+}
+function navAction() { if (view === 'home') location.href = 'index.html'; }
+
+/* 마지막 자리 (이 기기 전용 · 12시간) */
+function saveSpot() {
+  try {
+    if (view === 'mock' || view === 'mockResult') return;   // 시험 중인 것은 되살리지 않는다
+    const s = { view, cat, round, at: Date.now(), listKind };
+    if (view === 'quiz' && quiz) { s.idx = quiz.idx; s.src = quiz.src; }
+    localStorage.setItem('simple_spot', JSON.stringify(s));
+  } catch (e) {}
+}
+function restoreSpot() {
+  try {
+    const s = JSON.parse(localStorage.getItem('simple_spot') || 'null');
+    if (!s || Date.now() - (s.at || 0) > 12 * 3600 * 1000) return false;
+    if (s.view === 'quiz' && s.src === 'round' && s.cat && s.round) {
+      if (!getRoundQs(s.cat, s.round).length) return false;
+      startRound(s.cat, s.round, s.idx);
+      return true;
+    }
+    if (s.view === 'rounds' && s.cat && roundList(s.cat).length) { cat = s.cat; view = 'rounds'; return true; }
+    if (s.view === 'list') { listKind = s.listKind || 'wrong'; view = 'list'; return true; }
+  } catch (e) {}
+  return false;
+}
+
+/* ── 그리기 ── */
+const TITLES = { wrong: '오답노트', star: '별표', flag: '체크' };
+function render() {
+  const v = document.getElementById('view');
+  const back = document.getElementById('back');
+  const title = document.getElementById('title');
+  const act = document.getElementById('navact');
+
+  back.classList.toggle('hide', view === 'home');
+  act.classList.toggle('hide', view !== 'home');
+  act.textContent = view === 'home' ? '정식' : '';
+
+  if (view === 'home')       { title.innerHTML = '양진웅 Note<span class="dot" id="sync-dot"></span>'; v.innerHTML = viewHome(); }
+  else if (view === 'rounds'){ title.textContent = cat;                    v.innerHTML = viewRounds(); }
+  else if (view === 'quiz')  { title.textContent = quizTitle();            v.innerHTML = viewQuiz(); }
+  else if (view === 'list')  { title.textContent = TITLES[listKind];       v.innerHTML = viewList(); }
+  else if (view === 'mockSet'){ title.textContent = '모의고사';            v.innerHTML = viewMockSet(); }
+  else if (view === 'mock')  { title.textContent = mockCat + ' 모의고사';  v.innerHTML = viewQuiz(); }
+  else if (view === 'mockResult') { title.textContent = '결과';            v.innerHTML = viewMockResult(); }
+}
+
+function viewHome() {
+  const cats = catList().filter(c => roundList(c).length);
+  const bms = (() => { const v = _get('resume_bookmark', []); return Array.isArray(v) ? v : (v ? [v] : []); })();
+  const bm = bms.length ? bms[bms.length - 1] : null;
+
+  let html = '<div class="big-title">양진웅 Note</div>';
+
+  if (bm && bm.cat && roundCount(bm.cat, bm.round)) {
+    html += `<div class="group-label">이어서</div><div class="list">
+      <button class="row" onclick="startRound('${arg(bm.cat)}','${arg(bm.round)}',${Number(bm.qIndex) || 0})">
+        <div class="row-main"><div class="row-title">${esc(bm.cat)}</div>
+        <div class="row-sub">${esc(bm.round)}회차 · Q${esc(bm.qNum || 1)}부터</div></div>
+        <div class="chev"></div></button></div>`;
+  }
+
+  html += '<div class="group-label">문제</div><div class="list">';
+  if (!cats.length) {
+    html += '<div class="empty">등록된 문제가 없어요<br>정식 버전에서 추가하세요</div>';
+  } else {
+    cats.forEach(c => {
+      html += `<button class="row" onclick="go('rounds',{cat:'${arg(c)}'})">
+        <div class="row-main"><div class="row-title">${esc(c)}</div></div>
+        <div class="row-val">${roundList(c).length}회차</div><div class="chev"></div></button>`;
+    });
+    html += `<button class="row" onclick="openMock()">
+      <div class="row-main"><div class="row-title">모의고사</div></div><div class="chev"></div></button>`;
+  }
+  html += '</div>';
+
+  html += `<div class="group-label">복습</div><div class="list">
+    <button class="row" onclick="openList('wrong')">
+      <div class="row-main"><div class="row-title">오답노트</div></div>
+      <div class="row-val">${getWrong().length + getMockWrongs().length}</div><div class="chev"></div></button>
+    <button class="row" onclick="openList('star')">
+      <div class="row-main"><div class="row-title">별표</div></div>
+      <div class="row-val">${Object.keys(getStarred()).length}</div><div class="chev"></div></button>
+    <button class="row" onclick="openList('flag')">
+      <div class="row-main"><div class="row-title">체크</div></div>
+      <div class="row-val">${Object.keys(getFlagged()).length}</div><div class="chev"></div></button>
+  </div>`;
+
+  html += `<div class="group-label"></div><div class="list">
+    <button class="row" onclick="syncDown()">
+      <div class="row-main"><div class="row-title">지금 동기화</div>
+      <div class="row-sub">다른 기기에서 푼 내용 받아오기</div></div></button>
+  </div>`;
+  return html;
+}
+
+function viewRounds() {
+  const rounds = roundList(cat);
+  if (!rounds.length) return '<div class="empty">회차가 없어요</div>';
+  const prog = getProg();
+  let html = '<div class="grid">';
+  rounds.forEach(r => {
+    const qn = roundCount(cat, r);
+    const p = prog[cat + '_' + r] || {};
+    const done = Object.keys(p.answered || {}).length;
+    const pct = qn ? Math.min(100, Math.round(done / qn * 100)) : 0;
+    const m = /^(\d{4})[-_. ]?(.*)$/.exec(String(r));
+    const top = m ? m[1] : String(r).slice(0, 4);
+    const bot = m ? m[2] : String(r).slice(4);
+    html += `<button class="tile${pct >= 100 ? ' tile-done' : ''}" onclick="startRound('${arg(cat)}','${arg(r)}')">
+      <span class="tile-y">${esc(top)}</span><span class="tile-n">${esc(bot || '·')}</span>
+      ${pct ? `<span class="tile-bar" style="width:${pct}%"></span>` : ''}</button>`;
+  });
+  return html + '</div>';
+}
+
+/* ── 회차 풀기 ── */
+async function startRound(c, r, idx) {
+  if (!getRoundQs(c, r).length) {
+    toast('불러오는 중…');
+    await ensureRound(c, r);
+    if (!getRoundQs(c, r).length) { toast('문제를 불러오지 못했어요'); return; }
+  }
+  const { items, map } = visibleRound(c, r);
+  if (!items.length) { toast('이 회차는 모두 숨겨져 있어요'); return; }
+
+  const p = getProg()[c + '_' + r] || {};
+  const saved = p.answered || {};
+  // 저장된 답은 '원래 자리' 기준이라 화면 순번으로 옮겨 온다
+  const answered = {};
+  map.forEach((oi, ni) => { if (oi in saved) answered[ni] = saved[oi]; });
+
+  let start = 0;
+  if (typeof idx === 'number' && idx >= 0 && idx < items.length) start = idx;
+  else {
+    const at = map.indexOf(p.idx);
+    if (at >= 0) start = at;
+    else for (let i = 0; i < items.length; i++) if (!(i in answered)) { start = i; break; }
+  }
+
+  cat = c; round = r;
+  quiz = { items: items.map(q => ({ q, cat: c, round: r })), idx: start,
+           answered, revealed: {}, inputs: {}, src: 'round', map };
+  go('quiz');
+}
+
+function quizTitle() {
+  if (!quiz) return '';
+  if (quiz.src === 'round') return round + '회차';
+  return TITLES[listKind] || '복습';
+}
+
+/* ── 문제 화면 (회차 · 복습 · 모의고사가 같은 화면을 쓴다) ── */
+function viewQuiz() {
+  const it = quiz.items[quiz.idx];
+  const q = it.q;
+  const isSubj = q.type === 'subj';
+  const ans = quiz.answered[quiz.idx];
+  const answered = (quiz.idx in quiz.answered);
+  const shown = quiz.revealed[quiz.idx] || (!isSubj && answered);
+  const lv = starLevel(it.cat, it.round, q);
+  const flag = isFlagged(it.cat, it.round, q);
+  const last = quiz.idx >= quiz.items.length - 1;
+
+  let pips = '';
+  for (let i = 1; i <= 5; i++) pips += `<button class="pip${i <= lv ? ' on' : ''}" onclick="tapStar(${i})">★</button>`;
+
+  let html = `<div class="q-wrap">
+    <div class="q-head">
+      <div class="q-meta">${quiz.idx + 1} / ${quiz.items.length}${quiz.src !== 'round' ? ' · ' + esc(it.cat) + ' ' + esc(it.round) + '회차' : ''}</div>
+      <div class="q-mark">${pips}<button class="chk${flag ? ' on' : ''}" onclick="tapFlag()">체크</button></div>
+    </div>
+    <div class="q-text">${esc(q.question)}</div>`;
+
+  if (q.image) html += `<img class="q-img" src="${esc(q.image)}" alt="">`;
+
+  if (isSubj) {
+    html += `<textarea class="subj-in" id="subj" placeholder="여기에 답을 써보세요"
+      oninput="quiz.inputs[quiz.idx]=this.value">${esc(quiz.inputs[quiz.idx] || '')}</textarea>`;
+    if (shown) {
+      html += `<div class="ans-box"><div class="ans-t">모범 답안</div><div class="ans-b">${esc(q.answer || '')}</div></div>`;
+      if (q.explanation) html += `<div class="expl"><div class="expl-t">해설</div><div class="expl-b">${esc(q.explanation)}</div></div>`;
+    }
+    html += `<div class="acts">
+      <button class="act${ans === 'correct' ? ' on-ok' : ''}" onclick="judge('correct')">맞았어요</button>
+      <button class="act${quiz.revealed[quiz.idx] ? ' on' : ''}" onclick="toggleAnswer()">${quiz.revealed[quiz.idx] ? '정답 숨기기' : '정답 보기'}</button>
+      <button class="act${ans === 'wrong' ? ' on-no' : ''}" onclick="judge('wrong')">틀렸어요</button>
+    </div>`;
+  } else {
+    html += '<div class="opts">';
+    (q.options || []).forEach((o, i) => {
+      let cls = '';
+      if (shown) {
+        if (i === q.correct) cls = ' ok';
+        else if (ans === i) cls = ' no';
+      } else if (ans === i) cls = ' pick';
+      html += `<button class="opt${cls}" onclick="pick(${i})">
+        <span class="opt-no">${i + 1}</span><span>${esc(o)}</span></button>`;
+    });
+    html += '</div>';
+    if (shown && q.explanation) html += `<div class="expl"><div class="expl-t">해설</div><div class="expl-b">${esc(q.explanation)}</div></div>`;
+  }
+  html += '</div>';
+
+  const isMock = quiz.src === 'mock';
+  html += `<div class="foot">
+    <button onclick="move(-1)" ${quiz.idx === 0 ? 'disabled' : ''}>이전</button>
+    ${isMock && last
+      ? `<button class="main" onclick="submitMock()">채점하기</button>`
+      : `<button class="main" onclick="move(1)" ${last ? 'disabled' : ''}>다음</button>`}
+  </div>`;
+  if (isMock) {
+    const left = quiz.items.length - Object.keys(quiz.answered).length;
+    html += `<div class="note" style="text-align:center; padding-bottom:12px;">${left ? `안 푼 문제 ${left}개` : '모두 풀었어요'}</div>`;
+  }
+  return html;
+}
+
+function tapStar(i) {
+  const it = quiz.items[quiz.idx];
+  setStar(it.cat, it.round, it.q, i);
+  render();
+}
+function tapFlag() {
+  const it = quiz.items[quiz.idx];
+  const on = toggleFlag(it.cat, it.round, it.q);
+  toast(on ? '체크 표시' : '체크 해제');
+  render();
+}
+
+/* 오답노트에 쌓는 규칙은 정식 버전과 똑같이 맞춘다.
+   · 회차를 풀 때만 쌓는다 (별표·체크·모의고사 풀이는 안 쌓는다 — 모의고사는 제 목록이 따로 있다)
+   · 나중에 맞혔다고 저절로 지우지 않는다. 지우는 건 정식 버전에서 직접 고르게 한다.
+     (여기서 지워 버리면 사용자가 남겨 두려던 오답이 소리 없이 사라진다) */
+function pick(i) {
+  if (quiz.idx in quiz.answered) return;      // 한 번 고르면 바뀌지 않는다
+  const it = quiz.items[quiz.idx], q = it.q;
+  quiz.answered[quiz.idx] = i;
+  if (quiz.src === 'round') {
+    if (i !== q.correct) addWrong(it.cat, it.round, q, i);
+    saveProgress();
+  }
+  render();
+}
+function judge(r) {
+  const it = quiz.items[quiz.idx], q = it.q;
+  quiz.answered[quiz.idx] = r;
+  if (quiz.src === 'round') {
+    if (r === 'wrong') addWrong(it.cat, it.round, q, -1);
+    saveProgress();
+  }
+  render();
+}
+function toggleAnswer() { quiz.revealed[quiz.idx] = !quiz.revealed[quiz.idx]; render(); }
+function move(d) {
+  const n = quiz.idx + d;
+  if (n < 0 || n >= quiz.items.length) return;
+  quiz.idx = n;
+  if (quiz.src === 'round') { saveProgress(); saveSpot(); }
+  window.scrollTo(0, 0);
+  render();
+}
+
+/* 진도 저장 — 저장은 '원래 문항 자리' 기준. 숨긴 문제의 예전 기록은 건드리지 않는다. */
+function saveProgress() {
+  if (!quiz || quiz.src !== 'round') return;
+  const p = getProg();
+  const key = cat + '_' + round;
+  const keep = { ...((p[key] && p[key].answered) || {}) };
+  quiz.map.forEach(oi => { delete keep[oi]; });
+  Object.keys(quiz.answered).forEach(ni => { keep[quiz.map[ni]] = quiz.answered[ni]; });
+  p[key] = { answered: keep, at: Date.now(), idx: quiz.map[quiz.idx] };
+  save('quiz_progress', p);
+
+  const q = quiz.items[quiz.idx].q;
+  save('resume_bookmark', [{ id: 'simple', cat, round, qIndex: quiz.map[quiz.idx],
+                             qNum: q.num || (quiz.idx + 1), savedAt: Date.now(), auto: true }]);
+}
+
+/* ── 복습 목록 (오답 · 별표 · 체크) ── */
+function openList(kind) { listKind = kind; go('list'); }
+
+// 별표·체크는 키(자격증||회차||문항id)만 저장돼 있다 → 그 회차를 뒤져 문제를 찾아온다
+function markedItems(kind) {
+  const src = kind === 'star' ? getStarred() : getFlagged();
+  const out = [];
+  Object.keys(src).forEach(k => {
+    const e = src[k] || {};
+    const c = e.cat, r = e.round;
+    if (!c || !r) return;
+    const q = getRoundQs(c, r).find(x => String(qidOf(x)) === String(e.qId));
+    out.push({ cat: c, round: r, q: q || null, qId: e.qId,
+               level: kind === 'star' ? (parseInt(e.level, 10) || 1) : 0,
+               at: e.addedAt || 0 });
+  });
+  if (kind === 'star') out.sort((a, b) => (b.level - a.level) || (b.at - a.at));
+  else out.sort((a, b) => b.at - a.at);
+  return out;
+}
+
+function wrongItems() {
+  const a = getWrong().map(w => ({ cat: w.cat, round: w.round, q: w.q, at: w.addedAt || 0, from: '' }));
+  const b = getMockWrongs().map(w => ({ cat: w.cat, round: w.round, q: w.q, at: w.addedAt || 0, from: '모의고사' }));
+  return a.concat(b).sort((x, y) => y.at - x.at);
+}
+
+function viewList() {
+  const items = listKind === 'wrong' ? wrongItems() : markedItems(listKind);
+  if (!items.length) {
+    const msg = { wrong: '오답이 없어요', star: '별표한 문제가 없어요', flag: '체크한 문제가 없어요' };
+    return `<div class="empty">${msg[listKind]}</div>`;
+  }
+  const missing = items.filter(x => !x.q).length;
+  let html = `<div class="group-label">${items.length}문제</div>`;
+  if (missing) html += `<div class="note">${missing}개는 아직 안 받아온 회차예요 — 아래 <b>문제 받아오기</b>를 누르세요</div>`;
+  html += '<div class="list">';
+  // 아직 안 받아온 회차의 문제는 못 푸니, 풀 수 있는 것만 따로 번호를 매긴다.
+  // (목록 순번을 그대로 넘기면 빠진 것 때문에 엉뚱한 문제가 열린다)
+  let playable = 0;
+  items.forEach((x) => {
+    const t = x.q ? String(x.q.question || '') : '(아직 안 받아온 문제)';
+    const stars = x.level ? '★'.repeat(x.level) + ' ' : '';
+    const click = x.q ? `openFromList(${playable++})` : `toast('아래 문제 받아오기를 눌러 주세요')`;
+    html += `<button class="row" onclick="${click}">
+      <div class="row-main">
+        <div class="row-title">${esc(t.slice(0, 38))}${t.length > 38 ? '…' : ''}</div>
+        <div class="row-sub">${esc(stars)}${esc(x.cat)} ${esc(x.round)}회차${x.from ? ' · ' + x.from : ''}</div>
+      </div>${x.q ? '<div class="chev"></div>' : ''}</button>`;
+  });
+  html += '</div>';
+  if (missing) html += `<button class="cta" onclick="fetchMissing()">문제 받아오기</button>`;
+  else if (items.length) html += `<button class="cta" onclick="openFromList(0)">처음부터 풀기</button>`;
+  return html;
+}
+
+// 목록에 필요한 회차만 받아온다
+async function fetchMissing() {
+  const items = listKind === 'wrong' ? wrongItems() : markedItems(listKind);
+  const need = [...new Set(items.filter(x => !x.q).map(x => x.cat + '\u0000' + x.round))];
+  if (!need.length) return;
+  toast(`회차 ${need.length}개 받는 중…`);
+  for (const k of need) { const [c, r] = k.split('\u0000'); await ensureRound(c, r); }
+  render();
+  toast('받아왔어요');
+}
+
+// i = '풀 수 있는 것'만 센 순번 (viewList 와 같은 기준)
+function openFromList(i) {
+  const all = (listKind === 'wrong' ? wrongItems() : markedItems(listKind)).filter(x => x.q);
+  if (!all.length) return;
+  quiz = { items: all.map(x => ({ q: x.q, cat: x.cat, round: x.round })),
+           idx: Math.min(Math.max(0, i || 0), all.length - 1),
+           answered: {}, revealed: {}, inputs: {}, src: listKind, map: null };
+  go('quiz');
+}
+
+/* ── 모의고사 ──
+   전체 회차에서 무작위로 뽑는다. 없는 회차는 그때 받아온다.
+   기록은 정식 버전과 같은 형식으로 남긴다 (mode: 'random' = 완전 무작위). */
+const MOCK_COUNTS = [20, 40, 60];
+function openMock() {
+  const cats = catList().filter(c => roundList(c).length);
+  if (!cats.length) return;
+  mockCat = cats.includes(mockCat) ? mockCat : cats[0];
+  go('mockSet');
+}
+
+function viewMockSet() {
+  const cats = catList().filter(c => roundList(c).length);
+  let html = '<div class="big-title">모의고사</div>';
+
+  if (cats.length > 1) {
+    html += '<div class="group-label">자격증</div><div class="list">';
+    cats.forEach(c => {
+      html += `<button class="row" onclick="pickMockCat('${arg(c)}')">
+        <div class="row-main"><div class="row-title">${esc(c)}</div></div>
+        <div class="row-val">${c === mockCat ? '✓' : ''}</div></button>`;
+    });
+    html += '</div>';
+  }
+
+  const have = roundList(mockCat).reduce((n, r) => n + roundCount(mockCat, r), 0);
+  html += '<div class="group-label">문항 수</div><div class="list">';
+  MOCK_COUNTS.forEach(n => {
+    html += `<button class="row" onclick="startMock(${n})">
+      <div class="row-main"><div class="row-title">${n}문제</div></div><div class="chev"></div></button>`;
+  });
+  html += '</div>';
+  html += `<div class="note">${esc(mockCat)} · 전체 ${roundList(mockCat).length}회차 ${have}문제에서 무작위로 냅니다.
+           안 받아온 회차가 있으면 시작할 때 받아옵니다.</div>`;
+  return html;
+}
+function pickMockCat(c) { mockCat = c; render(); }
+
+let mockStart = 0;
+async function startMock(n) {
+  const rounds = roundList(mockCat);
+  if (!rounds.length) return;
+
+  const missing = rounds.filter(r => !getRoundQs(mockCat, r).length);
+  if (missing.length) {
+    document.getElementById('view').innerHTML =
+      `<div class="empty">문제를 받아오는 중…<br><span id="fetch-n">0 / ${missing.length}</span> 회차</div>`;
+    for (let i = 0; i < missing.length; i++) {
+      await ensureRound(mockCat, missing[i]);
+      const el = document.getElementById('fetch-n');
+      if (el) el.textContent = `${i + 1} / ${missing.length}`;
+    }
+  }
+
+  // 숨긴 문제를 뺀 전체에서 무작위로 n개
+  const pool = [];
+  rounds.forEach(r => {
+    getRoundQs(mockCat, r).forEach(q => { if (!isHidden(mockCat, r, q)) pool.push({ q, cat: mockCat, round: r }); });
+  });
+  if (!pool.length) { toast('낼 문제가 없어요'); return go('mockSet'); }
+  for (let i = pool.length - 1; i > 0; i--) {       // 섞기
+    const j = Math.floor(Math.random() * (i + 1));
+    const t = pool[i]; pool[i] = pool[j]; pool[j] = t;
+  }
+  const items = pool.slice(0, Math.min(n, pool.length));
+  if (items.length < n) toast(`문제가 ${items.length}개뿐이에요`);
+
+  mockStart = Date.now();
+  quiz = { items, idx: 0, answered: {}, revealed: {}, inputs: {}, src: 'mock', map: null };
+  go('mock');
+}
+
+// 다 풀기 전에는 채점하지 않는다 — 안 푼 문제로 데려다준다 (정식 버전과 같은 규칙)
+function submitMock() {
+  for (let i = 0; i < quiz.items.length; i++) {
+    if (!(i in quiz.answered)) {
+      const left = quiz.items.length - Object.keys(quiz.answered).length;
+      quiz.idx = i;
+      window.scrollTo(0, 0);
+      render();
+      toast(`아직 ${left}문제가 남았어요 — ${i + 1}번째 문제로 갑니다`);
+      return;
+    }
+  }
+  gradeMock();
+}
+
+function gradeMock() {
+  const items = quiz.items, answered = quiz.answered;
+  let correct = 0;
+  const wrongs = [];
+  items.forEach((it, i) => {
+    const q = it.q, chosen = answered[i];
+    if (q.type === 'subj') {
+      if (chosen === 'correct') correct++;
+      else if (chosen === 'wrong') wrongs.push({ cat: it.cat, round: it.round, q, myAnswer: 'wrong', mySubjText: quiz.inputs[i] || '' });
+    } else if (chosen === q.correct) correct++;
+    else wrongs.push({ cat: it.cat, round: it.round, q, myAnswer: chosen !== undefined ? chosen : -1 });
+  });
+
+  const total = items.length;
+  const pct = Math.round(correct / total * 100);
+  const el = Math.floor((Date.now() - mockStart) / 1000);
+  const timeUsed = `${Math.floor(el / 60)}분 ${el % 60}초`;
+  const recordId = Date.now();
+
+  const records = getMockRecords();
+  records.push({ id: recordId, cat: mockCat, mode: 'random', date: Date.now(),
+                 correct, total, pct, timeUsed, wrongCount: wrongs.length,
+                 questionLog: items.map(it => ({ round: it.round, qNum: Number(it.q.num) })) });
+  save('mock_records', records);
+
+  const mw = getMockWrongs();
+  wrongs.forEach(w => {
+    mw.push({ id: `mock_${recordId}_${w.cat}_${w.round}_${w.q.num}`,
+              cat: w.cat, round: w.round, q: w.q, myAnswer: w.myAnswer,
+              mockId: recordId, addedAt: Date.now() });
+  });
+  save('mock_wrong', mw);
+
+  mockResult = { correct, total, pct, timeUsed, wrong: wrongs.length };
+  go('mockResult');
+}
+
+function viewMockResult() {
+  const r = mockResult || { correct: 0, total: 0, pct: 0, timeUsed: '', wrong: 0 };
+  return `<div class="score">
+      <div class="score-n">${r.pct}점</div>
+      <div class="score-s">${r.total}문제 중 ${r.correct}개 정답 · ${esc(r.timeUsed)}</div>
+    </div>
+    <div class="group-label"></div><div class="list">
+      <button class="row" onclick="openList('wrong')">
+        <div class="row-main"><div class="row-title">틀린 문제 보기</div></div>
+        <div class="row-val">${r.wrong}</div><div class="chev"></div></button>
+      <button class="row" onclick="go('mockSet')">
+        <div class="row-main"><div class="row-title">한 번 더</div></div><div class="chev"></div></button>
+      <button class="row" onclick="go('home')">
+        <div class="row-main"><div class="row-title">처음으로</div></div><div class="chev"></div></button>
+    </div>
+    <div class="note">틀린 문제는 오답노트에 담겼어요. 정식 버전의 모의고사 기록에서도 볼 수 있습니다.</div>`;
+}
+
+/* ── 시작 ── */
+window.addEventListener('pagehide', () => { if (view === 'quiz') saveProgress(); saveSpot(); });
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'hidden') { if (view === 'quiz') saveProgress(); saveSpot(); }
+});
+// 시험 중에 실수로 뒤로 가거나 새로고침하는 것만 막는다
+window.addEventListener('beforeunload', (e) => {
+  if (view === 'mock') { e.preventDefault(); e.returnValue = ''; }
+});
+
+restoreSpot();
+render();
+syncDown(true);
+</script>
+</body>
+</html>
