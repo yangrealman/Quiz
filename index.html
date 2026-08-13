@@ -11345,10 +11345,77 @@ function selectAnswer(chosen) {
   saveQuizProgress(true);
 }
 
+// ══════════════════════════════════════════════════════════════════════
+// [추가] 안 푼 문제 지킴이 — 채점·제출 전에 빈 문항으로 데려다준다
+//   예전엔 "아직 3문제가 남았어요"라고 알려 주기만 해서, 그게 몇 번인지
+//   직접 넘겨 가며 찾아야 했다. 이제 제출을 누르면 채점하지 않고
+//   '가장 앞선 빈 문항'으로 바로 옮겨 준다. 다 채우기 전에는 채점되지 않는다.
+//   필답형(맞았어요·틀렸어요를 아직 안 누른 것)도 안 푼 것으로 센다.
+//   ─ 일곱 풀이 화면이 answered[문항번호] 한 가지 모양을 함께 쓰므로
+//     세는 방법도 하나로 충분하다 (객관식은 고른 보기 번호, 필답형은 판정값).
+// ══════════════════════════════════════════════════════════════════════
+
+// 아직 답이 없는 첫 문항의 자리 (다 풀었으면 -1)
+// [주의] 객관식 첫 보기는 0 이라 answered[i] 를 참·거짓으로 보면 안 된다 → in 으로 확인
+function firstUnansweredIdx(state) {
+  if (!state || !state.questions || !state.questions.length) return -1;
+  const answered = state.answered || {};
+  for (let i = 0; i < state.questions.length; i++) {
+    if (!(i in answered) || answered[i] === undefined) return i;
+  }
+  return -1;
+}
+
+function countUnanswered(state) {
+  if (!state || !state.questions) return 0;
+  const answered = state.answered || {};
+  let n = 0;
+  for (let i = 0; i < state.questions.length; i++) {
+    if (!(i in answered) || answered[i] === undefined) n++;
+  }
+  return n;
+}
+
+// 안 푼 게 있으면 그 문항으로 옮기고 true(= 채점을 막았다)를 돌려준다.
+// 문항 번호는 '몇 번째'(순번)로 알려 준다 — 회차가 섞인 화면에서는
+// 문제지의 Q번호가 겹쳐서 어디로 갔는지 알 수 없기 때문이다.
+function guardUnanswered(state, goTo) {
+  const i = firstUnansweredIdx(state);
+  if (i < 0) return false;
+  state._wantSubmit = true;        // 제출하려 했다는 사실을 기억 → 남은 문항을 순서대로 안내한다
+  _walkToGap(state, goTo, i);
+  return true;
+}
+
+// 빈 문항으로 옮기고 몇 개 남았는지 알려 준다
+function _walkToGap(state, goTo, i) {
+  if (typeof goTo === 'function') goTo(i);
+  showToast(`아직 ${countUnanswered(state)}문제가 남았어요 — ${i + 1}번째 문제로 갑니다`);
+}
+
+// 제출을 눌러 안내가 시작된 뒤의 '다음' — 남은 빈 문항을 순서대로 데려간다.
+// 다 채우면 마지막 문항으로 돌려보낸다. 거기 채점 버튼이 있고,
+// 무엇보다 사용자가 누르지도 않은 채점이 갑자기 일어나지 않는다.
+// (돌려주는 값이 true 면 이동을 끝냈으니 부르는 쪽은 그대로 멈춘다)
+function submitWalk(state, goTo) {
+  if (!state || !state._wantSubmit || !state.questions || !state.questions.length) return false;
+  const gap = firstUnansweredIdx(state);
+  if (gap >= 0) { _walkToGap(state, goTo, gap); return true; }
+
+  state._wantSubmit = false;
+  const last = state.questions.length - 1;
+  if (state.idx === last) return false;      // 이미 마지막 — 평소대로 채점으로 넘어간다
+  if (typeof goTo === 'function') goTo(last);
+  showToast('모두 풀었어요 — 이제 채점할 수 있어요');
+  return true;
+}
+
 function quizNext() {
   if (typeof flushQMemo === 'function') flushQMemo();   // [수정] 이동 전 이 문제 메모 저장
   const { questions, idx } = currentQuiz;
+  if (submitWalk(currentQuiz, goToQuestion)) return;    // [추가] 제출을 누른 뒤라면 남은 빈 문항부터
   if (idx >= questions.length - 1) {
+    if (guardUnanswered(currentQuiz, goToQuestion)) return;
     showResult();
   } else {
     currentQuiz.idx++;
@@ -13214,9 +13281,20 @@ function wqAnswer(chosen) {
   _saveWQCheckpoint();
 }
 
+// [추가] 특정 문항으로 이동 — 일곱 화면 중 여기만 없어서, 안 푼 문제로 데려다줄 방법이 없었다
+function wqGoTo(i) {
+  if (!wqState || !wqState.questions.length) return;
+  wqState.idx = Math.max(0, Math.min(wqState.questions.length - 1, i));
+  _saveWQCheckpoint();
+  renderWQ();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
 function wqNext() {
   const { questions, idx } = wqState;
+  if (submitWalk(wqState, wqGoTo)) return;
   if (idx >= questions.length - 1) {
+    if (guardUnanswered(wqState, wqGoTo)) return;
     const { answered } = wqState;
     let correct = 0;
     questions.forEach((q, i) => { if (answered[i] === q.correct) correct++; });
@@ -14710,7 +14788,9 @@ function sqAnswer(chosen) {
 
 function sqNext() {
   const { questions, idx, answered } = sqState;
+  if (submitWalk(sqState, sqGoTo)) return;
   if (idx >= questions.length - 1) {
+    if (guardUnanswered(sqState, sqGoTo)) return;
     let correct = 0;
     questions.forEach((q, i) => { if (answered[i] === q.correct) correct++; });
     showToast(`완료! ${correct}/${questions.length} 정답 ⭐`);
@@ -14738,6 +14818,7 @@ function sqPrev() {
 function sqGoTo(i) {
   if (!sqState || !sqState.questions.length) return;
   sqState.idx = Math.max(0, Math.min(sqState.questions.length - 1, i));
+  _saveSQCheckpoint();   // [수정] 옮긴 자리도 기억한다 — 앞·뒤 버튼만 저장하고 있었다
   renderSQ();
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
@@ -15118,7 +15199,9 @@ function fqAnswer(chosen) {
 
 function fqNext() {
   const { questions, idx, answered } = fqState;
+  if (submitWalk(fqState, fqGoTo)) return;
   if (idx >= questions.length - 1) {
+    if (guardUnanswered(fqState, fqGoTo)) return;
     let correct = 0;
     questions.forEach((q, i) => { if (answered[i] === q.correct) correct++; });
     showToast(`완료! ${correct}/${questions.length} 정답 ✔`);
@@ -15145,6 +15228,7 @@ function fqPrev() {
 function fqGoTo(i) {
   if (!fqState || !fqState.questions.length) return;
   fqState.idx = Math.max(0, Math.min(fqState.questions.length - 1, i));
+  _saveFQCheckpoint();   // [수정] 옮긴 자리도 기억한다
   renderFQ();
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
@@ -15543,7 +15627,9 @@ function cqAnswer(chosen) {
 
 function cqNext() {
   const { questions, idx, answered } = cqState;
+  if (submitWalk(cqState, cqGoTo)) return;
   if (idx >= questions.length - 1) {
+    if (guardUnanswered(cqState, cqGoTo)) return;
     // 필답형은 맞았어요/틀렸어요 판정, 객관식은 고른 번호가 들어 있다 (섞여 있어도 각각 맞게 센다)
     let correct = 0;
     questions.forEach((q, i) => {
@@ -15575,6 +15661,7 @@ function cqPrev() {
 function cqGoTo(i) {
   if (!cqState || !cqState.questions.length) return;
   cqState.idx = Math.max(0, Math.min(cqState.questions.length - 1, i));
+  _saveCQCheckpoint();   // [수정] 옮긴 자리도 기억한다
   renderCQ();
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
@@ -16345,7 +16432,9 @@ function mqAnswer(chosen) {
 
 function mqNext() {
   const { questions, idx } = mqState;
+  if (submitWalk(mqState, mqGoTo)) return;
   if (idx >= questions.length - 1) {
+    if (guardUnanswered(mqState, mqGoTo)) return;
     submitMock();
   } else {
     mqState.idx++;
@@ -16445,10 +16534,9 @@ function renderMockResumeCard() {
 }
 
 function submitMockEarly() {
-  const unanswered = mqState.questions.length - Object.keys(mqState.answered).length;
-  if (unanswered > 0) {
-    if (!confirm(`아직 ${unanswered}문제가 남았어요. 제출할까요?`)) return;
-  }
+  // [수정] 예전엔 "아직 3문제가 남았어요. 제출할까요?"라고 묻고 그냥 제출했다.
+  //        남은 문제를 직접 찾아다녀야 해서, 이제는 묻지 않고 그 문항으로 데려다준다.
+  if (guardUnanswered(mqState, mqGoTo)) return;
   submitMock();
 }
 
@@ -16914,7 +17002,9 @@ function mwqAnswer(chosen) {
 
 function mwqNext() {
   const { questions, idx, answered } = mwqState;
+  if (submitWalk(mwqState, mwqGoTo)) return;
   if (idx >= questions.length - 1) {
+    if (guardUnanswered(mwqState, mwqGoTo)) return;
     let correct = 0;
     // [수정] 필답형은 answered[i]가 'correct'/'wrong' 문자열이라 q.correct와 직접 비교하면 항상 어긋난다
     questions.forEach((q, i) => { if (q.type === 'subj' ? answered[i] === 'correct' : answered[i] === q.correct) correct++; });
@@ -16974,6 +17064,7 @@ function mwqPrev() {
 function mwqGoTo(i) {
   if (!mwqState || !mwqState.questions.length) return;
   mwqState.idx = Math.max(0, Math.min(mwqState.questions.length - 1, i));
+  _saveMWQCheckpoint();   // [수정] 옮긴 자리도 기억한다
   renderMWQ();
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
@@ -19950,6 +20041,13 @@ applyRenderFlags();
 //   k: 'new'(새 기능) · 'fix'(고침) · 'chg'(바뀜)
 // ══════════════════════════════════════════════════════════════════════
 const PATCH_NOTES = [
+  { v: '260813-1820', at: '2026-08-13', items: [
+    { k: 'new', t: '<b>안 푼 문제가 있으면 채점 대신 그 문제로 데려다줍니다</b> — 예전엔 "아직 3문제가 남았어요"라고 알려 주기만 해서 그게 몇 번인지 직접 넘겨 가며 찾아야 했습니다. 이제 <b>시험 제출·결과 보기·완료</b>를 누르면 <b>가장 앞선 안 푼 문제</b>로 바로 갑니다 (2·6·17번째가 비었으면 2번째 → 6번째 → 17번째 순서로)' },
+    { k: 'chg', t: '<b>다 풀기 전에는 채점되지 않습니다.</b> 빈 문제를 채우고 <b>다음</b>을 누르면 그다음 빈 문제로 건너뛰고, 다 채우면 마지막 문제로 돌아와 그때 채점합니다 — 누르지도 않은 채점이 갑자기 일어나지는 않아요' },
+    { k: 'chg', t: '<b>필답형</b>은 <b>맞았어요·틀렸어요를 눌러 판정해야</b> 푼 것으로 봅니다 — 정답만 펼쳐 보고 넘어간 문제도 안 푼 문제로 데려다줍니다' },
+    { k: 'chg', t: '<b>문제 풀기 · 오답만 · 별표만 · 체크만 · 계산문제만 · 모의고사 · 모의고사 오답</b> 일곱 화면 모두 같습니다' },
+    { k: 'fix', t: '<b>별표만·체크만·계산문제만·모의고사 오답 풀기</b>에서 진행바를 끌어 문항을 옮긴 자리를 기억하지 않던 것을 고쳤습니다 — 앞·뒤 버튼으로 옮길 때만 저장하고 있어서, 끌어서 옮긴 뒤 앱을 껐다 켜면 예전 자리로 돌아갔습니다' },
+  ]},
   { v: '260813-1505', at: '2026-08-13', items: [
     { k: 'fix', t: '모의고사를 마친 뒤 오답을 볼 때 <b>방금 본 시험에서 틀린 것만</b> 보여줍니다 — 예전엔 그동안 쌓인 오답이 전부 나와서 내가 틀린 걸 찾아야 했습니다. 결과 화면 버튼도 <b>이 시험 오답 보기</b>로 바꿨어요' },
     { k: 'fix', t: '<b>모의고사 기록에서 회차를 눌러도</b> 그 회차 오답만 나옵니다 — 그 회차 오답 개수를 세어 놓고도 자격증 전체를 보여주고 있었습니다' },
