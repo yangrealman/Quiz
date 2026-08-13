@@ -7705,7 +7705,7 @@
     <div class="result-score" id="mock-result-score"></div>
     <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:20px;">
       <button class="btn btn-primary" onclick="startMockExamAgain()">다시 풀기</button>
-      <button class="btn btn-secondary" onclick="goPage('mock-wrong')">모의고사 오답노트</button>
+      <button class="btn btn-secondary" id="mock-result-wrong-btn" onclick="viewMockWrongOf(_lastMockRecordId)">이 시험 오답 보기</button>
       <button class="btn btn-secondary" onclick="goPage('mock')">모의고사 홈</button>
     </div>
     <div id="mock-result-review"></div>
@@ -9368,6 +9368,10 @@ function _goPageNow(name) {
       clearTimeout(_clearFlagTimer);
       clearBtn.dataset.arm = ''; clearBtn.classList.remove('arm'); clearBtn.textContent = 'X';
     }
+  }
+  // 특정 시험으로 좁혀 본 상태는 그 화면을 떠나면 푼다 — 나중에 그냥 들어오면 전체가 보이도록
+  if (currentPage === 'mock-wrong' && name !== 'mock-wrong' && name !== 'mock-wrong-quiz') {
+    mockWrongFilter.mockId = null;
   }
   if (currentPage === 'hidden' && name !== 'hidden') {
     const hBtn = document.getElementById('hidden-clear-btn');
@@ -16448,6 +16452,8 @@ function submitMockEarly() {
   submitMock();
 }
 
+let _lastMockRecordId = null;   // 방금 제출한 모의고사 번호
+
 function submitMock() {
   clearMockQuizResume();          // 제출했으면 이어서 풀 것이 없다
 
@@ -16509,7 +16515,8 @@ function submitMock() {
   });
   saveMockWrongs(existWrongs);
 
-  // 결과 화면
+  // 결과 화면 ('이 시험 오답 보기'가 방금 본 시험을 가리키도록 번호를 남긴다)
+  _lastMockRecordId = recordId;
   showMockResult(correct, total, pct, timeUsed, questions, answered);
 }
 
@@ -16586,14 +16593,23 @@ function viewMockRecord(idx) {
   const r = records[idx];
   if (!r) return;
   const wrongs = getMockWrongs().filter(w => w.mockId === r.id);
-  showToast(`${r.cat} 모의고사 ${r.pct}점 · ${r.timeUsed}`);
-  // 오답 목록으로 이동
-  mockWrongFilter.cat = r.cat;
-  goPage('mock-wrong');
+  showToast(`${r.cat} 모의고사 ${r.pct}점 · 틀린 ${wrongs.length}개`);
+  // [수정] 그 회차 오답만 보여준다 — 예전엔 개수를 세어 놓고도 자격증 전체를 보여줬다
+  viewMockWrongOf(r.id, r.cat);
 }
 
 // ── 모의고사 오답노트 ──
-let mockWrongFilter = { cat: null };
+// [추가] mockId — '어느 시험에서 틀린 것인지'로 좁혀 본다.
+//        예전엔 자격증으로만 걸러서, 방금 본 시험의 오답을 보려 해도 그동안 쌓인 게 전부 나왔다.
+let mockWrongFilter = { cat: null, mockId: null };
+
+// 특정 시험의 오답만 보기 (결과 화면·기록 목록에서 들어올 때)
+function viewMockWrongOf(mockId, cat) {
+  mockWrongFilter.mockId = mockId;
+  mockWrongFilter.cat = null;          // 시험 하나로 좁힌 상태에선 자격증 필터가 의미 없다
+  goPage('mock-wrong');
+}
+function clearMockWrongMock() { mockWrongFilter.mockId = null; renderMockWrongNote(); }
 
 function renderMockWrongNote() {
   const wrongs = getMockWrongs();
@@ -16602,16 +16618,28 @@ function renderMockWrongNote() {
 
   document.getElementById('mock-wrong-quiz-btn').style.display = wrongs.length ? 'block' : 'none';
 
-  const cats = [...new Set(wrongs.map(w => w.cat))];
-  document.getElementById('mock-wrong-filter').innerHTML = `
-    <button class="btn ${mockWrongFilter.cat === null ? 'btn-mock' : 'btn-secondary'}" onclick="setMockWrongFilter(null)" style="font-size:13px; padding:6px 14px">전체 (${wrongs.length})</button>
-    ${cats.map(c => {
-      const cnt = wrongs.filter(w => w.cat === c).length;
-      return `<button class="btn ${mockWrongFilter.cat === c ? 'btn-mock' : 'btn-secondary'}" onclick="setMockWrongFilter('${escArg(c)}')" style="font-size:13px; padding:6px 14px">${c} (${cnt})</button>`;
-    }).join('')}
-  `;
+  // 특정 시험으로 좁혀 들어온 경우엔 그 시험 것만 보여주고, 넓혀 보는 버튼을 함께 둔다
+  const onlyMock = mockWrongFilter.mockId != null
+    ? wrongs.filter(w => w.mockId === mockWrongFilter.mockId) : null;
 
-  const filtered = mockWrongFilter.cat ? wrongs.filter(w => w.cat === mockWrongFilter.cat) : wrongs;
+  const cats = [...new Set(wrongs.map(w => w.cat))];
+  if (onlyMock) {
+    const rec = getMockRecords().find(r => r.id === mockWrongFilter.mockId);
+    const no = rec ? (getMockRecords().findIndex(r => r.id === rec.id) + 1) : 0;   // 기록 목록과 같은 번호
+    const label = rec ? `${escHtml(rec.cat)} 모의고사 ${no}회` : '이 시험';
+    document.getElementById('mock-wrong-filter').innerHTML = `
+      <button class="btn btn-mock" style="font-size:13px; padding:6px 14px" disabled>${label}에서 틀린 ${onlyMock.length}개</button>
+      <button class="btn btn-secondary" onclick="clearMockWrongMock()" style="font-size:13px; padding:6px 14px">전체 보기 (${wrongs.length})</button>`;
+  } else {
+    document.getElementById('mock-wrong-filter').innerHTML = `
+      <button class="btn ${mockWrongFilter.cat === null ? 'btn-mock' : 'btn-secondary'}" onclick="setMockWrongFilter(null)" style="font-size:13px; padding:6px 14px">전체 (${wrongs.length})</button>
+      ${cats.map(c => {
+        const cnt = wrongs.filter(w => w.cat === c).length;
+        return `<button class="btn ${mockWrongFilter.cat === c ? 'btn-mock' : 'btn-secondary'}" onclick="setMockWrongFilter('${escArg(c)}')" style="font-size:13px; padding:6px 14px">${c} (${cnt})</button>`;
+      }).join('')}`;
+  }
+
+  const filtered = onlyMock || (mockWrongFilter.cat ? wrongs.filter(w => w.cat === mockWrongFilter.cat) : wrongs);
 
   if (!filtered.length) {
     document.getElementById('mock-wrong-list').innerHTML = `<div class="empty-state"><div class="emoji"><svg class="ic ic-empty" viewBox="0 0 24 24"><use href="#ic-check-square"/></svg></div><p>모의고사 오답이 없어요!</p></div>`;
@@ -16672,6 +16700,7 @@ function renderMockWrongNote() {
 
 function setMockWrongFilter(cat) {
   mockWrongFilter.cat = cat;
+  mockWrongFilter.mockId = null;      // 자격증으로 넓혀 보는 것이므로 시험 좁힘은 푼다
   renderMockWrongNote();
 }
 
@@ -16746,9 +16775,10 @@ function renderMockWrongResumeCard() {
 
 function startMockWrongQuiz() {
   if (_askResumeFirst(getMockWrongQuizResume, resumeMockWrongQuiz, '모의고사 오답')) return;
-  const wrongs = mockWrongFilter.cat
-    ? getMockWrongs().filter(w => w.cat === mockWrongFilter.cat)
-    : getMockWrongs();
+  const all = getMockWrongs();
+  const wrongs = mockWrongFilter.mockId != null
+    ? all.filter(w => w.mockId === mockWrongFilter.mockId)      // 좁혀 보는 중이면 그 시험 것만 푼다
+    : (mockWrongFilter.cat ? all.filter(w => w.cat === mockWrongFilter.cat) : all);
   if (!wrongs.length) { showToast('오답이 없어요'); return; }
   mwqState = { questions: wrongs.map(w => w.q), idx: 0, answered: {}, source: wrongs };
   document.getElementById('mwq-sub').textContent = `총 ${wrongs.length}문제`;
@@ -19920,6 +19950,11 @@ applyRenderFlags();
 //   k: 'new'(새 기능) · 'fix'(고침) · 'chg'(바뀜)
 // ══════════════════════════════════════════════════════════════════════
 const PATCH_NOTES = [
+  { v: '260813-1505', at: '2026-08-13', items: [
+    { k: 'fix', t: '모의고사를 마친 뒤 오답을 볼 때 <b>방금 본 시험에서 틀린 것만</b> 보여줍니다 — 예전엔 그동안 쌓인 오답이 전부 나와서 내가 틀린 걸 찾아야 했습니다. 결과 화면 버튼도 <b>이 시험 오답 보기</b>로 바꿨어요' },
+    { k: 'fix', t: '<b>모의고사 기록에서 회차를 눌러도</b> 그 회차 오답만 나옵니다 — 그 회차 오답 개수를 세어 놓고도 자격증 전체를 보여주고 있었습니다' },
+    { k: 'chg', t: '좁혀 본 상태에서는 <b>오답만 풀기</b>도 그 시험 것만 풉니다. <b>전체 보기</b>를 누르면 넓어지고, 화면을 떠났다 다시 들어오면 전체가 보입니다' },
+  ]},
   { v: '260813-0533', at: '2026-08-13', items: [
     { k: 'fix', t: '<b>테마 색 고르는 칸이 안 보이던 것</b>을 고쳤습니다 — <b>세부 설정 &gt; 카드 유리 질감</b>을 끄면 색이 통째로 투명해져 있었습니다 (자리를 기억해 누르면 바뀌긴 했지만 색이 안 보였죠). <b>정답지</b>와 <b>문제만 보기</b> 머리띠도 같은 이유로 흰 글씨만 남던 것을 함께 고쳤습니다' },
     { k: 'fix', t: '<b>움직임</b> 설정 칸 아래쪽이 각져 보이던 것을 고쳤습니다 — <b>세부 설정</b>이 카드 밖에 떠 있는 것처럼 보였는데, 이제 한 칸으로 이어지고 누르면 그 칸이 넓어집니다' },
@@ -20348,7 +20383,7 @@ function closePatchNotes() {
 // ── 앱 버전 ──
 // 폰이 옛 파일을 캐시해 두고 있는지 바로 확인할 수 있도록 화면에 표시한다.
 // (설정 맨 아래 · 개발자 도구 콘솔에도 찍힘)
-const APP_VERSION = '260813-0533';
+const APP_VERSION = '260813-1505';
 console.log('%c양진웅 Note 버전 ' + APP_VERSION, 'font-weight:bold');
 
 // PWA 서비스워커 등록
