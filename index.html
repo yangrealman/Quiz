@@ -5330,11 +5330,51 @@
     background: var(--gray-50); border: 1px solid var(--card-border);
     border-radius: 10px; padding: 10px 12px;
   }
-  .calc-input {
-    width: 100%; border: none; background: none; outline: none;
-    font-size: 17px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-    color: var(--gray-800); text-align: right;
+  /* ── [추가] 수식 편집기 — 분수를 세로로 쌓아 보여준다 ── */
+  .mx {
+    font-family: 'Times New Roman', ui-serif, Georgia, serif;
+    font-size: 24px; color: var(--gray-800); line-height: 1;
+    display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap;
+    min-height: 44px; cursor: text; overflow-x: auto;
   }
+  .mx-slot { display: inline-flex; align-items: center; min-height: 1em; }
+  .mx-n, .mx-x { padding: 0 1px; }
+  .mx-x { font-style: italic; }
+  .mx-op { margin: 0 5px; color: var(--gray-600); }
+  .mx-eq { color: var(--primary); font-weight: 700; }
+  /* 분수 = 위아래로 쌓고 가운데 줄 · 한 겹 들어갈 때마다 조금씩 작아진다 */
+  /* [수정] align-items:center 였을 때는 분자·분모가 각자 내용만큼만 넓어져서,
+     분자가 긴 분수(예: 1/2+3/4 위에 5/6)의 가로줄이 분모 폭만큼만 그어졌다.
+     stretch 로 두 칸을 같은 폭(둘 중 넓은 쪽)으로 맞추고 가운데 정렬한다. */
+  .mx-frac { display: inline-flex; flex-direction: column; align-items: stretch; margin: 0 3px; font-size: 0.82em; }
+  .mx-fn { padding: 0 5px 2px; display: flex; align-items: center; justify-content: center; }
+  .mx-fd { padding: 2px 5px 0; border-top: 1.6px solid currentColor; display: flex; align-items: center; justify-content: center; }
+  .mx-sqrt { display: inline-flex; align-items: stretch; margin: 0 2px; }
+  .mx-sym { font-size: 1.05em; line-height: 1; }
+  .mx-rad { border-top: 1.6px solid currentColor; padding: 2px 4px 0; margin-top: 0.18em; display: flex; align-items: center; }
+  .mx-pow { font-size: 0.6em; align-self: flex-start; margin-left: 1px; }
+  .mx-grp { display: inline-flex; align-items: center; }
+  .mx-par { color: var(--gray-500); }
+  /* 아직 안 채운 칸 — 지금 입력받는 칸은 진하게 */
+  .mx-box {
+    display: inline-block; min-width: 18px; height: 20px;
+    border: 1.6px dashed var(--primary); border-radius: 4px;
+    background: var(--primary-light); opacity: 0.55;
+  }
+  .mx-box.cur { border-style: solid; opacity: 1; background: var(--card); box-shadow: 0 0 0 2px var(--primary-light); }
+  .mx-cur {
+    display: inline-block; width: 2px; height: 1.05em; background: var(--primary);
+    margin: 0 1px; animation: mxBlink 1.05s step-end infinite;
+  }
+  @keyframes mxBlink { 50% { opacity: 0; } }
+  body.reduce-motion .mx-cur { animation: none; }
+  .mx-hint { font-size: 11px; color: var(--gray-400); text-align: right; margin-top: 6px; min-height: 14px; }
+  .mx-badge {
+    font-size: 10px; font-weight: 800; color: var(--primary);
+    background: var(--primary-light); border: 1px solid var(--primary);
+    border-radius: 5px; padding: 2px 6px; flex: none;
+  }
+  .calc-result .row { display: flex; align-items: baseline; justify-content: flex-end; gap: 8px; }
   .calc-result {
     text-align: right; margin-top: 6px; min-height: 26px;
     font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
@@ -7379,13 +7419,13 @@
   <div class="calc-body">
     <div class="calc-hist" id="calc-hist"></div>
     <div class="calc-screen">
-      <input class="calc-input" id="calc-input" spellcheck="false" autocomplete="off"
-             placeholder="예: 1/3 + 1/6" onkeydown="if(event.key==='Enter'){calcEval();}">
+      <div class="mx" id="calc-mx"></div>
+      <div class="mx-hint" id="calc-mx-hint"></div>
       <div class="calc-result" id="calc-result"></div>
     </div>
     <div class="calc-modes">
-      <button class="calc-mode on" id="calc-mode-frac" onclick="calcToggleFrac()">분수 유지</button>
-      <button class="calc-chip" onclick="calcDecToFrac()">소수 → 분수</button>
+      <button class="calc-mode on" id="calc-mode-frac" onclick="calcSetMode('frac')">분수</button>
+      <button class="calc-mode" id="calc-mode-dec" onclick="calcSetMode('dec')">소수</button>
       <button class="calc-chip" onclick="calcClearHist()">이력 지우기</button>
     </div>
     <div class="calc-keys" id="calc-keys"></div>
@@ -12639,95 +12679,319 @@ function decToR(str) {
 }
 
 // ── 식 해석기 (재귀 하강) ──
-function calcParse(src) {
-  const s = String(src).replace(/×/g, '*').replace(/÷/g, '/').replace(/−/g, '-').replace(/,/g, '');
-  let i = 0;
-  const ws = () => { while (i < s.length && s[i] === ' ') i++; };
-  const peek = () => { ws(); return s[i]; };
-  const eat = (c) => { ws(); if (s[i] === c) { i++; return true; } return false; };
+// ══════════════════════════════════════════════════════════════════════
+// [수정] 수식 편집기 — 진짜 분수 칸 입력
+//
+//   예전에는 글자 한 줄(<input>)에 "1/3 + 1/6" 처럼 쳐야 했다. 그래서 분수를
+//   '입력'할 방법이 없었고, 대신 "분수 유지" 라는 어정쩡한 토글이 붙어 있었다.
+//
+//   이제 식을 글자가 아니라 나무로 들고 있다. 분수는 '분자 상자 / 분모 상자'를
+//   가진 마디이고, 그 상자 안에 또 무엇이든 들어간다 — 그래서 분모 안의 분수가
+//   특별한 기능이 아니라 구조상 저절로 된다.
+//
+//   마디 모양
+//     { t:'n',    v:'12'  }            숫자 (글자로 들고 있다가 계산할 때 유리수로)
+//     { t:'op',   v:'+'   }            + - * /
+//     { t:'x'    }                     미지수
+//     { t:'eq'   }                     등호 — 이게 있으면 'x 구하기'로 푼다
+//     { t:'frac', num:[], den:[] }     분수
+//     { t:'sqrt', rad:[]  }            루트
+//     { t:'pow',  exp:[]  }            거듭제곱 (바로 앞 마디에 붙는다)
+//     { t:'grp',  body:[] }            괄호
+// ══════════════════════════════════════════════════════════════════════
 
-  function parseExpr() {
-    let v = parseTerm();
-    for (;;) { ws();
-      if (eat('+')) v = rAdd(v, parseTerm());
-      else if (eat('-')) v = rSub(v, parseTerm());
+let _mxRoot = [];
+let _mxCur = { list: _mxRoot, i: 0 };
+let _mxBoxes = [];                 // 그릴 때마다 다시 만드는 '상자 목록' (눌러서 옮길 때 씀)
+const MX_MAX_FRAC = 3;             // 분수는 세 겹까지 (그 이상은 글씨가 너무 작아진다)
+
+function _mxBoxOf(list) { return _mxBoxes.find(b => b.list === list) || null; }
+
+// ── 그리기 ──
+function mxRender() {
+  const el = document.getElementById('calc-mx');
+  if (!el) return;
+  _mxBoxes = [];
+  el.innerHTML = _mxSlot(_mxRoot, 0, null, null, 0);
+  const hint = document.getElementById('calc-mx-hint');
+  if (hint) hint.textContent = _mxHint();
+}
+
+function _mxSlot(list, fd, node, owner, idx) {
+  const k = _mxBoxes.length;
+  _mxBoxes.push({ list, fd, node, owner, idx });
+  const cur = (list === _mxCur.list);
+  let inner = '';
+  if (!list.length) {
+    inner = `<span class="mx-box${cur ? ' cur' : ''}"></span>`;
+  } else {
+    for (let i = 0; i < list.length; i++) {
+      if (cur && _mxCur.i === i) inner += '<i class="mx-cur"></i>';
+      inner += _mxNode(list[i], fd, list, i);
+    }
+    if (cur && _mxCur.i >= list.length) inner += '<i class="mx-cur"></i>';
+  }
+  return `<span class="mx-slot" data-b="${k}">${inner}</span>`;
+}
+
+const _MX_OPCH = { '*': '×', '/': '÷', '-': '−', '+': '+' };
+function _mxNode(n, fd, owner, idx) {
+  switch (n.t) {
+    case 'n':  return `<span class="mx-n">${escHtml(n.v)}</span>`;
+    case 'x':  return `<span class="mx-x">x</span>`;
+    case 'op': return `<span class="mx-op">${_MX_OPCH[n.v] || n.v}</span>`;
+    case 'eq': return `<span class="mx-op mx-eq">=</span>`;
+    case 'frac':
+      return `<span class="mx-frac"><span class="mx-fn">${_mxSlot(n.num, fd + 1, n, owner, idx)}</span>`
+           + `<span class="mx-fd">${_mxSlot(n.den, fd + 1, n, owner, idx)}</span></span>`;
+    case 'sqrt':
+      return `<span class="mx-sqrt"><span class="mx-sym">√</span>`
+           + `<span class="mx-rad">${_mxSlot(n.rad, fd, n, owner, idx)}</span></span>`;
+    case 'pow':
+      return `<span class="mx-pow">${_mxSlot(n.exp, fd, n, owner, idx)}</span>`;
+    case 'grp':
+      return `<span class="mx-grp"><span class="mx-par">(</span>`
+           + `${_mxSlot(n.body, fd, n, owner, idx)}<span class="mx-par">)</span></span>`;
+  }
+  return '';
+}
+
+function _mxHint() {
+  const b = _mxBoxOf(_mxCur.list);
+  if (!b || !b.node) return _mxRoot.length ? '' : '숫자나 ▢/▢ 를 눌러 시작하세요';
+  const n = b.node;
+  if (n.t === 'frac') return (b.list === n.num) ? '분자 칸 · ▼ 로 분모' : '분모 칸 · ▲ 로 분자';
+  if (n.t === 'sqrt') return '루트 안';
+  if (n.t === 'pow')  return '지수 칸';
+  if (n.t === 'grp')  return '괄호 안';
+  return '';
+}
+
+// 상자를 누르면 그 칸으로 옮긴다
+function mxTapBox(k, atStart) {
+  const b = _mxBoxes[k];
+  if (!b) return;
+  _mxCur = { list: b.list, i: atStart ? 0 : b.list.length };
+  mxRender();
+}
+
+// ── 넣기 · 지우기 ──
+function _mxIns(node, into) {
+  _mxCur.list.splice(_mxCur.i, 0, node);
+  _mxCur.i++;
+  if (into) { _mxCur = { list: into, i: 0 }; }
+}
+
+function mxDigit(ch) {
+  const L = _mxCur.list, prev = L[_mxCur.i - 1];
+  if (prev && prev.t === 'n') {
+    if (ch === '.' && prev.v.includes('.')) return;
+    prev.v += ch;
+  } else {
+    _mxIns({ t: 'n', v: ch === '.' ? '0.' : ch });
+  }
+  mxRender();
+}
+function mxOp(v)  { _mxIns({ t: 'op', v }); mxRender(); }
+function mxX()    { _mxIns({ t: 'x' });     mxRender(); }
+function mxEq()   {
+  // 등호는 하나만 (x 구하기는 양변이 둘일 때만 뜻이 있다)
+  if (_mxHasEq(_mxRoot)) { showToast('등호는 하나만 넣을 수 있어요'); return; }
+  _mxIns({ t: 'eq' }); mxRender();
+}
+function _mxHasEq(list) {
+  return list.some(n => n.t === 'eq'
+    || (n.t === 'frac' && (_mxHasEq(n.num) || _mxHasEq(n.den)))
+    || (n.t === 'sqrt' && _mxHasEq(n.rad))
+    || (n.t === 'pow'  && _mxHasEq(n.exp))
+    || (n.t === 'grp'  && _mxHasEq(n.body)));
+}
+
+function mxFrac() {
+  const b = _mxBoxOf(_mxCur.list);
+  const fd = b ? b.fd : 0;
+  if (fd >= MX_MAX_FRAC) { showToast(`분수는 ${MX_MAX_FRAC}겹까지만 넣을 수 있어요`); return; }
+  const n = { t: 'frac', num: [], den: [] };
+  // 바로 앞의 덩어리를 분자로 끌어올린다 (3 누르고 ▢/▢ → 3 이 분자로, x 도 마찬가지)
+  // 거듭제곱은 앞 마디에 붙어 있으므로 둘을 함께 데려간다 (2² 이 통째로 분자가 되게)
+  const L = _mxCur.list;
+  let take = 0;
+  const isAtom = (m) => m && (m.t === 'n' || m.t === 'x' || m.t === 'grp' || m.t === 'sqrt');
+  if (L[_mxCur.i - 1] && L[_mxCur.i - 1].t === 'pow' && isAtom(L[_mxCur.i - 2])) take = 2;
+  else if (isAtom(L[_mxCur.i - 1])) take = 1;
+  if (take) { n.num.push(...L.splice(_mxCur.i - take, take)); _mxCur.i -= take; }
+  _mxIns(n, n.num.length ? n.den : n.num);
+  mxRender();
+}
+function mxSqrt() { const n = { t: 'sqrt', rad: [] }; _mxIns(n, n.rad); mxRender(); }
+function mxPow()  {
+  const prev = _mxCur.list[_mxCur.i - 1];
+  if (!prev || prev.t === 'op' || prev.t === 'eq') { showToast('먼저 숫자를 넣어주세요'); return; }
+  const n = { t: 'pow', exp: [] }; _mxIns(n, n.exp); mxRender();
+}
+function mxGrp()  { const n = { t: 'grp', body: [] }; _mxIns(n, n.body); mxRender(); }
+function mxGrpEnd() {   // ')' — 괄호 안이면 빠져나온다
+  const b = _mxBoxOf(_mxCur.list);
+  if (b && b.node && b.node.t === 'grp') { _mxCur = { list: b.owner, i: b.idx + 1 }; mxRender(); }
+}
+
+function mxBack() {
+  const L = _mxCur.list;
+  if (_mxCur.i > 0) {
+    const prev = L[_mxCur.i - 1];
+    if (prev.t === 'n' && prev.v.length > 1) { prev.v = prev.v.slice(0, -1); }
+    else { L.splice(_mxCur.i - 1, 1); _mxCur.i--; }
+    mxRender();
+    return;
+  }
+  // 칸 맨 앞에서 지우기 = 이 칸을 감싼 마디를 통째로 (안이 비었을 때만)
+  const b = _mxBoxOf(L);
+  if (!b || !b.node) return;
+  const n = b.node;
+  const empty = [n.num, n.den, n.rad, n.exp, n.body].every(s => !s || !s.length);
+  if (empty) { b.owner.splice(b.idx, 1); _mxCur = { list: b.owner, i: b.idx }; }
+  else       { _mxCur = { list: b.owner, i: b.idx }; }
+  mxRender();
+}
+
+function mxClear() {
+  _mxRoot = [];
+  _mxCur = { list: _mxRoot, i: 0 };
+  _mxLast = null;
+  const out = document.getElementById('calc-result');
+  if (out) { out.className = 'calc-result'; out.innerHTML = ''; }
+  mxRender();
+}
+
+// ── 커서 이동 ──
+function mxMove(d) {
+  const L = _mxCur.list;
+  const ni = _mxCur.i + d;
+  if (ni >= 0 && ni <= L.length) { _mxCur.i = ni; mxRender(); return; }
+  const b = _mxBoxOf(L);
+  if (!b || !b.node) return;
+  _mxCur = { list: b.owner, i: d < 0 ? b.idx : b.idx + 1 };
+  mxRender();
+}
+function mxUpDown(d) {   // 분수의 분자 ↔ 분모
+  const b = _mxBoxOf(_mxCur.list);
+  if (!b || !b.node || b.node.t !== 'frac') return;
+  const n = b.node;
+  const to = (b.list === n.num) ? (d > 0 ? n.den : null) : (d < 0 ? n.num : null);
+  if (!to) return;
+  _mxCur = { list: to, i: to.length };
+  mxRender();
+}
+
+// ── 글자로 옮기기 (이력에 남길 때) ──
+function mxToText(list) {
+  return list.map(n => {
+    switch (n.t) {
+      case 'n': return n.v;
+      case 'x': return 'x';
+      case 'op': return ' ' + (_MX_OPCH[n.v] || n.v) + ' ';
+      case 'eq': return ' = ';
+      case 'frac': return `${_mxWrap(n.num)}/${_mxWrap(n.den)}`;
+      case 'sqrt': return `√${_mxWrap(n.rad)}`;
+      case 'pow': return `^${_mxWrap(n.exp)}`;
+      case 'grp': return `(${mxToText(n.body)})`;
+    }
+    return '';
+  }).join('').replace(/\s+/g, ' ').trim();
+}
+
+function _mxWrap(list) {
+  const t = mxToText(list);
+  if (!list.length) return '▢';
+  // 숫자·x 한 개면 괄호가 군더더기지만, 분수가 통째로 들어 있으면 괄호가 있어야
+  // (1/2)/(5/6) 과 1/2/5/6 이 구분된다
+  const only = list.length === 1 && (list[0].t === 'n' || list[0].t === 'x');
+  return only ? t : `(${t})`;
+}
+
+// ── 계산 ──
+// xv 를 주면 x 자리에 그 값을 넣는다 (x 구하기에서 씀)
+function _mxCalc(list, xv) {
+  let p = 0;
+  const at = () => list[p];
+
+  function expr() {
+    let v = term();
+    for (;;) {
+      const t = at();
+      if (t && t.t === 'op' && (t.v === '+' || t.v === '-')) { p++; const r = term(); v = (t.v === '+') ? rAdd(v, r) : rSub(v, r); }
       else return v;
     }
   }
-  function parseTerm() {
-    let v = parseUnary();
-    for (;;) { ws();
-      if (eat('*')) v = rMul(v, parseUnary());
-      else if (eat('/')) v = rDiv(v, parseUnary());
-      else if (eat('%')) v = F(toNum(v) % toNum(parseUnary()));
+  function term() {
+    let v = unary();
+    for (;;) {
+      const t = at();
+      if (t && t.t === 'op' && (t.v === '*' || t.v === '/')) { p++; const r = unary(); v = (t.v === '*') ? rMul(v, r) : rDiv(v, r); }
+      else if (t && (t.t === 'n' || t.t === 'x' || t.t === 'frac' || t.t === 'sqrt' || t.t === 'grp')) { v = rMul(v, unary()); }  // 2x · 2√3 처럼 붙여 쓴 곱
       else return v;
     }
   }
-  function parseUnary() {
-    ws();
-    if (eat('-')) return rSub(R(0), parseUnary());
-    if (eat('+')) return parseUnary();
-    return parsePow();
+  function unary() {
+    const t = at();
+    if (t && t.t === 'op' && t.v === '-') { p++; return rSub(R(0), unary()); }
+    if (t && t.t === 'op' && t.v === '+') { p++; return unary(); }
+    return powed();
   }
-  function parsePow() {
-    const base = parseAtom();
-    ws();
-    if (s[i] === '^' || (s[i] === '*' && s[i + 1] === '*')) {
-      i += (s[i] === '^') ? 1 : 2;
-      return rPow(base, parseUnary());   // 오른쪽 결합
-    }
-    return base;
-  }
-  const FN1 = {
-    sqrt: rSqrt, abs: (a) => (isR(a) ? R(_bAbs(a.n), a.d) : F(Math.abs(a.f))),
-    ln: (a) => F(Math.log(toNum(a))), log: (a) => F(Math.log10(toNum(a))),
-    exp: (a) => F(Math.exp(toNum(a))),
-    sin: (a) => F(Math.sin(toNum(a))), cos: (a) => F(Math.cos(toNum(a))), tan: (a) => F(Math.tan(toNum(a))),
-    asin: (a) => F(Math.asin(toNum(a))), acos: (a) => F(Math.acos(toNum(a))), atan: (a) => F(Math.atan(toNum(a))),
-    round: (a) => F(Math.round(toNum(a))), floor: (a) => F(Math.floor(toNum(a))), ceil: (a) => F(Math.ceil(toNum(a))),
-  };
-  function parseAtom() {
-    ws();
-    if (eat('(')) { const v = parseExpr(); if (!eat(')')) throw new Error('괄호가 닫히지 않았어요'); return v; }
-    // 함수 이름
-    const fm = /^[a-zA-Z]+/.exec(s.slice(i));
-    if (fm) {
-      const name = fm[0].toLowerCase();
-      if (name === 'pi') { i += fm[0].length; return F(Math.PI); }
-      if (name === 'e')  { i += fm[0].length; return F(Math.E); }
-      if (FN1[name]) {
-        i += fm[0].length; ws();
-        if (!eat('(')) throw new Error(name + ' 뒤에 괄호가 필요해요');
-        const a = parseExpr();
-        if (!eat(')')) throw new Error('괄호가 닫히지 않았어요');
-        return FN1[name](a);
-      }
-      throw new Error('모르는 함수: ' + fm[0]);
-    }
-    // 숫자 (대분수 "2 1/3" 포함)
-    const nm = /^\d+(?:\.\d+)?|^\.\d+/.exec(s.slice(i));
-    if (!nm) throw new Error('식을 이해하지 못했어요');
-    i += nm[0].length;
-    let v = decToR(nm[0]);
-    const save = i; ws();
-    // 정수 뒤에 공백 + 분수가 오면 대분수로 해석 (2 1/3 = 7/3)
-    if (!nm[0].includes('.') && /^\d+\s*\/\s*\d+/.test(s.slice(i)) && save !== i) {
-      const wm = /^(\d+)\s*\/\s*(\d+)/.exec(s.slice(i));
-      i += wm[0].length;
-      const frac = R(BigInt(wm[1]), BigInt(wm[2]));
-      return v.n < 0n ? rSub(v, frac) : rAdd(v, frac);
-    }
-    i = save;
+  function powed() {
+    let v = atom();
+    while (at() && at().t === 'pow') { const e = _mxCalc(at().exp, xv); p++; v = rPow(v, e); }
     return v;
   }
-  const out = parseExpr();
-  ws();
-  if (i < s.length) throw new Error('식을 이해하지 못했어요');
-  return out;
+  function atom() {
+    const t = at();
+    if (!t) throw new Error('빈 칸이 있어요');
+    if (t.t === 'n')    { p++; return decToR(t.v.replace(/\.$/, '')); }
+    if (t.t === 'x')    { p++; if (xv === undefined) throw new Error('x 가 있어요 — 등호(=)를 넣고 계산하세요'); return xv; }
+    if (t.t === 'frac') { p++; return rDiv(_mxCalc(t.num, xv), _mxCalc(t.den, xv)); }
+    if (t.t === 'sqrt') { p++; return rSqrt(_mxCalc(t.rad, xv)); }
+    if (t.t === 'grp')  { p++; return _mxCalc(t.body, xv); }
+    if (t.t === 'eq')   { throw new Error('등호가 잘못된 자리에 있어요'); }
+    throw new Error('여기에 숫자가 필요해요');
+  }
+
+  if (!list.length) throw new Error('빈 칸이 있어요');
+  const v = expr();
+  if (p < list.length) throw new Error('식을 다시 확인해 주세요');
+  return v;
+}
+
+// ── x 구하기 ── 부호가 바뀌는 구간을 찾아 이분법으로 좁힌다
+function _mxBisect(f, a, b) {
+  let fa = f(a);
+  for (let k = 0; k < 200; k++) {
+    const m = (a + b) / 2, fm = f(m);
+    if (fm === 0) return m;
+    if ((fa < 0) !== (fm < 0)) b = m; else { a = m; fa = fm; }
+  }
+  return (a + b) / 2;
+}
+function _mxFindRoot(f) {
+  const scans = [[-1000, 1000, 8000], [-1e6, 1e6, 8000], [-1e9, 1e9, 8000]];
+  for (const [lo, hi, n] of scans) {
+    let py = null, px = 0;
+    for (let k = 0; k <= n; k++) {
+      const x = lo + (hi - lo) * k / n;
+      let y;
+      try { y = f(x); } catch (_) { py = null; continue; }
+      if (!isFinite(y)) { py = null; continue; }
+      if (y === 0) return x;
+      if (py !== null && ((py < 0) !== (y < 0))) return _mxBisect(f, px, x);
+      py = y; px = x;
+    }
+  }
+  return null;
 }
 
 // ── 결과 표시 ──
-let _calcKeepFrac = true;
+let _mxMode = 'frac';        // 'frac' | 'dec'
+let _mxLast = null;
+
 function calcFormat(v) {
   if (!isR(v)) {
     const x = v.f;
@@ -12736,11 +13000,9 @@ function calcFormat(v) {
   }
   const dec = Number(v.n) / Number(v.d);
   if (v.d === 1n) return { main: v.n.toString(), sub: '' };
-  if (!_calcKeepFrac) return { main: _trimNum(dec), sub: `${v.n}/${v.d}` };
   const frac = `${v.n}/${v.d}`;
-  const w = v.n / v.d, r = _bAbs(v.n % v.d);
-  const mixed = (_bAbs(v.n) > v.d) ? `  (= ${w} ${r}/${v.d})` : '';
-  return { main: frac + mixed, sub: '= ' + _trimNum(dec) };
+  if (_mxMode === 'dec') return { main: _trimNum(dec), sub: frac };
+  return { main: frac, sub: '= ' + _trimNum(dec) };
 }
 function _trimNum(x) {
   if (Number.isInteger(x)) return String(x);
@@ -12749,51 +13011,60 @@ function _trimNum(x) {
   return String(Number(t));
 }
 
-function calcEval() {
-  const inp = document.getElementById('calc-input');
+function calcSetMode(m) {
+  _mxMode = m;
+  document.getElementById('calc-mode-frac')?.classList.toggle('on', m === 'frac');
+  document.getElementById('calc-mode-dec')?.classList.toggle('on', m === 'dec');
+  if (_mxLast && _mxLast.kind === 'val') _mxShowVal(_mxLast.v);
+}
+
+function _mxShowVal(v) {
   const out = document.getElementById('calc-result');
-  const expr = inp.value.trim();
-  if (!expr) return;
+  const f = calcFormat(v);
+  out.className = 'calc-result';
+  out.innerHTML = `<b>${escHtml(f.main)}</b>${f.sub ? `<span>${escHtml(f.sub)}</span>` : ''}`;
+  _mxLast = { kind: 'val', v };
+}
+function _mxShowErr(msg) {
+  const out = document.getElementById('calc-result');
+  out.className = 'calc-result err';
+  out.textContent = msg;
+  _mxLast = null;
+}
+
+function calcEval() {
+  const out = document.getElementById('calc-result');
+  if (!out || !_mxRoot.length) return;
   try {
-    const v = calcParse(expr);
-    const f = calcFormat(v);
-    out.className = 'calc-result';
-    out.innerHTML = `<b>${escHtml(f.main)}</b>${f.sub ? `<span>${escHtml(f.sub)}</span>` : ''}`;
-    calcPushHist(expr, f.main);
-    _calcLast = v;
+    const eqAt = _mxRoot.findIndex(n => n.t === 'eq');
+    if (eqAt >= 0) { _mxSolveNow(_mxRoot.slice(0, eqAt), _mxRoot.slice(eqAt + 1)); return; }
+    const v = _mxCalc(_mxRoot, undefined);
+    _mxShowVal(v);
+    calcPushHist(mxToText(_mxRoot), calcFormat(v).main.split('  ')[0]);
     if (typeof haptic === 'function') haptic(8);
   } catch (e) {
-    out.className = 'calc-result err';
-    out.innerHTML = escHtml(e.message || '계산할 수 없어요');
+    _mxShowErr(e.message || '계산할 수 없어요');
   }
 }
-let _calcLast = null;
 
-function calcToggleFrac() {
-  _calcKeepFrac = !_calcKeepFrac;
-  const b = document.getElementById('calc-mode-frac');
-  b.classList.toggle('on', _calcKeepFrac);
-  b.textContent = _calcKeepFrac ? '분수 유지' : '소수 표시';
-  if (_calcLast) {
-    const f = calcFormat(_calcLast);
-    document.getElementById('calc-result').innerHTML =
-      `<b>${escHtml(f.main)}</b>${f.sub ? `<span>${escHtml(f.sub)}</span>` : ''}`;
-  }
-}
-function calcDecToFrac() {
-  const inp = document.getElementById('calc-input');
-  const t = inp.value.trim();
-  try {
-    const v = /^-?[\d.]+$/.test(t) ? decToR(t) : calcParse(t);
-    const r = isR(v) ? v : decToR(_trimNum(v.f));
-    document.getElementById('calc-result').className = 'calc-result';
-    document.getElementById('calc-result').innerHTML =
-      `<b>${r.n}/${r.d}</b><span>= ${_trimNum(Number(r.n) / Number(r.d))}</span>`;
-    _calcLast = r;
-  } catch (e) {
-    document.getElementById('calc-result').className = 'calc-result err';
-    document.getElementById('calc-result').textContent = '숫자를 먼저 입력하세요';
-  }
+function _mxSolveNow(lhs, rhs) {
+  const out = document.getElementById('calc-result');
+  if (!lhs.length || !rhs.length) { _mxShowErr('등호 양쪽을 채워주세요'); return; }
+  const f = (t) => toNum(_mxCalc(lhs, F(t))) - toNum(_mxCalc(rhs, F(t)));
+  try { f(1); } catch (e) { _mxShowErr(e.message || '계산할 수 없어요'); return; }
+
+  let root = _mxFindRoot(f);
+  if (root === null) { _mxShowErr('x 를 찾지 못했어요'); return; }
+  if (Math.abs(root - Math.round(root)) < 1e-9) root = Math.round(root);
+
+  const l = toNum(_mxCalc(lhs, F(root))), r = toNum(_mxCalc(rhs, F(root)));
+  const shown = _trimNum(root);
+  out.className = 'calc-result';
+  out.innerHTML = `<div class="row"><span class="mx-badge">x 구하기</span><b>x = ${escHtml(shown)}</b></div>`
+                + `<span>검산: 왼쪽 ${escHtml(_trimNum(l))} · 오른쪽 ${escHtml(_trimNum(r))}</span>`;
+  _mxLast = { kind: 'solve' };
+  calcPushHist(mxToText(_mxRoot), 'x = ' + shown);
+  if (typeof haptic === 'function') haptic(8);
 }
 
 // 이력 (기기 전용 · 일부러 동기화·백업하지 않음: 임시 계산 기록이라 기기마다 다른 게 자연스러움)
@@ -12815,54 +13086,88 @@ function renderCalcHist() {
          <span class="che">${escHtml(x.e)}</span><span class="chr">${escHtml(x.r)}</span></button>`).join('')
     : '<div class="calc-hist-empty">계산하면 여기에 기록이 쌓입니다</div>';
 }
+// 이력을 누르면 그 답을 지금 자리에 넣는다 (분수 답이면 분수 칸으로)
 function calcUseHist(i) {
   const h = getCalcHist();
   if (!h[i]) return;
-  const inp = document.getElementById('calc-input');
-  inp.value = h[i].r.split('  ')[0];
-  inp.focus();
+  const t = String(h[i].r).replace(/^x = /, '').split('  ')[0].trim();
+  const m = /^(-?\d+)\/(\d+)$/.exec(t);
+  if (m) _mxIns({ t: 'frac', num: [{ t: 'n', v: m[1] }], den: [{ t: 'n', v: m[2] }] });
+  else if (/^-?[\d.]+$/.test(t)) _mxIns({ t: 'n', v: t });
+  else return;
+  mxRender();
 }
 
-// 자판
+// ── 자판 ──
 const CALC_KEYS = [
-  ['7','8','9','(',')'],
-  ['4','5','6','/','^'],
-  ['1','2','3','*','sqrt('],
-  ['0','.',' ','-','+'],
+  ['7','8','9','frac','sqrt'],
+  ['4','5','6','pow','('],
+  ['1','2','3','*',')'],
+  ['0','.','x','/','-'],
+  ['C','back','eq','+','='],
 ];
+const _MX_LABEL = { frac: '▢/▢', sqrt: '√', pow: 'xʸ', '*': '×', '/': '÷', '-': '−',
+                    back: '←', eq: '=', '=': '계산' };
+const _MX_CLS = { frac: 'fn', sqrt: 'fn', pow: 'fn', x: 'fn', eq: 'fn',
+                  '(': 'hi', ')': 'hi', '*': 'hi', '/': 'hi', '-': 'hi', '+': 'hi', '=': 'eq' };
 function renderCalcKeys() {
   const box = document.getElementById('calc-keys');
   if (!box || box.dataset.done) return;
   box.dataset.done = '1';
-  const label = { 'sqrt(': '√', '*': '×', '/': '÷', ' ': '␣' };
   box.innerHTML = CALC_KEYS.flat().map(k =>
-    `<button class="calc-key${k === '/' ? ' hi' : ''}" onclick="calcKey('${k.replace(/'/g, "\\\\'")}')">${label[k] || k}</button>`
-  ).join('') + `
-    <button class="calc-key wide" onclick="calcBack()">←</button>
-    <button class="calc-key wide" onclick="calcClear()">C</button>
-    <button class="calc-key eq" onclick="calcEval()">=</button>`;
+    `<button class="calc-key ${_MX_CLS[k] || ''}" onclick="calcKey('${k}')">${_MX_LABEL[k] || k}</button>`
+  ).join('');
 }
 function calcKey(k) {
-  const inp = document.getElementById('calc-input');
-  const st = inp.selectionStart ?? inp.value.length, en = inp.selectionEnd ?? st;
-  inp.value = inp.value.slice(0, st) + k + inp.value.slice(en);
-  const pos = st + k.length;
-  inp.focus(); inp.setSelectionRange(pos, pos);
-  if (typeof haptic === 'function') haptic(4);
+  if (/^[0-9.]$/.test(k)) mxDigit(k);
+  else if (k === '+' || k === '-' || k === '*' || k === '/') mxOp(k);
+  else if (k === 'frac') mxFrac();
+  else if (k === 'sqrt') mxSqrt();
+  else if (k === 'pow')  mxPow();
+  else if (k === '(')    mxGrp();
+  else if (k === ')')    mxGrpEnd();
+  else if (k === 'x')    mxX();
+  else if (k === 'eq')   mxEq();
+  else if (k === 'back') mxBack();
+  else if (k === 'C')    mxClear();
+  else if (k === '=')    calcEval();
+  if (typeof haptic === 'function' && k !== '=') haptic(4);
 }
-function calcBack() {
-  const inp = document.getElementById('calc-input');
-  const st = inp.selectionStart ?? inp.value.length;
-  if (st === 0) return;
-  inp.value = inp.value.slice(0, st - 1) + inp.value.slice(inp.selectionEnd ?? st);
-  inp.focus(); inp.setSelectionRange(st - 1, st - 1);
+
+// 화면의 칸을 눌러 그 자리로 · 키보드로도 칠 수 있게
+function _mxBindScreen() {
+  const el = document.getElementById('calc-mx');
+  if (!el || el.dataset.bound) return;
+  el.dataset.bound = '1';
+  el.addEventListener('click', (e) => {
+    const slot = e.target.closest('[data-b]');
+    if (!slot) return;
+    e.stopPropagation();
+    const r = slot.getBoundingClientRect();
+    mxTapBox(Number(slot.dataset.b), e.clientX < r.left + r.width / 2 && slot.dataset.b !== '0');
+  });
 }
-function calcClear() {
-  const inp = document.getElementById('calc-input');
-  inp.value = '';
-  document.getElementById('calc-result').innerHTML = '';
-  inp.focus();
-}
+document.addEventListener('keydown', (e) => {
+  const p = document.getElementById('calc-popup');
+  if (!p || !p.classList.contains('show')) return;
+  const t = e.target;
+  if (t && /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName)) return;
+  const k = e.key;
+  if (/^[0-9.]$/.test(k)) { mxDigit(k); }
+  else if (k === '+' || k === '-' || k === '*' || k === '/') { mxOp(k); }
+  else if (k === '(') { mxGrp(); }
+  else if (k === ')') { mxGrpEnd(); }
+  else if (k === 'x' || k === 'X') { mxX(); }
+  else if (k === '=') { mxEq(); }
+  else if (k === 'Enter') { calcEval(); }
+  else if (k === 'Backspace') { mxBack(); }
+  else if (k === 'ArrowLeft') { mxMove(-1); }
+  else if (k === 'ArrowRight') { mxMove(1); }
+  else if (k === 'ArrowUp') { mxUpDown(-1); }
+  else if (k === 'ArrowDown') { mxUpDown(1); }
+  else return;
+  e.preventDefault();
+});
 function toggleCalc() {
   const p = document.getElementById('calc-popup');
   if (!p) return;
@@ -12870,7 +13175,7 @@ function toggleCalc() {
   document.getElementById('calc-fab')?.classList.toggle('on', open);
   if (open) {
     renderCalcKeys(); renderCalcHist();
-    setTimeout(() => document.getElementById('calc-input')?.focus(), 120);
+    _mxBindScreen(); mxRender();     // [수정] 입력칸이 없어졌다 — 수식 편집기를 그린다
   }
 }
 
@@ -20376,6 +20681,14 @@ applyRenderFlags();
 //   k: 'new'(새 기능) · 'fix'(고침) · 'chg'(바뀜)
 // ══════════════════════════════════════════════════════════════════════
 const PATCH_NOTES = [
+  { v: '260817-0350', at: '2026-08-16', items: [
+    { k: 'new', t: '<b>계산기가 공학용으로 바뀌었습니다</b> — <b>▢/▢</b> 를 누르면 진짜 분수 칸이 생겨서 <b>위에 분자, 아래에 분모</b>를 넣습니다. 예전처럼 한 줄로 <code>1/3+1/6</code> 이라고 치지 않아도 돼요' },
+    { k: 'new', t: '<b>분수 안에 분수</b>를 넣을 수 있습니다 — 분자에도, 분모에도요. <b>세 겹까지</b> 됩니다 (그보다 깊으면 글씨가 너무 작아져서 막아뒀어요)' },
+    { k: 'new', t: '<b>x 구하기</b>가 생겼습니다 — <b>=</b> 로 양변을 쓰고 계산을 누르면 x 를 찾아줍니다. 예: <code>x/3 + 2 = √16</code> → <b>x = 6</b>. 맞게 풀렸는지 볼 수 있게 양변 값도 같이 보여줍니다' },
+    { k: 'chg', t: '<b>√ · 거듭제곱</b>도 칸으로 넣습니다. 루트 안, 지수 자리에도 분수를 넣을 수 있어요' },
+    { k: 'chg', t: '헷갈리던 <b>"분수 유지"</b> 를 없애고 <b>분수 / 소수</b> 두 칸으로 바꿨습니다 — 계산은 언제나 정확한 분수로 하고, 보여줄 때만 고릅니다' },
+    { k: 'chg', t: '식의 아무 칸이나 <b>눌러서</b> 그 자리로 갈 수 있고, 분수 안에서는 <b>▲▼</b> 로 분자·분모를 오갑니다. PC 에서는 키보드로도 쳐집니다' },
+  ]},
   { v: '260817-0323', at: '2026-08-17', items: [
     { k: 'chg', t: '<b>검색 결과에 나오지 않게</b> 했습니다 — 구글 같은 검색 엔진이 이 앱을 목록에 올리지도, 내용을 미리보기로 보여주지도 않습니다 (정식 · 간단 모드 · 라이트 · 예전 홈 네 화면 모두)' },
     { k: 'chg', t: '검색에서 빠지는 것은 <b>우연히 발견되는 것</b>만 막습니다. 자료를 실제로 지키는 것은 지난번에 넣은 <b>로그인</b>이에요 — 주소를 알고 들어와도 로그인 없이는 아무것도 못 가져갑니다' },
@@ -20843,7 +21156,7 @@ function closePatchNotes() {
 // ── 앱 버전 ──
 // 폰이 옛 파일을 캐시해 두고 있는지 바로 확인할 수 있도록 화면에 표시한다.
 // (설정 맨 아래 · 개발자 도구 콘솔에도 찍힘)
-const APP_VERSION = '260817-0323';
+const APP_VERSION = '260817-0350';
 console.log('%c양진웅 Note 버전 ' + APP_VERSION, 'font-weight:bold');
 
 // PWA 서비스워커 등록
