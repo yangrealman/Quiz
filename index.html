@@ -18,6 +18,7 @@
 
 <!-- Firebase -->
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 <script>
   const firebaseConfig = {
@@ -31,19 +32,109 @@
   // [수정] 오프라인이거나 Firebase 스크립트가 차단된 환경에서 초기화가 실패하면
   //        db 가 아예 선언되지 않아 뒤쪽 코드가 ReferenceError 로 줄줄이 막혔음
   //        → 실패해도 앱이 로컬 저장만으로 완전히 동작하도록 안전한 대체 객체 사용
-  const USER_ID = 'main'; // 혼자 쓰는 앱이므로 고정 ID
+  const USER_ID = 'main'; // 문서 경로는 그대로 둔다 (자물쇠는 아래 로그인 + 보안 규칙이 건다)
 
+  // 서버와 아무것도 주고받지 않는 대체 객체.
+  // [수정] 예전 대체 객체엔 get·set 밖에 없어서, 실시간 수신(onSnapshot)이나
+  //        회차 삭제(delete)를 부르면 그 자리에서 TypeError 가 났다 → 쓰는 것 모두 갖춘다.
+  function _offlineDb() {
+    const fail = () => Promise.reject(new Error('offline'));
+    const docRef = { get: fail, set: fail, delete: fail, onSnapshot: () => (() => {}) };
+    const dataCol = { doc: () => docRef };
+    return { collection: () => ({ doc: () => ({ collection: () => dataCol }) }) };
+  }
 
-  let db;
-  let FIREBASE_OK = false;
+  let _fbDb = null;
+  let db = _offlineDb();
+  let FIREBASE_OK = false;     // '지금 서버와 주고받아도 되는가' — 로그인해야 켜진다
   try {
     firebase.initializeApp(firebaseConfig);
-    db = firebase.firestore();
-    FIREBASE_OK = true;
+    _fbDb = firebase.firestore();
   } catch (e) {
     console.warn('Firebase 사용 불가 — 이 기기에만 저장됩니다.', e);
-    const _fail = () => Promise.reject(new Error('offline'));
-    db = { collection: () => ({ doc: () => ({ collection: () => ({ doc: () => ({ get: _fail, set: _fail }) }) }) }) };
+  }
+
+  // ══════════════════════════════════════════════════════════════
+  // [추가] 로그인
+  //   문제와 기록은 전부 Firebase 에 있다. 그래서 자물쇠도 거기에 건다 —
+  //   이 화면의 로그인 창은 '열쇠를 넣는 곳'일 뿐이고, 실제로 막는 것은
+  //   Firestore 보안 규칙(내 계정만 읽고 쓰기)이다.
+  //   로그인 전에는 db 가 대체 객체라, 서버로 나가는 요청 자체가 없다.
+  // ══════════════════════════════════════════════════════════════
+  let AUTH_USER = null;
+  let AUTH_SETTLED = false;      // 로그인 여부를 한 번이라도 확인했는가
+  let _gateSkipped = false;      // '오프라인으로 계속'을 눌렀는가
+
+  function _paintAuthGate() {
+    const gate = document.getElementById('auth-gate');
+    if (!gate) return;
+    // [주의] Firebase 스크립트를 아예 못 받은 경우(오프라인·차단)에는 로그인 창을 띄우지 않는다.
+    //        띄워 봐야 들어갈 방법이 없고, 서버와 연결도 안 되니 막을 것도 없다.
+    //        이때는 이 기기에 저장된 것만으로 평소처럼 동작한다.
+    const show = _fbDb && AUTH_SETTLED && !AUTH_USER && !_gateSkipped;
+    gate.style.display = show ? 'flex' : 'none';
+    const who = document.getElementById('auth-who');
+    if (who) who.textContent = AUTH_USER ? (AUTH_USER.email || '로그인됨') : '로그인하지 않음';
+  }
+
+  function _applyAuth(user) {
+    AUTH_USER = user || null;
+    AUTH_SETTLED = true;
+    FIREBASE_OK = !!(user && _fbDb);
+    db = FIREBASE_OK ? _fbDb : _offlineDb();
+    _paintAuthGate();
+    // 앱 본체가 아직 안 읽혔을 수 있으므로 있으면만 부른다
+    if (typeof window._afterAuth === 'function') { try { window._afterAuth(user); } catch (_) {} }
+  }
+
+  if (_fbDb) {
+    try {
+      firebase.auth().setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch(() => {});
+      firebase.auth().onAuthStateChanged(_applyAuth);
+    } catch (e) {
+      console.warn('로그인 기능을 쓸 수 없습니다.', e);
+      AUTH_SETTLED = true;
+    }
+  } else {
+    AUTH_SETTLED = true;
+  }
+  document.addEventListener('DOMContentLoaded', _paintAuthGate);
+
+  const AUTH_MSG = {
+    'auth/invalid-email': '이메일 형식이 올바르지 않아요',
+    'auth/user-not-found': '그런 계정이 없어요',
+    'auth/wrong-password': '비밀번호가 달라요',
+    'auth/invalid-credential': '이메일이나 비밀번호가 달라요',
+    'auth/too-many-requests': '여러 번 틀려서 잠시 막혔어요. 조금 뒤에 다시 해주세요',
+    'auth/network-request-failed': '인터넷에 연결되지 않았어요',
+    'auth/user-disabled': '사용 중지된 계정이에요',
+  };
+
+  async function authSignIn() {
+    const emailEl = document.getElementById('auth-email');
+    const pwEl = document.getElementById('auth-pw');
+    const errEl = document.getElementById('auth-err');
+    const btn = document.getElementById('auth-btn');
+    const email = (emailEl.value || '').trim();
+    const pw = pwEl.value || '';
+    if (!_fbDb) { errEl.textContent = '지금은 인터넷에 연결되지 않아 로그인할 수 없어요'; return; }
+    if (!email || !pw) { errEl.textContent = '이메일과 비밀번호를 넣어주세요'; return; }
+    btn.disabled = true; btn.textContent = '들어가는 중…'; errEl.textContent = '';
+    try {
+      await firebase.auth().signInWithEmailAndPassword(email, pw);
+      pwEl.value = '';
+    } catch (e) {
+      errEl.textContent = AUTH_MSG[e && e.code] || ((e && e.message) || '로그인하지 못했어요');
+    }
+    btn.disabled = false; btn.textContent = '로그인';
+  }
+  function authSkip() { _gateSkipped = true; _paintAuthGate(); }
+  async function authSignOut() {
+    try { if (typeof flushPendingWrites === 'function') flushPendingWrites(); } catch (_) {}
+    try { if (typeof stopLiveSync === 'function') stopLiveSync(); } catch (_) {}
+    try { await firebase.auth().signOut(); } catch (_) {}
+    _gateSkipped = false;
+    _paintAuthGate();
   }
 </script>
 <style>
@@ -6628,6 +6719,49 @@
   .judge-dot:active::before { background: #fff; }
   .judge-dot[hidden] { display: none; }
 
+  /* ═══════════════════════════════════════════════════════════
+     [추가] 로그인 창
+     앱 테마(다크·유리 질감 등)가 아직 안 붙었어도 제대로 보여야 해서
+     변수에 기대지 않고 값을 직접 적는다. 맨 위를 덮는다.
+     ═══════════════════════════════════════════════════════════ */
+  .auth-gate {
+    display: none;
+    position: fixed; inset: 0; z-index: 99999;
+    background: #F3F4F6;
+    align-items: center; justify-content: center;
+    padding: 24px;
+  }
+  .auth-box {
+    width: 100%; max-width: 340px;
+    background: #fff; border-radius: 16px;
+    padding: 26px 22px;
+    box-shadow: 0 10px 40px rgba(16,24,40,0.16);
+  }
+  .auth-title { font-size: 22px; font-weight: 800; color: #111827; text-align: center; }
+  .auth-sub { font-size: 13px; color: #6B7280; text-align: center; margin: 6px 0 18px; }
+  .auth-in {
+    width: 100%; padding: 13px 14px; margin-bottom: 10px;
+    border: 1px solid #D1D5DB; border-radius: 10px;
+    font-size: 16px; font-family: inherit; color: #111827; background: #fff;
+  }
+  .auth-in:focus { outline: 2px solid #4F46E5; outline-offset: -1px; border-color: transparent; }
+  .auth-err { font-size: 13px; color: #DC2626; min-height: 18px; margin-bottom: 6px; }
+  .auth-btn {
+    width: 100%; padding: 13px; border: none; border-radius: 10px;
+    background: #4F46E5; color: #fff; font-size: 16px; font-weight: 700;
+    font-family: inherit; cursor: pointer;
+  }
+  .auth-btn:disabled { background: #A5B4FC; }
+  .auth-skip {
+    width: 100%; margin-top: 10px; padding: 10px;
+    background: none; border: none; color: #6B7280;
+    font-size: 13px; font-family: inherit; cursor: pointer; text-decoration: underline;
+  }
+  body.dark .auth-gate { background: #0B1120; }
+  body.dark .auth-box { background: #131C31; }
+  body.dark .auth-title { color: #E5E7EB; }
+  body.dark .auth-in { background: #0B1120; border-color: #29344D; color: #E5E7EB; }
+
   /* 이동(화살표)과 판정은 하는 일이 다르다 → 화살표+판정은 붙이고, 막대와는 띄운다 */
   .quiz-scrub-row.judge-row { gap: 6px; }
   .quiz-scrub-row.judge-row .scrub-bar { margin: 0 8px; }
@@ -6641,6 +6775,23 @@
   <link rel="preload" href="fonts/AppleSDGothicNeoB.ttf" as="font" type="font/ttf" crossorigin>
 </head>
 <body>
+
+<!-- [추가] 로그인 창 — 로그인하지 않았을 때만 뜬다.
+     이 창을 지운다고 자료를 가져갈 수 있는 건 아니다. 실제로 막는 것은
+     Firestore 보안 규칙이고, 여기는 내 열쇠를 넣는 곳일 뿐이다. -->
+<div id="auth-gate" class="auth-gate">
+  <div class="auth-box">
+    <div class="auth-title">양진웅 Note</div>
+    <div class="auth-sub">내 기록을 불러오려면 로그인하세요</div>
+    <input class="auth-in" id="auth-email" type="email" inputmode="email" autocomplete="username"
+           placeholder="이메일" onkeydown="if(event.key==='Enter')document.getElementById('auth-pw').focus()">
+    <input class="auth-in" id="auth-pw" type="password" autocomplete="current-password"
+           placeholder="비밀번호" onkeydown="if(event.key==='Enter')authSignIn()">
+    <div class="auth-err" id="auth-err"></div>
+    <button class="auth-btn" id="auth-btn" onclick="authSignIn()">로그인</button>
+    <button class="auth-skip" onclick="authSkip()">이 기기에 저장된 것만 보기</button>
+  </div>
+</div>
 
 <!-- 네비게이션 -->
 <svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true">
@@ -7460,6 +7611,26 @@
             <div class="set-row-ver">현재 버전 <b id="set-version">–</b></div>
           </div>
           <svg class="ic set-chev" viewBox="0 0 24 24"><use href="#ic-refresh"/></svg>
+        </button>
+      </div>
+    </section>
+
+    <!-- [추가] 계정 — 로그인해야 서버의 기록을 주고받는다 -->
+    <section class="set-group">
+      <div class="set-group-label">계정</div>
+      <div class="set-card">
+        <div class="set-row">
+          <div class="set-row-main">
+            <div class="set-row-title" id="auth-who">로그인하지 않음</div>
+            <div class="set-row-desc">로그인해야 다른 기기와 기록이 오갑니다. 로그인하지 않으면 이 기기에 저장된 것만 보입니다</div>
+          </div>
+        </div>
+        <button class="set-row set-row-btn" onclick="authSignOut()">
+          <div class="set-row-main">
+            <div class="set-row-title">로그아웃</div>
+            <div class="set-row-desc">이 기기에서 로그아웃합니다 (저장된 기록은 지워지지 않아요)</div>
+          </div>
+          <svg class="ic set-chev" viewBox="0 0 24 24"><use href="#ic-chevron-right"/></svg>
         </button>
       </div>
     </section>
@@ -19858,6 +20029,7 @@ function openSimpleHome() { return _leaveTo('simple.html', '간단 모드'); }
 function renderSettings() {
   if (typeof renderDiagList === 'function') renderDiagList();
   if (typeof renderDataSize === 'function') renderDataSize();
+  if (typeof _paintAuthGate === 'function') _paintAuthGate();   // [추가] 계정 줄 갱신
   // 전체 애니메이션 / 화면 전환 효과
   const _s = getSettings();
   const _animOn = !_s.reduceMotion;
@@ -20012,8 +20184,20 @@ try { restoreLastSpot(); } catch (_) {}
   } catch (_) {}
 })();
 
-syncFromFirebase();
-try { startLiveSync(); } catch (_) {}   // [추가] 실시간 수신 시작
+// [수정] 예전엔 앱을 열자마자 서버와 맞췄다. 이제는 로그인해야 서버와 이야기하므로,
+//        로그인이 확인된 뒤에 맞춘다. (이미 로그인돼 있으면 앱을 열자마자 곧바로 확인된다)
+//        로그인하지 않은 채로도 앱은 이 기기에 저장된 것만으로 그대로 돌아간다.
+window._afterAuth = function (user) {
+  if (user) {
+    syncFromFirebase();
+    try { startLiveSync(); } catch (_) {}
+  } else {
+    try { stopLiveSync(); } catch (_) {}
+  }
+  try { if (typeof renderSettings === 'function') renderSettings(); } catch (_) {}
+};
+// 로그인 확인이 이미 끝난 뒤에 이 줄에 닿았다면 여기서 한 번 불러 준다
+if (typeof AUTH_SETTLED !== 'undefined' && AUTH_SETTLED) window._afterAuth(AUTH_USER);
 
 // [추가] 로고 클릭 = 홈 이동 + 수동 동기화 (여러 브라우저를 오갈 때 최신 데이터 강제 반영)
 function goHomeAndSync() {
@@ -20189,6 +20373,12 @@ applyRenderFlags();
 //   k: 'new'(새 기능) · 'fix'(고침) · 'chg'(바뀜)
 // ══════════════════════════════════════════════════════════════════════
 const PATCH_NOTES = [
+  { v: '260817-0311', at: '2026-08-13', items: [
+    { k: 'new', t: '<b>로그인이 생겼습니다</b> — 이제 <b>내 계정으로 로그인해야</b> 서버의 문제·기록을 주고받습니다. 한 번 로그인하면 그 기기에 계속 남아 있어서 매번 칠 필요는 없어요 (<b>정식 · 간단 모드 · 라이트</b> 세 화면 모두)' },
+    { k: 'chg', t: '로그인하기 전에는 <b>서버로 아무것도 나가지 않고 들어오지도 않습니다.</b> 앱은 이 기기에 저장된 것만으로 평소처럼 돌아가요' },
+    { k: 'chg', t: '<b>인터넷이 안 되는 곳</b>에서는 로그인 창이 뜨지 않습니다 — 들어갈 방법도 없고 서버와 연결도 안 되니까요. 지하철처럼 신호 없는 곳에서도 그냥 열려서 풀던 대로 풀 수 있습니다' },
+    { k: 'new', t: '<b>설정 &gt; 계정</b>에서 지금 로그인한 이메일을 확인하고 <b>로그아웃</b>할 수 있습니다 (로그아웃해도 이 기기에 저장된 기록은 지워지지 않아요)' },
+  ]},
   { v: '260813-2050', at: '2026-08-13', items: [
     { k: 'new', t: '<b>문제 풀기</b>의 문항 이동 막대 <b>양옆에 판정 버튼</b>이 생겼습니다 — 왼쪽 빨간 점이 <b>틀렸어요</b>, 오른쪽 초록 점이 <b>맞았어요</b>고, 누르면 <b>바로 다음 문제로</b> 넘어갑니다. 문항을 옮기던 손 그대로 판정하고 넘어갈 수 있어요 (모의고사에 있던 것과 같은 자리·같은 모양)' },
     { k: 'chg', t: '아래 <b>맞았어요 · 정답 보기 · 틀렸어요</b> 3칸은 그대로 있습니다. 판정 버튼은 <b>필답형에서만</b> 보여요 — 객관식은 보기를 고르는 것이 곧 채점이라서요' },
@@ -20646,7 +20836,7 @@ function closePatchNotes() {
 // ── 앱 버전 ──
 // 폰이 옛 파일을 캐시해 두고 있는지 바로 확인할 수 있도록 화면에 표시한다.
 // (설정 맨 아래 · 개발자 도구 콘솔에도 찍힘)
-const APP_VERSION = '260813-2050';
+const APP_VERSION = '260817-0311';
 console.log('%c양진웅 Note 버전 ' + APP_VERSION, 'font-weight:bold');
 
 // PWA 서비스워커 등록

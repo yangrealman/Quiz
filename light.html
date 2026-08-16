@@ -7,6 +7,7 @@
 <title>양진웅 Note — 라이트</title>
 
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 <script>
   const firebaseConfig = {
@@ -18,14 +19,72 @@
     appId: "1:66139024814:web:7e1ac161bee6308fee6c3f"
   };
   const USER_ID = 'main';
-  let db, FIREBASE_OK = false;
+  // 서버와 아무것도 주고받지 않는 대체 객체 (로그인 전 · 오프라인)
+  function _offlineDb() {
+    const fail = () => Promise.reject(new Error('offline'));
+    const docRef = { get: fail, set: fail, delete: fail, onSnapshot: () => (() => {}) };
+    const dataCol = { doc: () => docRef };
+    return { collection: () => ({ doc: () => ({ collection: () => dataCol }) }) };
+  }
+  let _fbDb = null;
+  let db = _offlineDb();
+  let FIREBASE_OK = false;          // 로그인해야 켜진다
   try {
     firebase.initializeApp(firebaseConfig);
-    db = firebase.firestore();
-    FIREBASE_OK = true;
-  } catch (e) {
-    const _fail = () => Promise.reject(new Error('offline'));
-    db = { collection: () => ({ doc: () => ({ collection: () => ({ doc: () => ({ get: _fail, set: _fail }) }) }) }) };
+    _fbDb = firebase.firestore();
+  } catch (e) {}
+
+  // ── 로그인 ──
+  // 문제와 기록은 Firebase 에 있고, 실제로 막는 것은 Firestore 보안 규칙이다.
+  // 로그인 전에는 db 가 대체 객체라 서버로 나가는 요청 자체가 없다.
+  let AUTH_USER = null, AUTH_SETTLED = false, _gateSkipped = false;
+  function _paintAuthGate() {
+    const g = document.getElementById('auth-gate');
+    if (!g) return;
+    // Firebase 스크립트를 못 받았으면(오프라인·차단) 로그인 창을 띄우지 않는다 —
+    // 들어갈 방법도 없고 서버와 연결도 안 되니 막을 것도 없다.
+    g.style.display = (_fbDb && AUTH_SETTLED && !AUTH_USER && !_gateSkipped) ? 'flex' : 'none';
+  }
+  function _applyAuth(user) {
+    AUTH_USER = user || null;
+    AUTH_SETTLED = true;
+    FIREBASE_OK = !!(user && _fbDb);
+    db = FIREBASE_OK ? _fbDb : _offlineDb();
+    _paintAuthGate();
+    if (typeof window._afterAuth === 'function') { try { window._afterAuth(user); } catch (e) {} }
+  }
+  if (_fbDb) {
+    try {
+      firebase.auth().setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch(() => {});
+      firebase.auth().onAuthStateChanged(_applyAuth);
+    } catch (e) { AUTH_SETTLED = true; }
+  } else { AUTH_SETTLED = true; }
+  document.addEventListener('DOMContentLoaded', _paintAuthGate);
+
+  const AUTH_MSG = {
+    'auth/invalid-email': '이메일 형식이 올바르지 않아요',
+    'auth/user-not-found': '그런 계정이 없어요',
+    'auth/wrong-password': '비밀번호가 달라요',
+    'auth/invalid-credential': '이메일이나 비밀번호가 달라요',
+    'auth/too-many-requests': '여러 번 틀려서 잠시 막혔어요. 조금 뒤에 다시 해주세요',
+    'auth/network-request-failed': '인터넷에 연결되지 않았어요',
+    'auth/user-disabled': '사용 중지된 계정이에요',
+  };
+  async function authSignIn() {
+    const em = document.getElementById('auth-email'), pw = document.getElementById('auth-pw');
+    const err = document.getElementById('auth-err'), btn = document.getElementById('auth-btn');
+    const email = (em.value || '').trim(), pass = pw.value || '';
+    if (!_fbDb) { err.textContent = '지금은 인터넷에 연결되지 않아 로그인할 수 없어요'; return; }
+    if (!email || !pass) { err.textContent = '이메일과 비밀번호를 넣어주세요'; return; }
+    btn.disabled = true; btn.textContent = '들어가는 중…'; err.textContent = '';
+    try { await firebase.auth().signInWithEmailAndPassword(email, pass); pw.value = ''; }
+    catch (e) { err.textContent = AUTH_MSG[e && e.code] || ((e && e.message) || '로그인하지 못했어요'); }
+    btn.disabled = false; btn.textContent = '로그인';
+  }
+  function authSkip() { _gateSkipped = true; _paintAuthGate(); }
+  async function authSignOut() {
+    try { await firebase.auth().signOut(); } catch (e) {}
+    _gateSkipped = false; _paintAuthGate();
   }
 </script>
 
@@ -200,9 +259,41 @@ button, input, textarea { font-family: inherit; font-size: inherit; color: inher
 .dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--green); margin-left: 6px; vertical-align: middle; }
 .dot.off { background: var(--orange); }
 .hide { display: none !important; }
+
+/* ── 로그인 창 ── */
+.auth-gate { display: none; position: fixed; inset: 0; z-index: 9999;
+  background: var(--bg); align-items: center; justify-content: center; padding: 24px; }
+.auth-box { width: 100%; max-width: 340px; background: var(--card);
+  border-radius: 14px; padding: 24px 20px; }
+.auth-title { font-size: 22px; font-weight: 700; text-align: center; }
+.auth-sub { font-size: 13px; color: var(--text2); text-align: center; margin: 6px 0 18px; }
+.auth-in { width: 100%; padding: 13px 14px; margin-bottom: 10px; border: 1px solid var(--line);
+  border-radius: 10px; font-size: 16px; background: var(--card); }
+.auth-in:focus { outline: 2px solid var(--blue); outline-offset: -1px; }
+.auth-err { font-size: 13px; color: var(--red); min-height: 18px; margin-bottom: 6px; }
+.auth-btn { width: 100%; padding: 13px; border: none; border-radius: 10px;
+  background: var(--blue); color: #fff; font-size: 16px; font-weight: 600; cursor: pointer; }
+.auth-btn:disabled { background: #A5C8F5; }
+.auth-skip { width: 100%; margin-top: 10px; padding: 10px; background: none; border: none;
+  color: var(--text2); font-size: 13px; cursor: pointer; text-decoration: underline; }
 </style>
 </head>
 <body>
+
+<!-- 로그인 창 — 실제로 막는 것은 Firestore 보안 규칙이고 여기는 열쇠를 넣는 곳이다 -->
+<div id="auth-gate" class="auth-gate">
+  <div class="auth-box">
+    <div class="auth-title">양진웅 Note</div>
+    <div class="auth-sub">내 기록을 불러오려면 로그인하세요</div>
+    <input class="auth-in" id="auth-email" type="email" inputmode="email" autocomplete="username"
+           placeholder="이메일" onkeydown="if(event.key==='Enter')document.getElementById('auth-pw').focus()">
+    <input class="auth-in" id="auth-pw" type="password" autocomplete="current-password"
+           placeholder="비밀번호" onkeydown="if(event.key==='Enter')authSignIn()">
+    <div class="auth-err" id="auth-err"></div>
+    <button class="auth-btn" id="auth-btn" onclick="authSignIn()">로그인</button>
+    <button class="auth-skip" onclick="authSkip()">이 기기에 저장된 것만 보기</button>
+  </div>
+</div>
 
 <div class="nav">
   <button class="nav-back hide" id="back" onclick="goBack()">뒤로</button>
@@ -618,9 +709,15 @@ function openWrong(i) {
 /* ── 시작 ── */
 window.addEventListener('pagehide', saveSpot);
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') saveSpot(); });
+// 로그인해야 서버와 이야기한다 → 로그인이 확인된 뒤에 맞춘다
+window._afterAuth = function (user) {
+  if (user) syncDown();
+  render();
+};
+
 restoreSpot();
 render();
-syncDown();
+if (typeof AUTH_SETTLED !== 'undefined' && AUTH_SETTLED) window._afterAuth(AUTH_USER);
 </script>
 </body>
 </html>
