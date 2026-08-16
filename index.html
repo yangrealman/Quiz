@@ -2,6 +2,9 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
+<!-- [추가] 검색 결과에 나오지 않게 한다. 개인 학습 자료라 남이 찾아올 이유가 없다.
+     robots.txt 는 프로젝트 페이지 주소(/Quiz/)에서는 무시되므로, 실제로 듣는 것은 이 줄이다. -->
+<meta name="robots" content="noindex, nofollow, noarchive, nosnippet">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>양진웅 Note</title>
 <meta name="description" content="위험물 · 고압가스 · 화공안전 국가기술자격 학습 노트">
@@ -20373,6 +20376,10 @@ applyRenderFlags();
 //   k: 'new'(새 기능) · 'fix'(고침) · 'chg'(바뀜)
 // ══════════════════════════════════════════════════════════════════════
 const PATCH_NOTES = [
+  { v: '260817-0323', at: '2026-08-17', items: [
+    { k: 'chg', t: '<b>검색 결과에 나오지 않게</b> 했습니다 — 구글 같은 검색 엔진이 이 앱을 목록에 올리지도, 내용을 미리보기로 보여주지도 않습니다 (정식 · 간단 모드 · 라이트 · 예전 홈 네 화면 모두)' },
+    { k: 'chg', t: '검색에서 빠지는 것은 <b>우연히 발견되는 것</b>만 막습니다. 자료를 실제로 지키는 것은 지난번에 넣은 <b>로그인</b>이에요 — 주소를 알고 들어와도 로그인 없이는 아무것도 못 가져갑니다' },
+  ]},
   { v: '260817-0311', at: '2026-08-13', items: [
     { k: 'new', t: '<b>로그인이 생겼습니다</b> — 이제 <b>내 계정으로 로그인해야</b> 서버의 문제·기록을 주고받습니다. 한 번 로그인하면 그 기기에 계속 남아 있어서 매번 칠 필요는 없어요 (<b>정식 · 간단 모드 · 라이트</b> 세 화면 모두)' },
     { k: 'chg', t: '로그인하기 전에는 <b>서버로 아무것도 나가지 않고 들어오지도 않습니다.</b> 앱은 이 기기에 저장된 것만으로 평소처럼 돌아가요' },
@@ -20836,7 +20843,7 @@ function closePatchNotes() {
 // ── 앱 버전 ──
 // 폰이 옛 파일을 캐시해 두고 있는지 바로 확인할 수 있도록 화면에 표시한다.
 // (설정 맨 아래 · 개발자 도구 콘솔에도 찍힘)
-const APP_VERSION = '260817-0311';
+const APP_VERSION = '260817-0323';
 console.log('%c양진웅 Note 버전 ' + APP_VERSION, 'font-weight:bold');
 
 // PWA 서비스워커 등록

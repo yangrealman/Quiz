@@ -1,0 +1,10 @@
+# 개인 학습 노트 — 검색 결과에 나오지 않게 한다.
+#
+# [주의] 지금처럼 프로젝트 페이지 주소(yangrealman.github.io/Quiz/)로 서비스할 때는
+#        크롤러가 /Quiz/robots.txt 가 아니라 도메인 맨 위(/robots.txt)만 본다.
+#        그래서 이 파일은 지금 당장은 듣지 않는다 — 실제로 막는 것은
+#        각 HTML 맨 위의 <meta name="robots" content="noindex"> 다.
+#        나중에 내 도메인이나 Cloudflare Pages 로 옮겨 이 파일이 맨 위에 놓이면
+#        그때부터 이 파일도 함께 듣는다. 미리 넣어 둔다.
+User-agent: *
+Disallow: /
