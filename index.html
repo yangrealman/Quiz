@@ -7684,6 +7684,14 @@
       <div class="set-group-label">모드 전환</div>
       <div class="set-card">
 
+        <button class="set-row set-row-btn" onclick="openStudyHome()">
+          <div class="set-row-main">
+            <div class="set-row-title">한 화면 <span class="beta-tag">Beta</span></div>
+            <div class="set-row-desc">열면 바로 문제 · 위 알약 하나로 오답·별표·체크·계산문제를 갈아탑니다<br>기록은 이 화면과 그대로 함께 씁니다 (모의고사는 아직 준비 중)</div>
+          </div>
+          <svg class="ic set-chev" viewBox="0 0 24 24"><use href="#ic-chevron-right"/></svg>
+        </button>
+
         <button class="set-row set-row-btn" onclick="openSimpleHome()">
           <div class="set-row-main">
             <div class="set-row-title">간단 모드</div>
@@ -20337,6 +20345,7 @@ async function _leaveTo(url, label) {
 }
 function openLightHome() { return _leaveTo('light.html', '라이트 버전'); }
 function openSimpleHome() { return _leaveTo('simple.html', '간단 모드'); }
+function openStudyHome()  { return _leaveTo('study.html', '한 화면'); }
 
 function renderSettings() {
   if (typeof renderDiagList === 'function') renderDiagList();
@@ -20685,6 +20694,12 @@ applyRenderFlags();
 //   k: 'new'(새 기능) · 'fix'(고침) · 'chg'(바뀜)
 // ══════════════════════════════════════════════════════════════════════
 const PATCH_NOTES = [
+  { v: '260818-0218', at: '2026-08-17', items: [
+    { k: 'new', t: '<b>설정 &gt; 모드 전환</b>에 <b>한 화면</b>(Beta)이 생겼습니다 — 홈도 탭바도 없이 <b>열면 바로 문제</b>가 나옵니다. 위 알약 하나를 누르면 <b>오답 · 별표 · 체크 · 계산문제 · 회차</b>를 그 자리에서 갈아탈 수 있어요 (화면이 바뀌는 게 아니라 다른 문제가 흘러 들어옵니다)' },
+    { k: 'new', t: '문제를 <b>길게 누르면</b> 별표·체크·숨기기가 나옵니다. 평소 화면에는 문제와 보기만 있어요. PC 에서는 왼쪽 막대에 늘 있고, 키보드로도 됩니다(<b>1~4</b> 답, <b>←→</b> 이동, <b>S</b> 별표, <b>C</b> 체크)' },
+    { k: 'chg', t: '<b>PC 에서는 해설이 오른쪽으로 들어옵니다</b> — 아래로 밀지 않아서 문제와 보기가 제자리에 그대로 있습니다' },
+    { k: 'chg', t: '기록은 <b>이 화면과 그대로 함께 씁니다</b> — 진도·오답·별표·체크가 같은 곳에 쌓입니다. 기존 화면·간단 모드·라이트는 그대로 있고, 마음에 안 들면 안 쓰시면 됩니다 (<b>모의고사는 아직 준비 중</b>이에요)' },
+  ]},
   { v: '260817-1649', at: '2026-08-16', items: [
     { k: 'fix', t: '<b>체크만 풀기</b>에서 체크를 풀고 다음 문제로 넘어가면, 그 문제는 체크돼 있는데도 <b>체크가 풀린 모양</b>으로 보이던 것을 고쳤습니다 — 일곱 풀이 화면 중 여기만 체크 아이콘을 다시 그리지 않아서, 앞 문제에서 남은 모양이 그대로 붙어 있었어요 (실제 체크 상태는 멀쩡했습니다)' },
   ]},
@@ -21163,7 +21178,7 @@ function closePatchNotes() {
 // ── 앱 버전 ──
 // 폰이 옛 파일을 캐시해 두고 있는지 바로 확인할 수 있도록 화면에 표시한다.
 // (설정 맨 아래 · 개발자 도구 콘솔에도 찍힘)
-const APP_VERSION = '260817-1649';
+const APP_VERSION = '260818-0218';
 console.log('%c양진웅 Note 버전 ' + APP_VERSION, 'font-weight:bold');
 
 // PWA 서비스워커 등록
