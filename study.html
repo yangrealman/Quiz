@@ -1,0 +1,980 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="robots" content="noindex, nofollow, noarchive, nosnippet">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#EFF1F5">
+<title>양진웅 Note — 한 화면</title>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<script>
+  const firebaseConfig = {
+    apiKey: "AIzaSyC6fOvzE69mucSuCgDVl-sB5s1eFgKQQaA",
+    authDomain: "quiz-app-f6c45.firebaseapp.com",
+    projectId: "quiz-app-f6c45",
+    storageBucket: "quiz-app-f6c45.firebasestorage.app",
+    messagingSenderId: "66139024814",
+    appId: "1:66139024814:web:7e1ac161bee6308fee6c3f"
+  };
+  const USER_ID = 'main';
+
+  function _offlineDb() {
+    const fail = () => Promise.reject(new Error('offline'));
+    const docRef = { get: fail, set: fail, delete: fail, onSnapshot: () => (() => {}) };
+    const dataCol = { doc: () => docRef };
+    return { collection: () => ({ doc: () => ({ collection: () => dataCol }) }) };
+  }
+  let _fbDb = null;
+  let db = _offlineDb();
+  let FIREBASE_OK = false;
+  try {
+    firebase.initializeApp(firebaseConfig);
+    _fbDb = firebase.firestore();
+  } catch (e) {}
+
+  // ── 로그인 ── 정식 화면과 같은 방식. 로그인 전에는 서버로 나가는 요청 자체가 없다.
+  let AUTH_USER = null, AUTH_SETTLED = false, _gateSkipped = false;
+  function _paintAuthGate() {
+    const g = document.getElementById('auth-gate');
+    if (!g) return;
+    // Firebase 스크립트를 못 받았으면(오프라인) 로그인 창을 띄우지 않는다 — 들어갈 방법도 없다
+    g.style.display = (_fbDb && AUTH_SETTLED && !AUTH_USER && !_gateSkipped) ? 'flex' : 'none';
+  }
+  function _applyAuth(user) {
+    AUTH_USER = user || null; AUTH_SETTLED = true;
+    FIREBASE_OK = !!(user && _fbDb);
+    db = FIREBASE_OK ? _fbDb : _offlineDb();
+    _paintAuthGate();
+    if (typeof window._afterAuth === 'function') { try { window._afterAuth(user); } catch (e) {} }
+  }
+  if (_fbDb) {
+    try {
+      firebase.auth().setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch(() => {});
+      firebase.auth().onAuthStateChanged(_applyAuth);
+    } catch (e) { AUTH_SETTLED = true; }
+  } else { AUTH_SETTLED = true; }
+  document.addEventListener('DOMContentLoaded', _paintAuthGate);
+
+  const AUTH_MSG = {
+    'auth/invalid-email': '이메일 형식이 올바르지 않아요',
+    'auth/user-not-found': '그런 계정이 없어요',
+    'auth/wrong-password': '비밀번호가 달라요',
+    'auth/invalid-credential': '이메일이나 비밀번호가 달라요',
+    'auth/too-many-requests': '여러 번 틀려서 잠시 막혔어요. 조금 뒤에 다시 해주세요',
+    'auth/network-request-failed': '인터넷에 연결되지 않았어요',
+    'auth/user-disabled': '사용 중지된 계정이에요',
+  };
+  async function authSignIn() {
+    const em = document.getElementById('auth-email'), pw = document.getElementById('auth-pw');
+    const err = document.getElementById('auth-err'), btn = document.getElementById('auth-btn');
+    if (!_fbDb) { err.textContent = '지금은 인터넷에 연결되지 않아 로그인할 수 없어요'; return; }
+    const email = (em.value || '').trim(), pass = pw.value || '';
+    if (!email || !pass) { err.textContent = '이메일과 비밀번호를 넣어주세요'; return; }
+    btn.disabled = true; btn.textContent = '들어가는 중…'; err.textContent = '';
+    try { await firebase.auth().signInWithEmailAndPassword(email, pass); pw.value = ''; }
+    catch (e) { err.textContent = AUTH_MSG[e && e.code] || ((e && e.message) || '로그인하지 못했어요'); }
+    btn.disabled = false; btn.textContent = '로그인';
+  }
+  function authSkip() { _gateSkipped = true; _paintAuthGate(); }
+</script>
+
+<style>
+/* ══════════════════════════════════════════════════════════════════════
+   한 화면 — 홈도 탭바도 없다. 열면 곧바로 문제고, 위 알약 하나로 무엇이
+   흘러올지만 고른다.
+
+   [원칙]
+     · 유리(반투명 판)에는 짧은 글만. 문제 본문은 유리 위에 올리지 않는다
+       — 흐림 위의 긴 글은 예쁘지만 안 읽힌다.
+     · 색은 뜻이 있을 때만(맞음·틀림·지금 고른 것). 그 외에는 무채색.
+     · 움직임은 '어디서 와서 어디로 가는지'를 설명할 때만 쓴다.
+     · 폰과 PC 는 같은 구조. 넓어지면 글줄을 늘리는 대신 여백을 주고,
+       남는 자리에 해설을 놓는다.
+   ══════════════════════════════════════════════════════════════════════ */
+:root{
+  --ink:#14161C; --ink2:#3A4050; --ink3:#6C7284; --ink4:#9096A6;
+  --line:rgba(20,24,40,.09);
+  --glass:rgba(255,255,255,.58); --glass-edge:rgba(255,255,255,.75);
+  --glass-hi:rgba(255,255,255,.95);
+  --accent:#5A63F0; --accent-soft:rgba(90,99,240,.14);
+  --ok:#2EB27C; --no:#E25A50; --star:#F2A93B;
+  --bg:#EFF1F5;
+  --sheet:rgba(255,255,255,.66);
+  --shadow:0 30px 60px -26px rgba(16,20,40,.46);
+  --ease:cubic-bezier(.22,1,.36,1);
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --ink:#F0F2F7; --ink2:#C3C8D6; --ink3:#98A0B2; --ink4:#6E7488;
+    --line:rgba(255,255,255,.10);
+    --glass:rgba(255,255,255,.08); --glass-edge:rgba(255,255,255,.13);
+    --glass-hi:rgba(255,255,255,.12);
+    --accent:#7A84FF; --accent-soft:rgba(122,132,255,.20);
+    --bg:#0D0F15; --sheet:rgba(26,29,38,.74);
+    --shadow:0 30px 60px -26px rgba(0,0,0,.9);
+  }
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%}
+body{
+  background:var(--bg); color:var(--ink);
+  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Apple SD Gothic Neo','Noto Sans KR',sans-serif;
+  -webkit-text-size-adjust:100%; overflow:hidden;
+}
+button{font-family:inherit;color:inherit;background:none;border:none;cursor:pointer}
+
+/* 바탕의 옅은 색 뭉치 — 유리가 얹힐 자리 */
+#bg{position:fixed;inset:0;z-index:0;overflow:hidden;pointer-events:none}
+#bg i{position:absolute;border-radius:50%;filter:blur(90px);opacity:.85}
+#bg .b1{width:70vmin;height:70vmin;left:-18vmin;top:-16vmin;background:rgba(122,132,255,.36)}
+#bg .b2{width:62vmin;height:62vmin;right:-18vmin;bottom:-14vmin;background:rgba(255,168,120,.30)}
+#bg .b3{width:52vmin;height:52vmin;left:44%;bottom:-22vmin;background:rgba(120,220,190,.28)}
+@media (prefers-color-scheme: dark){
+  #bg .b1{background:rgba(108,120,255,.26)} #bg .b2{background:rgba(255,140,90,.16)}
+  #bg .b3{background:rgba(80,200,170,.14)}
+}
+
+/* 유리 공통 */
+.glass{
+  background:var(--glass);
+  -webkit-backdrop-filter:blur(24px) saturate(1.7); backdrop-filter:blur(24px) saturate(1.7);
+  border:1px solid var(--glass-edge);
+  box-shadow:0 1px 0 var(--glass-hi) inset, 0 6px 18px -10px rgba(20,24,40,.3);
+}
+
+#app{position:relative;z-index:1;height:100%;display:flex;flex-direction:column;
+  padding:0 max(22px, env(safe-area-inset-left)) 0 max(22px, env(safe-area-inset-right))}
+
+/* ── 위 한 줄 ── */
+#top{display:flex;align-items:center;justify-content:space-between;gap:12px;
+  padding-top:calc(env(safe-area-inset-top,0px) + 16px);flex:none}
+#dial{display:inline-flex;align-items:center;gap:7px;padding:7px 13px;border-radius:999px;
+  font-size:12.5px;color:var(--ink3);font-weight:600;letter-spacing:-.2px;max-width:76vw;
+  overflow:hidden;white-space:nowrap;text-overflow:ellipsis;
+  transition:transform .18s var(--ease), background .18s}
+#dial:active{transform:scale(.97)}
+#dial b{color:var(--ink);font-weight:700}
+#dial .car{width:5px;height:5px;flex:none;border-right:1.6px solid var(--ink4);
+  border-bottom:1.6px solid var(--ink4);transform:rotate(45deg) translateY(-1px);
+  transition:transform .26s var(--ease)}
+#dial.open .car{transform:rotate(225deg) translateY(2px)}
+#keys{font-size:11px;color:var(--ink4);white-space:nowrap;display:none}
+#keys kbd{display:inline-block;padding:2px 6px;border-radius:5px;margin:0 1px;font-size:10.5px;
+  background:var(--glass);border:1px solid var(--glass-edge);color:var(--ink3);font-family:inherit}
+
+/* ── 본문 ── */
+#stage{flex:1;min-height:0;display:flex;gap:26px;align-items:stretch;
+  transition:transform .34s var(--ease), filter .34s var(--ease), opacity .34s var(--ease)}
+#stage.pushed{transform:scale(.965) translateY(10px);filter:blur(3px);opacity:.45}
+#stage.swap{opacity:0;transform:translateY(12px)}
+/* [주의] 가운데 정렬(justify-content:center)로 두면 해설이 뜨는 순간 덩어리가 다시
+   가운데를 맞추느라 문제가 위로 밀린다. 눈이 문제를 다시 찾아야 해서, 위에서
+   일정한 자리에 고정한다 — 답을 골라도 문제는 제자리에 그대로 있는다. */
+#main{flex:1;min-width:0;display:flex;flex-direction:column;justify-content:flex-start;
+  width:100%;max-width:700px;margin:0 auto;overflow-y:auto;padding:12vh 0 12px}
+#qnum{font-size:11px;font-weight:800;color:var(--ink4);letter-spacing:.16em;margin-bottom:12px;flex:none}
+#qtext{font-size:23px;line-height:1.52;font-weight:600;letter-spacing:-.45px;white-space:pre-wrap;
+  word-break:break-word;flex:none}
+#qimg{max-width:100%;border-radius:14px;margin-top:16px;display:none}
+#ops{margin-top:26px;display:flex;flex-direction:column;gap:2px;flex:none}
+.op{display:flex;gap:13px;align-items:flex-start;padding:13px 12px;border-radius:14px;text-align:left;
+  font-size:15.5px;line-height:1.45;color:var(--ink2);letter-spacing:-.2px;width:100%;
+  transition:background .3s var(--ease), color .3s var(--ease)}
+.op .no{flex:none;width:21px;height:21px;border-radius:50%;font-size:11px;font-weight:800;
+  display:flex;align-items:center;justify-content:center;color:var(--ink4);margin-top:1px;
+  background:var(--glass);border:1px solid var(--glass-edge);
+  transition:background .3s var(--ease), color .3s var(--ease), border-color .3s var(--ease)}
+.op:active{background:var(--accent-soft)}
+.op.ok{background:rgba(46,178,124,.13);color:var(--ink)}
+.op.ok .no{background:var(--ok);border-color:var(--ok);color:#fff}
+.op.bad{background:rgba(226,90,80,.11);color:var(--ink)}
+.op.bad .no{background:var(--no);border-color:var(--no);color:#fff}
+.op.pick{background:var(--accent-soft)}
+.op.pick .no{background:var(--accent);border-color:var(--accent);color:#fff}
+
+/* 필답형 */
+#subjwrap{margin-top:22px;display:none;flex:none}
+#subj{width:100%;min-height:110px;padding:14px;border-radius:16px;resize:vertical;font-size:15.5px;
+  line-height:1.6;color:var(--ink);background:var(--glass);border:1px solid var(--glass-edge);
+  font-family:inherit;outline:none}
+#subj:focus{border-color:var(--accent)}
+#judge{display:flex;gap:8px;margin-top:10px}
+#judge button{flex:1;padding:12px;border-radius:14px;font-size:14px;color:var(--ink2);
+  background:var(--glass);border:1px solid var(--glass-edge);transition:background .2s,color .2s}
+#judge button.on-ok{background:var(--ok);border-color:var(--ok);color:#fff}
+#judge button.on-no{background:var(--no);border-color:var(--no);color:#fff}
+#judge button.on{background:var(--accent);border-color:var(--accent);color:#fff}
+
+/* 해설 — 폰에서는 아래, PC 에서는 오른쪽 */
+#exp{display:none;margin-top:20px;border-radius:20px;padding:20px;flex:none}
+#exp.show{display:block;animation:expIn .34s var(--ease)}
+@keyframes expIn{from{opacity:0;transform:translateY(10px)}}
+#exp .et{font-size:11px;font-weight:800;letter-spacing:.14em;color:var(--ink4);margin-bottom:12px}
+#exp .eb{font-size:15px;line-height:1.75;color:var(--ink2);white-space:pre-wrap}
+
+/* 아래 실낱 진도 */
+#bar{height:2px;border-radius:2px;background:var(--line);flex:none;
+  margin:0 auto calc(env(safe-area-inset-bottom,0px) + 22px);width:100%;max-width:700px;overflow:hidden}
+#bar i{display:block;height:100%;width:0;background:var(--accent);border-radius:2px;
+  transition:width .45s var(--ease)}
+
+/* ── 고르는 곳 (다이얼 판) ── */
+#sheet{position:fixed;z-index:20;left:14px;right:14px;top:calc(env(safe-area-inset-top,0px) + 8px);
+  border-radius:26px;padding:8px;background:var(--sheet);
+  -webkit-backdrop-filter:blur(30px) saturate(1.8); backdrop-filter:blur(30px) saturate(1.8);
+  border:1px solid var(--glass-edge);box-shadow:0 1px 0 var(--glass-hi) inset, var(--shadow);
+  opacity:0;transform:translateY(-14px) scale(.98);pointer-events:none;
+  transition:opacity .26s var(--ease), transform .3s var(--ease);
+  max-height:80vh;overflow-y:auto}
+#sheet.show{opacity:1;transform:none;pointer-events:auto}
+.srow{display:flex;align-items:center;gap:12px;padding:13px 14px;border-radius:18px;width:100%;
+  font-size:15px;color:var(--ink2);letter-spacing:-.2px;text-align:left;
+  transition:background .18s}
+.srow:active{background:var(--accent-soft)}
+.srow .dot{width:6px;height:6px;border-radius:50%;background:var(--ink4);opacity:.5;flex:none}
+.srow .n{margin-left:auto;font-size:13px;color:var(--ink4);font-variant-numeric:tabular-nums;flex:none}
+.srow.on{background:var(--accent-soft);color:var(--ink);font-weight:700}
+.srow.on .dot{background:var(--accent);opacity:1}
+.srow.on .n{color:var(--accent);font-weight:700}
+.sdiv{height:1px;background:var(--line);margin:6px 16px}
+#scrim{position:fixed;inset:0;z-index:15;background:transparent;display:none}
+#scrim.show{display:block}
+/* 고르는 판이 열려 있는 동안 도구 막대는 감춘다 — 뒤에 비치고 눌리기까지 한다 */
+body.sheet-open #tool{opacity:0 !important;pointer-events:none !important}
+
+/* ── 도구 (문제를 길게 누르면 / PC 는 오른쪽 막대) ── */
+#tool{position:fixed;z-index:25;left:16px;right:16px;bottom:calc(env(safe-area-inset-bottom,0px) + 20px);
+  border-radius:26px;padding:16px 14px 14px;background:var(--sheet);
+  -webkit-backdrop-filter:blur(30px) saturate(1.8); backdrop-filter:blur(30px) saturate(1.8);
+  border:1px solid var(--glass-edge);box-shadow:0 1px 0 var(--glass-hi) inset, var(--shadow);
+  opacity:0;transform:translateY(22px);pointer-events:none;
+  transition:opacity .24s var(--ease), transform .3s var(--ease)}
+#tool.show{opacity:1;transform:none;pointer-events:auto}
+#tool .grab{width:36px;height:4px;border-radius:2px;background:var(--line);margin:0 auto 15px}
+#stars{display:flex;justify-content:center;gap:10px;margin-bottom:15px}
+#stars button{font-size:25px;line-height:1;color:var(--ink4);opacity:.45;
+  transition:transform .16s var(--ease), color .16s, opacity .16s}
+#stars button.on{color:var(--star);opacity:1}
+#stars button:active{transform:scale(1.22)}
+.trow{display:flex;gap:8px}
+.tbtn{flex:1;padding:12px 0;border-radius:16px;text-align:center;font-size:12.5px;color:var(--ink2);
+  background:var(--glass);border:1px solid var(--glass-edge);transition:background .18s,color .18s}
+.tbtn b{display:block;font-size:17px;font-weight:500;margin-bottom:3px}
+.tbtn.on{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
+
+/* ── 토스트 ── */
+#toast{position:fixed;z-index:40;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 92px);
+  transform:translate(-50%,10px);opacity:0;pointer-events:none;
+  padding:10px 18px;border-radius:999px;font-size:13.5px;color:#fff;background:rgba(16,18,26,.86);
+  -webkit-backdrop-filter:blur(14px); backdrop-filter:blur(14px);
+  transition:opacity .22s var(--ease), transform .28s var(--ease);max-width:88vw;text-align:center}
+#toast.show{opacity:1;transform:translate(-50%,0)}
+
+/* ── 빈 화면 / 불러오는 중 ── */
+#empty{position:absolute;inset:0;display:none;flex-direction:column;align-items:center;
+  justify-content:center;gap:10px;text-align:center;color:var(--ink3);font-size:14.5px;line-height:1.7}
+#empty.show{display:flex}
+#empty .big{font-size:17px;color:var(--ink);font-weight:600}
+
+/* ── 로그인 ── */
+#auth-gate{display:none;position:fixed;inset:0;z-index:100;background:var(--bg);
+  align-items:center;justify-content:center;padding:24px}
+.auth-box{width:100%;max-width:340px;border-radius:22px;padding:26px 22px;
+  background:var(--sheet);-webkit-backdrop-filter:blur(30px); backdrop-filter:blur(30px);
+  border:1px solid var(--glass-edge);box-shadow:0 1px 0 var(--glass-hi) inset, var(--shadow)}
+.auth-t{font-size:21px;font-weight:800;text-align:center;letter-spacing:-.3px}
+.auth-s{font-size:13px;color:var(--ink3);text-align:center;margin:6px 0 18px}
+.auth-in{width:100%;padding:13px 14px;margin-bottom:10px;border-radius:12px;font-size:16px;
+  color:var(--ink);background:var(--glass);border:1px solid var(--glass-edge);font-family:inherit;outline:none}
+.auth-in:focus{border-color:var(--accent)}
+.auth-err{font-size:13px;color:var(--no);min-height:18px;margin-bottom:6px}
+.auth-btn{width:100%;padding:13px;border-radius:12px;background:var(--accent);color:#fff;
+  font-size:16px;font-weight:700}
+.auth-skip{width:100%;margin-top:10px;padding:10px;color:var(--ink4);font-size:13px;text-decoration:underline}
+
+/* ── 넓은 화면 ── */
+@media (min-width:900px){
+  #keys{display:block}
+  #app{padding:0 30px}
+  #stage{gap:34px;padding-bottom:0}
+  #main{max-width:700px;margin:0 auto;padding-top:16vh}
+  #stage.two #main{margin:0 0 0 clamp(40px,7vw,120px)}
+  /* 해설은 아래로 밀지 않고 오른쪽으로 들어온다 */
+  /* 해설은 내용만큼만 — 아래까지 끌면 짧은 해설이 텅 빈 판으로 보인다 */
+  #exp{display:none;position:absolute;right:0;top:14vh;bottom:auto;max-height:70vh;
+    width:min(430px,34vw);margin:0;overflow-y:auto}
+  #exp.show{display:block;animation:expInPc .38s var(--ease)}
+  @keyframes expInPc{from{opacity:0;transform:translateX(26px)}}
+  #sheet{left:30px;right:auto;width:340px;top:64px}
+  /* 진도선은 글 기둥에 맞추기 어려우니(해설이 열리면 기둥이 왼쪽으로 간다)
+     화면 전체를 가로지르는 실낱으로 둔다 */
+  #bar{max-width:none}
+  /* 도구는 아래 판이 아니라 오른쪽 끝 막대 */
+  /* [주의] 도구 막대를 오른쪽에 두면 해설판과 겹친다 — 넓은 화면에서 늘 비어 있는
+     왼쪽 여백으로 보낸다. 평소엔 흐리게 있다가 마우스가 가면 또렷해진다. */
+  #tool{left:22px;right:auto;top:50%;bottom:auto;width:64px;padding:9px 7px;
+    transform:translate(-14px,-50%);border-radius:22px;opacity:.25}
+  #tool.show{opacity:1;transform:translate(0,-50%)}
+  #tool.rail{opacity:.25;pointer-events:auto}
+  #tool .grab{display:none}
+  #stars{flex-direction:column;gap:2px;margin-bottom:8px}
+  #stars button{font-size:17px}
+  .trow{flex-direction:column;gap:4px}
+  .tbtn{padding:9px 0;font-size:10px}
+  .tbtn b{font-size:15px;margin-bottom:1px}
+  #toast{bottom:34px}
+}
+@media (prefers-reduced-motion: reduce){
+  *{animation-duration:.01ms !important;transition-duration:.01ms !important}
+}
+</style>
+</head>
+<body>
+
+<div id="bg"><i class="b1"></i><i class="b2"></i><i class="b3"></i></div>
+
+<div id="app">
+  <div id="top">
+    <button id="dial" class="glass" onclick="toggleSheet()"><span id="dial-t">불러오는 중…</span> <span class="car"></span></button>
+    <div id="keys"><kbd>1</kbd><kbd>2</kbd><kbd>3</kbd><kbd>4</kbd> 답 · <kbd>←</kbd><kbd>→</kbd> 이동 · <kbd>S</kbd> 별표 · <kbd>C</kbd> 체크</div>
+  </div>
+
+  <div id="stage">
+    <div id="main">
+      <div id="qnum"></div>
+      <div id="qtext"></div>
+      <img id="qimg" alt="">
+      <div id="ops"></div>
+      <div id="subjwrap">
+        <textarea id="subj" placeholder="여기에 답을 써보세요"></textarea>
+        <div id="judge">
+          <button id="j-ok" onclick="judge('correct')">맞았어요</button>
+          <button id="j-see" onclick="toggleAnswer()">정답 보기</button>
+          <button id="j-no" onclick="judge('wrong')">틀렸어요</button>
+        </div>
+      </div>
+      <div id="exp" class="glass"><div class="et">해설</div><div class="eb" id="exp-b"></div></div>
+    </div>
+    <div id="empty"></div>
+  </div>
+
+  <div id="bar"><i id="bar-i"></i></div>
+</div>
+
+<div id="scrim" onclick="closeAll()"></div>
+
+<div id="sheet"></div>
+
+<div id="tool">
+  <div class="grab"></div>
+  <div id="stars"></div>
+  <div class="trow">
+    <button class="tbtn" id="t-flag" onclick="tapFlag()"><b>☑</b>체크</button>
+    <button class="tbtn" id="t-hide" onclick="tapHide()"><b>◎</b>숨기기</button>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<div id="auth-gate">
+  <div class="auth-box">
+    <div class="auth-t">양진웅 Note</div>
+    <div class="auth-s">내 기록을 불러오려면 로그인하세요</div>
+    <input class="auth-in" id="auth-email" type="email" inputmode="email" autocomplete="username"
+           placeholder="이메일" onkeydown="if(event.key==='Enter')document.getElementById('auth-pw').focus()">
+    <input class="auth-in" id="auth-pw" type="password" autocomplete="current-password"
+           placeholder="비밀번호" onkeydown="if(event.key==='Enter')authSignIn()">
+    <div class="auth-err" id="auth-err"></div>
+    <button class="auth-btn" id="auth-btn" onclick="authSignIn()">로그인</button>
+    <button class="auth-skip" onclick="authSkip()">이 기기에 저장된 것만 보기</button>
+  </div>
+</div>
+
+<script>
+/* ══════════════════════════════════════════════════════════════════════
+   [형식 계약] 정식 화면(index.html)과 같은 저장소·같은 형식을 쓴다.
+   한 글자라도 어긋나면 두 화면이 서로 다른 걸 보게 된다.
+
+     quiz_progress  { 자격증_회차: { answered: { 원래문항자리: 답 }, at, idx } }
+     quiz_wrong     [ { id: 자격증_회차_문항id, cat, round, q, myAnswer, addedAt } ]
+     quiz_starred   { 자격증||회차||문항id: { cat, round, qId, level(1~5), addedAt } }
+     quiz_flagged   { 자격증||회차||문항id: { cat, round, qId, addedAt } }
+     quiz_hidden    { 자격증||회차||문항id: { cat, round, qId, addedAt } }
+
+   답(answered) 값: 객관식은 고른 보기 번호(0부터), 필답형은 'correct'/'wrong'.
+   0 이 유효한 값이라 참·거짓으로 판단하면 안 된다 — 항상 (i in answered) 로 본다.
+
+   오답노트 규칙도 정식과 같다: 회차를 풀 때만 쌓고, 나중에 맞혔다고 지우지 않는다.
+   ══════════════════════════════════════════════════════════════════════ */
+
+/* ── 저장소 (판 번호가 큰 쪽이 최신) ── */
+const _cache = {};
+function _get(k, d) {
+  if (_cache[k] !== undefined) return _cache[k];
+  try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch (e) { return d; }
+}
+function _set(k, v) { _cache[k] = v; try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
+function _ts(k){ try { return parseInt(localStorage.getItem(k+'_ts')||'0'); } catch(e){ return 0; } }
+function _setTs(k,v){ try { localStorage.setItem(k+'_ts',String(v)); } catch(e){} }
+function _rev(k){ try { return parseInt(localStorage.getItem(k+'_rev')||'0'); } catch(e){ return 0; } }
+function _setRev(k,v){ try { localStorage.setItem(k+'_rev',String(v)); } catch(e){} }
+
+const FB_TIMEOUT = 10000;
+const withTimeout = (p, ms) => Promise.race([p, new Promise((_, rj) => setTimeout(() => rj(new Error('시간 초과')), ms))]);
+async function fbGet(id) {
+  try {
+    const d = await withTimeout(db.collection('users').doc(USER_ID).collection('data').doc(id).get(), FB_TIMEOUT);
+    return d.exists ? d.data() : null;
+  } catch (e) { return null; }
+}
+async function fbSet(id, value) {
+  try {
+    await withTimeout(db.collection('users').doc(USER_ID).collection('data').doc(id)
+      .set({ value, updatedAt: Date.now(), rev: _rev(id) }), FB_TIMEOUT);
+    return true;
+  } catch (e) { return false; }
+}
+async function save(key, value) {
+  _set(key, value); _setTs(key, Date.now()); _setRev(key, _rev(key) + 1);
+  await fbSet(key, value);
+}
+
+const KEYS = ['quiz_index','quiz_categories','quiz_progress','quiz_wrong',
+              'quiz_starred','quiz_flagged','quiz_hidden','resume_bookmark'];
+let _syncing = false;
+async function syncDown(silent) {
+  if (_syncing || !FIREBASE_OK) return;
+  _syncing = true;
+  try {
+    await Promise.all(KEYS.map(async key => {
+      const remote = await fbGet(key);
+      if (!remote) return;
+      const rRev = remote.rev || 0, rTs = remote.updatedAt || 0;
+      const lRev = _rev(key), lTs = _ts(key);
+      if (rRev > lRev || (rRev === lRev && rTs > lTs)) {
+        _set(key, remote.value); _setTs(key, rTs); _setRev(key, rRev);
+      } else if (lRev > rRev || (lRev === rRev && lTs > rTs)) {
+        const v = _get(key, null);
+        if (v !== null && JSON.stringify(v) !== JSON.stringify(remote.value)) await fbSet(key, v);
+      }
+    }));
+    if (!silent) toast('최신 상태예요');
+  } catch (e) { if (!silent) toast('동기화하지 못했어요'); }
+  finally { _syncing = false; }
+}
+
+/* ── 문제 데이터 ── */
+const qdKey = (c, r) => 'qd::' + c + '::' + r;
+const _b64u = (s) => btoa(unescape(encodeURIComponent(s))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+const qdDocId = (c, r) => 'qd~' + _b64u(c) + '~' + _b64u(r);
+const getIndex = () => { const i = _get('quiz_index', null); return (i && i.cats) ? i : { cats:{}, del:[] }; };
+const getLegacy = () => _get('quiz_data', {});
+function catList() { const c = Object.keys(getIndex().cats); return c.length ? c : Object.keys(getLegacy()); }
+function roundList(c) {
+  const idx = getIndex();
+  return sortRounds(idx.cats[c] ? Object.keys(idx.cats[c]) : Object.keys(getLegacy()[c] || {}));
+}
+function roundCount(c, r) {
+  const e = (getIndex().cats[c] || {})[r];
+  return e ? (e.n || 0) : (((getLegacy()[c] || {})[r] || []).length);
+}
+function getRoundQs(c, r) {
+  const v = _get(qdKey(c, r), null);
+  if (Array.isArray(v)) return v;
+  const l = (getLegacy()[c] || {})[r];
+  return Array.isArray(l) ? l : [];
+}
+async function ensureRound(c, r) {
+  if (getRoundQs(c, r).length) return true;
+  if (!FIREBASE_OK) return false;
+  try {
+    const d = await withTimeout(db.collection('users').doc(USER_ID).collection('data').doc(qdDocId(c,r)).get(), FB_TIMEOUT);
+    if (d.exists && Array.isArray(d.data().value)) { _set(qdKey(c,r), d.data().value); return true; }
+  } catch (e) {}
+  return false;
+}
+function sortRounds(a) {
+  return a.slice().sort((x,y) => {
+    const px = String(x).split('-'), py = String(y).split('-');
+    for (let i = 0; i < Math.max(px.length, py.length); i++) {
+      const nx = parseInt(px[i]||0,10), ny = parseInt(py[i]||0,10);
+      if (!isNaN(nx) && !isNaN(ny) && nx !== ny) return nx - ny;
+    }
+    return String(x).localeCompare(String(y));
+  });
+}
+const getProg = () => _get('quiz_progress', {});
+const getWrong = () => _get('quiz_wrong', []);
+const getStarred = () => _get('quiz_starred', {});
+const getFlagged = () => _get('quiz_flagged', {});
+const getHidden = () => _get('quiz_hidden', {});
+
+/* ── 별표 · 체크 · 숨김 ── */
+const qidOf = (q) => (q && (q.id || q.num)) || 0;
+const markKey = (c, r, q) => c + '||' + r + '||' + qidOf(q);
+function starLevel(c, r, q) {
+  const e = getStarred()[markKey(c,r,q)];
+  if (!e) return 0;
+  const v = parseInt(e.level, 10);
+  return (v >= 1 && v <= 5) ? v : 1;
+}
+function setStar(c, r, q, level) {
+  const st = getStarred(), key = markKey(c,r,q), cur = starLevel(c,r,q);
+  const next = (level === cur) ? 0 : level;
+  if (next === 0) delete st[key];
+  else st[key] = { cat:c, round:r, qId:qidOf(q), level:next, addedAt:(st[key]&&st[key].addedAt)||Date.now() };
+  save('quiz_starred', st);
+  return next;
+}
+const isFlagged = (c,r,q) => !!getFlagged()[markKey(c,r,q)];
+function toggleFlag(c, r, q) {
+  const f = getFlagged(), key = markKey(c,r,q);
+  let on;
+  if (f[key]) { delete f[key]; on = false; }
+  else { f[key] = { cat:c, round:r, qId:qidOf(q), addedAt:Date.now() }; on = true; }
+  save('quiz_flagged', f);
+  return on;
+}
+const isHidden = (c,r,q) => !!getHidden()[markKey(c,r,q)];
+function toggleHidden(c, r, q) {
+  const h = getHidden(), key = markKey(c,r,q);
+  let on;
+  if (h[key]) { delete h[key]; on = false; }
+  else { h[key] = { cat:c, round:r, qId:qidOf(q), addedAt:Date.now() }; on = true; }
+  save('quiz_hidden', h);
+  return on;
+}
+function visibleRound(c, r) {
+  const all = getRoundQs(c, r), items = [], map = [];
+  all.forEach((q, i) => { if (!isHidden(c, r, q)) { items.push(q); map.push(i); } });
+  return { items, map };
+}
+
+/* ── 오답노트 ── 회차를 풀 때만 쌓고, 맞혔다고 지우지 않는다 (정식과 같은 규칙) */
+function addWrong(c, r, q, myAnswer) {
+  const id = c + '_' + r + '_' + qidOf(q);
+  const list = getWrong().filter(w => w.id !== id);
+  list.push({ id, cat:c, round:r, q, myAnswer, addedAt: Date.now() });
+  save('quiz_wrong', list);
+}
+
+/* ── 계산문제 (정식과 같은 규칙: 해설이나 답에 = 가 있으면) ── */
+const _EQ_RE = /[=＝]/;
+function isCalcQ(q) {
+  if (!q) return false;
+  if (_EQ_RE.test(q.explanation || '')) return true;
+  const opts = Array.isArray(q.options) ? q.options : [];
+  const isSubj = q.type === 'subj' || opts.length === 0;
+  return _EQ_RE.test(isSubj ? (q.answer || '') : (opts[q.correct] || ''));
+}
+
+/* ══ 지금 흘러오는 묶음 ══ */
+let deck = null;   // { kind, label, items:[{q,cat,round}], idx, answered:{}, revealed:{}, map }
+let _lastTap = 0;
+
+const esc = (s) => String(s == null ? '' : s);
+
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  clearTimeout(t._t); t._t = setTimeout(() => t.classList.remove('show'), 1800);
+}
+
+/* ── 묶음 만들기 ── */
+function markedItems(kind) {
+  const src = kind === 'star' ? getStarred() : getFlagged();
+  const out = [];
+  Object.keys(src).forEach(k => {
+    const e = src[k] || {};
+    if (!e.cat || !e.round) return;
+    const q = getRoundQs(e.cat, e.round).find(x => String(qidOf(x)) === String(e.qId));
+    if (!q || isHidden(e.cat, e.round, q)) return;
+    out.push({ q, cat:e.cat, round:e.round, level: parseInt(e.level,10)||1, at: e.addedAt||0 });
+  });
+  if (kind === 'star') out.sort((a,b) => (b.level - a.level) || (b.at - a.at));
+  else out.sort((a,b) => b.at - a.at);
+  return out;
+}
+function wrongDeckItems() {
+  return getWrong().filter(w => w.q).map(w => ({ q:w.q, cat:w.cat, round:w.round }));
+}
+function calcItems() {
+  const out = [];
+  catList().forEach(c => roundList(c).forEach(r => {
+    visibleRound(c, r).items.forEach(q => { if (isCalcQ(q)) out.push({ q, cat:c, round:r }); });
+  }));
+  return out;
+}
+
+// 숫자만 세는 용도 (판을 그릴 때)
+function counts() {
+  return {
+    wrong: getWrong().length,
+    star: Object.keys(getStarred()).length,
+    flag: Object.keys(getFlagged()).length,
+    calc: calcItems().length,
+  };
+}
+
+/* ── 묶음 열기 ── */
+async function openDeck(kind, cat, round, startIdx) {
+  closeAll();
+  let items = [], label = '', map = null, answered = {};
+
+  if (kind === 'round') {
+    if (!getRoundQs(cat, round).length) { showLoading('문제를 받아오는 중…'); await ensureRound(cat, round); }
+    const v = visibleRound(cat, round);
+    if (!v.items.length) { toast('이 회차는 볼 문제가 없어요'); hideLoading(); return; }
+    items = v.items.map(q => ({ q, cat, round })); map = v.map;
+    label = `<b>${esc(cat)}</b> · ${esc(round)}회차`;
+    const p = getProg()[cat + '_' + round] || {}, saved = p.answered || {};
+    map.forEach((oi, ni) => { if (oi in saved) answered[ni] = saved[oi]; });
+    if (startIdx == null) {
+      const at = map.indexOf(p.idx);
+      if (at >= 0) startIdx = at;
+      else { startIdx = 0; for (let i = 0; i < items.length; i++) if (!(i in answered)) { startIdx = i; break; } }
+    }
+  } else if (kind === 'wrong') { items = wrongDeckItems(); label = '<b>오답</b>';
+  } else if (kind === 'star')  { items = markedItems('star').map(x => ({ q:x.q, cat:x.cat, round:x.round })); label = '<b>별표</b>';
+  } else if (kind === 'flag')  { items = markedItems('flag').map(x => ({ q:x.q, cat:x.cat, round:x.round })); label = '<b>체크</b>';
+  } else if (kind === 'calc')  { items = calcItems(); label = '<b>계산문제</b>'; }
+
+  hideLoading();
+  if (!items.length) {
+    deck = null;
+    showEmpty(kind === 'wrong' ? '오답이 없어요' : kind === 'star' ? '별표한 문제가 없어요'
+            : kind === 'flag' ? '체크한 문제가 없어요' : '계산문제가 없어요',
+            '위 알약을 눌러 다른 걸 골라보세요');
+    setDial(label + ' · 0');
+    return;
+  }
+  deck = { kind, label, items, map, idx: Math.min(startIdx || 0, items.length - 1), answered, revealed: {}, inputs: {} };
+  swapIn();
+  saveSpot();
+}
+
+/* ── 그리기 ── */
+function setDial(html) { document.getElementById('dial-t').innerHTML = html; }
+
+function showEmpty(big, sub) {
+  const el = document.getElementById('empty');
+  el.innerHTML = `<div class="big">${esc(big)}</div><div>${esc(sub || '')}</div>`;
+  el.classList.add('show');
+  document.getElementById('main').style.visibility = 'hidden';
+  document.getElementById('bar-i').style.width = '0';
+}
+function hideEmpty() {
+  document.getElementById('empty').classList.remove('show');
+  document.getElementById('main').style.visibility = '';
+}
+function showLoading(msg) { showEmpty(msg, ''); }
+function hideLoading() { hideEmpty(); }
+
+function swapIn() {
+  const st = document.getElementById('stage');
+  st.classList.add('swap');
+  setTimeout(() => { render(); st.classList.remove('swap'); }, 150);
+}
+
+function render() {
+  if (!deck) return;
+  hideEmpty();
+  const it = deck.items[deck.idx], q = it.q;
+  const opts = Array.isArray(q.options) ? q.options : [];
+  const isSubj = q.type === 'subj' || opts.length === 0;
+  const ans = deck.answered[deck.idx];
+  const done = (deck.idx in deck.answered);
+  const shown = deck.revealed[deck.idx] || (!isSubj && done);
+
+  setDial(`${deck.label} · ${deck.idx + 1}/${deck.items.length}`);
+
+  document.getElementById('qnum').textContent =
+    'Q ' + (q.num != null ? q.num : deck.idx + 1) +
+    (deck.kind !== 'round' ? `   ${it.cat} ${it.round}회차` : '');
+  document.getElementById('qtext').textContent = q.question || '';
+
+  const img = document.getElementById('qimg');
+  if (q.image) { img.src = q.image; img.style.display = 'block'; } else { img.style.display = 'none'; img.removeAttribute('src'); }
+
+  const ops = document.getElementById('ops');
+  const sw = document.getElementById('subjwrap');
+  if (isSubj) {
+    ops.innerHTML = ''; ops.style.display = 'none'; sw.style.display = 'block';
+    const ta = document.getElementById('subj');
+    ta.value = deck.inputs[deck.idx] || '';
+    ta.oninput = () => { deck.inputs[deck.idx] = ta.value; };
+    document.getElementById('j-ok').className = ans === 'correct' ? 'on-ok' : '';
+    document.getElementById('j-no').className = ans === 'wrong' ? 'on-no' : '';
+    document.getElementById('j-see').className = deck.revealed[deck.idx] ? 'on' : '';
+  } else {
+    sw.style.display = 'none'; ops.style.display = 'flex';
+    ops.innerHTML = opts.map((o, i) => {
+      let cls = '';
+      if (shown) { if (i === q.correct) cls = ' ok'; else if (ans === i) cls = ' bad'; }
+      else if (ans === i) cls = ' pick';
+      return `<button class="op${cls}" onclick="pick(${i})"><span class="no">${i+1}</span><span>${esc(o)}</span></button>`;
+    }).join('');
+  }
+
+  const exp = document.getElementById('exp');
+  const body = isSubj
+    ? [q.answer ? '정답: ' + q.answer : '', q.explanation || ''].filter(Boolean).join('\n\n')
+    : (q.explanation || '');
+  if (shown && body) { document.getElementById('exp-b').textContent = body; exp.classList.add('show'); }
+  else exp.classList.remove('show');
+  document.getElementById('stage').classList.toggle('two', shown && !!body);
+
+  document.getElementById('bar-i').style.width = ((deck.idx + 1) / deck.items.length * 100) + '%';
+  paintTool();
+  document.getElementById('main').scrollTop = 0;
+}
+
+function paintTool() {
+  if (!deck) return;
+  const it = deck.items[deck.idx];
+  const lv = starLevel(it.cat, it.round, it.q);
+  document.getElementById('stars').innerHTML =
+    [1,2,3,4,5].map(i => `<button class="${i <= lv ? 'on' : ''}" onclick="tapStar(${i})">★</button>`).join('');
+  document.getElementById('t-flag').classList.toggle('on', isFlagged(it.cat, it.round, it.q));
+}
+
+/* ── 답하기 ── */
+function pick(i) {
+  if (!deck || (deck.idx in deck.answered)) return;
+  const it = deck.items[deck.idx], q = it.q;
+  deck.answered[deck.idx] = i;
+  if (deck.kind === 'round') {
+    if (i !== q.correct) addWrong(it.cat, it.round, q, i);
+    saveProgress();
+  }
+  render();
+}
+function judge(r) {
+  if (!deck) return;
+  const it = deck.items[deck.idx], q = it.q;
+  deck.answered[deck.idx] = r;
+  if (deck.kind === 'round') {
+    if (r === 'wrong') addWrong(it.cat, it.round, q, -1);
+    saveProgress();
+  }
+  render();
+}
+function toggleAnswer() { if (!deck) return; deck.revealed[deck.idx] = !deck.revealed[deck.idx]; render(); }
+
+function move(d) {
+  if (!deck) return;
+  const n = deck.idx + d;
+  if (n < 0 || n >= deck.items.length) return;
+  deck.idx = n;
+  if (deck.kind === 'round') saveProgress();
+  saveSpot();
+  render();
+}
+
+/* 진도는 '원래 문항 자리' 기준으로 쓴다 — 숨긴 문제의 예전 기록은 건드리지 않는다 */
+function saveProgress() {
+  if (!deck || deck.kind !== 'round' || !deck.map) return;
+  const it = deck.items[deck.idx];
+  const p = getProg(), key = it.cat + '_' + it.round;
+  const keep = { ...((p[key] && p[key].answered) || {}) };
+  deck.map.forEach(oi => { delete keep[oi]; });
+  Object.keys(deck.answered).forEach(ni => { keep[deck.map[ni]] = deck.answered[ni]; });
+  p[key] = { answered: keep, at: Date.now(), idx: deck.map[deck.idx] };
+  save('quiz_progress', p);
+  save('resume_bookmark', [{ id:'study', cat:it.cat, round:it.round, qIndex: deck.map[deck.idx],
+                             qNum: it.q.num || (deck.idx + 1), savedAt: Date.now(), auto: true }]);
+}
+
+/* ── 도구 ── */
+function tapStar(i) {
+  const it = deck.items[deck.idx];
+  const lv = setStar(it.cat, it.round, it.q, i);
+  paintTool();
+  toast(lv ? '★'.repeat(lv) : '별표 해제');
+}
+function tapFlag() {
+  const it = deck.items[deck.idx];
+  const on = toggleFlag(it.cat, it.round, it.q);
+  paintTool();
+  toast(on ? '체크 표시' : '체크 해제');
+}
+function tapHide() {
+  const it = deck.items[deck.idx];
+  toggleHidden(it.cat, it.round, it.q);
+  toast('이 문제를 숨겼어요');
+  closeAll();
+  // 숨긴 문제는 지금 묶음에서도 빠진다
+  deck.items.splice(deck.idx, 1);
+  if (deck.map) deck.map.splice(deck.idx, 1);
+  const na = {};
+  Object.keys(deck.answered).forEach(k => {
+    const i = +k; if (i < deck.idx) na[i] = deck.answered[k]; else if (i > deck.idx) na[i-1] = deck.answered[k];
+  });
+  deck.answered = na;
+  if (!deck.items.length) { deck = null; showEmpty('남은 문제가 없어요', '위 알약을 눌러 다른 걸 골라보세요'); return; }
+  if (deck.idx >= deck.items.length) deck.idx = deck.items.length - 1;
+  render();
+}
+
+/* ── 판 열고 닫기 ── */
+function openTool() {
+  if (!deck) return;
+  paintTool();
+  document.getElementById('tool').classList.add('show');
+  document.getElementById('scrim').classList.add('show');
+  if (!isWide()) document.getElementById('stage').classList.add('pushed');
+  if (navigator.vibrate) { try { navigator.vibrate(8); } catch (e) {} }
+}
+const isWide = () => window.matchMedia('(min-width:900px)').matches;
+
+function toggleSheet() {
+  const s = document.getElementById('sheet');
+  if (s.classList.contains('show')) { closeAll(); return; }
+  renderSheet();
+  s.classList.add('show');
+  document.body.classList.add('sheet-open');
+  document.getElementById('scrim').classList.add('show');
+  document.getElementById('dial').classList.add('open');
+  document.getElementById('stage').classList.add('pushed');
+}
+function closeAll() {
+  document.body.classList.remove('sheet-open');
+  document.getElementById('sheet').classList.remove('show');
+  document.getElementById('tool').classList.remove('show');
+  document.getElementById('scrim').classList.remove('show');
+  document.getElementById('dial').classList.remove('open');
+  document.getElementById('stage').classList.remove('pushed');
+}
+
+function renderSheet() {
+  const c = counts();
+  const bms = (() => { const v = _get('resume_bookmark', []); return Array.isArray(v) ? v : (v ? [v] : []); })();
+  const bm = bms.length ? bms[bms.length - 1] : null;
+  const rows = [];
+  if (bm && bm.cat && roundCount(bm.cat, bm.round)) {
+    rows.push(`<button class="srow${deck && deck.kind === 'round' ? ' on' : ''}"
+      onclick="openDeck('round','${esc(bm.cat)}','${esc(bm.round)}')">
+      <span class="dot"></span>이어서 풀기<span class="n">${esc(bm.cat)} ${esc(bm.round)}</span></button>`);
+    rows.push('<div class="sdiv"></div>');
+  }
+  const mk = (kind, label, n) => `<button class="srow${deck && deck.kind === kind ? ' on' : ''}"
+      onclick="openDeck('${kind}')"><span class="dot"></span>${label}<span class="n">${n}</span></button>`;
+  rows.push(mk('wrong', '오답', c.wrong));
+  rows.push(mk('star', '별표', c.star));
+  rows.push(mk('flag', '체크', c.flag));
+  rows.push(mk('calc', '계산문제', c.calc));
+  rows.push('<div class="sdiv"></div>');
+  rows.push(`<button class="srow" onclick="openPicker()"><span class="dot"></span>회차 고르기<span class="n">→</span></button>`);
+  document.getElementById('sheet').innerHTML = rows.join('');
+}
+
+/* 회차 고르기 — 같은 판 안에서 한 겹 들어간다 */
+function openPicker(cat) {
+  const cats = catList().filter(c => roundList(c).length);
+  if (!cats.length) { toast('등록된 문제가 없어요'); return; }
+  if (!cat && cats.length === 1) cat = cats[0];
+  const rows = [`<button class="srow" onclick="renderSheet()"><span class="dot"></span>← 뒤로</button>`,
+                '<div class="sdiv"></div>'];
+  if (!cat) {
+    cats.forEach(c => rows.push(`<button class="srow" onclick="openPicker('${esc(c)}')">
+      <span class="dot"></span>${esc(c)}<span class="n">${roundList(c).length}회차</span></button>`));
+  } else {
+    const prog = getProg();
+    if (cats.length > 1) rows.push(`<button class="srow" onclick="openPicker()"><span class="dot"></span>← ${esc(cat)}</button>`);
+    roundList(cat).forEach(r => {
+      const total = roundCount(cat, r);
+      const doneN = Object.keys((prog[cat + '_' + r] || {}).answered || {}).length;
+      rows.push(`<button class="srow" onclick="openDeck('round','${esc(cat)}','${esc(r)}')">
+        <span class="dot"></span>${esc(r)}회차<span class="n">${doneN}/${total}</span></button>`);
+    });
+  }
+  document.getElementById('sheet').innerHTML = rows.join('');
+}
+
+/* ── 마지막 자리 (이 기기 전용) ── */
+function saveSpot() {
+  try {
+    if (!deck) return;
+    const it = deck.items[deck.idx];
+    localStorage.setItem('study_spot', JSON.stringify({
+      kind: deck.kind, cat: it.cat, round: it.round, idx: deck.idx, at: Date.now() }));
+  } catch (e) {}
+}
+async function restoreSpot() {
+  let s = null;
+  try { s = JSON.parse(localStorage.getItem('study_spot') || 'null'); } catch (e) {}
+  if (s && Date.now() - (s.at || 0) < 30 * 24 * 3600 * 1000) {
+    if (s.kind === 'round' && s.cat && s.round) { await openDeck('round', s.cat, s.round, s.idx); return; }
+    if (s.kind) { await openDeck(s.kind); if (deck) { deck.idx = Math.min(s.idx || 0, deck.items.length - 1); render(); } return; }
+  }
+  // 처음이면 이어서 풀 자리, 그것도 없으면 첫 회차
+  const bms = (() => { const v = _get('resume_bookmark', []); return Array.isArray(v) ? v : (v ? [v] : []); })();
+  const bm = bms.length ? bms[bms.length - 1] : null;
+  if (bm && bm.cat && roundCount(bm.cat, bm.round)) { await openDeck('round', bm.cat, bm.round); return; }
+  const c = catList().filter(x => roundList(x).length)[0];
+  if (c) { await openDeck('round', c, roundList(c)[0]); return; }
+  showEmpty('등록된 문제가 없어요', '정식 화면에서 문제를 추가하세요');
+}
+
+/* ── 길게 누르기 (폰) / 오른쪽 막대 (PC) ── */
+(function bindPress() {
+  const main = document.getElementById('main');
+  let timer = null, moved = false;
+  const start = () => { moved = false; clearTimeout(timer); timer = setTimeout(() => { if (!moved) openTool(); }, 480); };
+  const cancel = () => { clearTimeout(timer); };
+  main.addEventListener('touchstart', (e) => {
+    if (e.target.closest('button, textarea, a')) return;
+    start();
+  }, { passive: true });
+  main.addEventListener('touchmove', () => { moved = true; cancel(); }, { passive: true });
+  ['touchend','touchcancel'].forEach(ev => main.addEventListener(ev, cancel, { passive: true }));
+  main.addEventListener('contextmenu', (e) => { if (!isWide()) e.preventDefault(); });
+})();
+
+// PC — 오른쪽 막대는 늘 흐리게 떠 있다가 마우스가 가면 또렷해진다
+(function bindRail() {
+  const t = document.getElementById('tool');
+  const apply = () => {
+    if (isWide()) { t.classList.add('rail'); t.style.pointerEvents = 'auto'; }
+    else { t.classList.remove('rail'); t.style.pointerEvents = ''; }
+  };
+  window.addEventListener('resize', apply);
+  t.addEventListener('mouseenter', () => { if (isWide()) t.classList.add('show'); });
+  t.addEventListener('mouseleave', () => { if (isWide()) t.classList.remove('show'); });
+  apply();
+})();
+
+/* ── 키보드 ── */
+document.addEventListener('keydown', (e) => {
+  if (document.getElementById('auth-gate').style.display === 'flex') return;
+  const t = e.target;
+  if (t && /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName)) return;
+  const k = e.key;
+  if (k === 'Escape') { closeAll(); return; }
+  if (!deck) return;
+  if (/^[1-6]$/.test(k)) { pick(+k - 1); }
+  else if (k === 'ArrowRight' || k === ' ') { move(1); }
+  else if (k === 'ArrowLeft') { move(-1); }
+  else if (k === 's' || k === 'S') { openTool(); }
+  else if (k === 'c' || k === 'C') { tapFlag(); }
+  else return;
+  e.preventDefault();
+});
+
+/* ── 시작 ── */
+window.addEventListener('pagehide', () => { if (deck && deck.kind === 'round') saveProgress(); saveSpot(); });
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'hidden') { if (deck && deck.kind === 'round') saveProgress(); saveSpot(); }
+});
+
+window._afterAuth = async function (user) {
+  if (user) { await syncDown(true); }
+  await restoreSpot();
+};
+if (typeof AUTH_SETTLED !== 'undefined' && AUTH_SETTLED) window._afterAuth(AUTH_USER);
+</script>
+</body>
+</html>
