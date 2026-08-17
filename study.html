@@ -209,6 +209,7 @@ button{font-family:inherit;color:inherit;background:none;border:none;cursor:poin
 #judge{display:flex;gap:8px;margin-top:10px}
 #judge button{flex:1;padding:12px;border-radius:14px;font-size:14px;color:var(--ink2);
   background:var(--glass);border:1px solid var(--glass-edge);transition:background .2s,color .2s}
+#judge #j-ok,#judge #j-no{font-size:18px;font-weight:700;letter-spacing:1px}
 #judge button.on-ok{background:var(--ok);border-color:var(--ok);color:#fff}
 #judge button.on-no{background:var(--no);border-color:var(--no);color:#fff}
 #judge button.on{background:var(--accent);border-color:var(--accent);color:#fff}
@@ -217,6 +218,11 @@ button{font-family:inherit;color:inherit;background:none;border:none;cursor:poin
 #exp{display:none;margin-top:20px;border-radius:20px;padding:20px;flex:none}
 #exp.show{display:block;animation:expIn .34s var(--ease)}
 @keyframes expIn{from{opacity:0;transform:translateY(10px)}}
+/* 스크롤 막대는 숨긴다 — 잘리면 알아서 밀어 보면 된다 */
+#exp{scrollbar-width:none;-ms-overflow-style:none}
+#exp::-webkit-scrollbar{width:0;height:0;display:none}
+#scroll{scrollbar-width:none;-ms-overflow-style:none}
+#scroll::-webkit-scrollbar{width:0;height:0;display:none}
 #exp .et{font-size:11px;font-weight:800;letter-spacing:.14em;color:var(--ink4);margin-bottom:12px}
 #exp .eb{font-size:15px;line-height:1.75;color:var(--ink2);white-space:pre-wrap}
 
@@ -388,9 +394,9 @@ body.sheet-open #tool{opacity:0 !important;pointer-events:none !important}
       <div id="subjwrap">
         <textarea id="subj" placeholder="여기에 답을 써보세요"></textarea>
         <div id="judge">
-          <button id="j-ok" onclick="judge('correct')">맞았어요</button>
-          <button id="j-see" onclick="toggleAnswer()">정답 보기</button>
-          <button id="j-no" onclick="judge('wrong')">틀렸어요</button>
+          <button id="j-ok" onclick="judge('correct')" title="맞았어요" aria-label="맞았어요">O</button>
+          <button id="j-see" onclick="toggleAnswer()">정답</button>
+          <button id="j-no" onclick="judge('wrong')" title="틀렸어요" aria-label="틀렸어요">X</button>
         </div>
       </div>
     </div>
@@ -640,8 +646,41 @@ function markedItems(kind) {
   else out.sort((a,b) => b.at - a.at);
   return out;
 }
+/* [수정] 오답이 하나도 안 나오던 원인.
+   정식 화면은 오답 목록을 가볍게 하려고, 회차 원본에서 찾을 수 있는 항목의
+   문제 사본(q)을 지우고 번호(qId)만 남긴다. 그런데 여기서는 사본이 있는 것만
+   골라 쓰고 있어서, 정리가 한 번 돌고 나면 오답이 통째로 사라져 보였다.
+   → 정식과 같은 방식으로 번호를 가지고 회차에서 찾고, 못 찾을 때만 사본을 쓴다. */
+function _entryQId(w) {
+  if (w.qId != null) return w.qId;
+  return w.q ? (w.q.id || w.q.num) : undefined;
+}
+function resolveEntryQ(w) {
+  const qId = _entryQId(w);
+  if (qId != null) {
+    const found = getRoundQs(w.cat, w.round)
+      .find(x => String(x.id) === String(qId) || String(x.num) === String(qId));
+    if (found) return found;
+  }
+  return w.q || null;      // 회차를 지웠거나 아직 안 받아왔으면 예전 사본이라도
+}
 function wrongDeckItems() {
-  return getWrong().filter(w => w.q).map(w => ({ q:w.q, cat:w.cat, round:w.round }));
+  const out = [];
+  getWrong().forEach(w => {
+    const q = resolveEntryQ(w);
+    if (q) out.push({ q, cat: w.cat, round: w.round });
+  });
+  return out;
+}
+// 오답이 가리키는 회차 중 이 기기에 없는 것 (문제 본문을 못 찾으니 받아와야 한다)
+function _wrongMissingRounds() {
+  const need = new Set();
+  getWrong().forEach(w => {
+    if (!w.cat || !w.round) return;
+    if (resolveEntryQ(w)) return;
+    if (!getRoundQs(w.cat, w.round).length) need.add(w.cat + '\u0000' + w.round);
+  });
+  return [...need];
 }
 function calcItems() {
   const out = [];
@@ -654,7 +693,7 @@ function calcItems() {
 // 숫자만 세는 용도 (판을 그릴 때)
 function counts() {
   return {
-    wrong: getWrong().length,
+    wrong: getWrong().length,   // 회차를 아직 안 받아왔어도 개수는 그대로 보여준다
     star: Object.keys(getStarred()).length,
     flag: Object.keys(getFlagged()).length,
     calc: calcItems().length,
@@ -679,7 +718,13 @@ async function openDeck(kind, cat, round, startIdx) {
       if (at >= 0) startIdx = at;
       else { startIdx = 0; for (let i = 0; i < items.length; i++) if (!(i in answered)) { startIdx = i; break; } }
     }
-  } else if (kind === 'wrong') { items = wrongDeckItems(); label = '<b>오답</b>';
+  } else if (kind === 'wrong') {
+    const need = _wrongMissingRounds();
+    if (need.length) {
+      showLoading(`오답이 있는 회차를 받아오는 중… (${need.length})`);
+      for (const k of need) { const [c, r] = k.split('\u0000'); await ensureRound(c, r); }
+    }
+    items = wrongDeckItems(); label = '<b>오답</b>';
   } else if (kind === 'star')  { items = markedItems('star').map(x => ({ q:x.q, cat:x.cat, round:x.round })); label = '<b>별표</b>';
   } else if (kind === 'flag')  { items = markedItems('flag').map(x => ({ q:x.q, cat:x.cat, round:x.round })); label = '<b>체크</b>';
   } else if (kind === 'calc')  { items = calcItems(); label = '<b>계산문제</b>'; }
@@ -802,12 +847,16 @@ function pick(i) {
 function judge(r) {
   if (!deck) return;
   const it = deck.items[deck.idx], q = it.q;
+  const last = deck.idx >= deck.items.length - 1;
   deck.answered[deck.idx] = r;
   if (deck.kind === 'round') {
     if (r === 'wrong') addWrong(it.cat, it.round, q, -1);
     saveProgress();
   }
   render();
+  // 판정하면 바로 다음 문항으로. 마지막에서는 넘기지 않는다(넘길 곳이 없다).
+  // 눌린 것이 잠깐 보이고 넘어가야 내가 뭘 눌렀는지 알 수 있다.
+  if (!last) setTimeout(() => { if (deck) move(1); }, 260);
 }
 function toggleAnswer() { if (!deck) return; deck.revealed[deck.idx] = !deck.revealed[deck.idx]; render(); }
 
