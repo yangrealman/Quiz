@@ -163,10 +163,17 @@ button{font-family:inherit;color:inherit;background:none;border:none;cursor:poin
   border-bottom:1.6px solid var(--ink4);transform:rotate(45deg) translateY(-1px);
   transition:transform .26s var(--ease)}
 #dial.open .car{transform:rotate(225deg) translateY(2px)}
+#topr{display:flex;align-items:center;gap:8px;flex:none}
 #theme{width:34px;height:34px;border-radius:999px;flex:none;font-size:15px;line-height:1;
   display:flex;align-items:center;justify-content:center;color:var(--ink3);
   transition:transform .18s var(--ease)}
 #theme:active{transform:scale(.92)}
+/* 제출 — 모의고사를 푸는 동안에만 나온다 */
+#submit{display:none;padding:8px 15px;border-radius:999px;font-size:12.5px;font-weight:700;
+  color:#fff;background:var(--accent);border:1px solid var(--accent);white-space:nowrap;
+  box-shadow:0 6px 18px -8px rgba(90,99,240,.7);transition:transform .18s var(--ease),opacity .2s}
+#submit:active{transform:scale(.96)}
+body.mock #submit{display:inline-flex}
 
 /* ── 본문 ── */
 #stage{position:relative;flex:1;min-height:0;display:flex;flex-direction:column;gap:0;align-items:stretch;
@@ -205,6 +212,8 @@ button{font-family:inherit;color:inherit;background:none;border:none;cursor:poin
   background:var(--glass);border:1px solid var(--glass-edge);transition:background .18s}
 #imgfold:active{background:var(--accent-soft)}
 #imgwrap.fold #imgcard{display:none}
+/* 접혀 있으면 카드가 사라져 띠가 문제에 바짝 붙는다 — 그만큼 띄운다 */
+#imgwrap.fold #imgbar{padding-top:16px}
 /* 폰 — 그림 칸이 위에 붙어 있으니 문제는 그 아래에서 시작한다 */
 #imgdock #imgwrap.show{padding-bottom:10px;border-bottom:1px solid var(--line)}
 body.has-img #scroll{padding-top:20px}
@@ -294,6 +303,9 @@ body.has-img #scroll{padding-top:20px}
 .srow.on .dot{background:var(--accent);opacity:1}
 .srow.on .n{color:var(--accent);font-weight:700}
 .sdiv{height:1px;background:var(--line);margin:6px 16px}
+.slab{font-size:10.5px;font-weight:800;letter-spacing:.14em;color:var(--ink4);padding:12px 16px 5px}
+.shint{font-size:12px;line-height:1.6;color:var(--ink3);padding:4px 16px 8px}
+.shint b{color:var(--ink2);font-weight:700}
 #scrim{position:fixed;inset:0;z-index:15;background:transparent;display:none}
 #scrim.show{display:block}
 /* 고르는 판이 열려 있는 동안 도구 막대는 감춘다 — 뒤에 비치고 눌리기까지 한다 */
@@ -353,6 +365,32 @@ body.sheet-open #tool{opacity:0 !important;pointer-events:none !important}
   font-size:16px;font-weight:700}
 .auth-skip{width:100%;margin-top:10px;padding:10px;color:var(--ink4);font-size:13px;text-decoration:underline}
 
+/* ── 모의고사 결과 ── */
+#res{display:none;position:relative;flex:1;min-height:0;overflow-y:auto;padding:8vh 0 20px;
+  scrollbar-width:none;-ms-overflow-style:none}
+#res::-webkit-scrollbar{width:0;height:0;display:none}
+#res.show{display:block;animation:expIn .4s var(--ease)}
+.res-in{width:100%;max-width:560px;margin:0 auto}
+.res-where{font-size:12.5px;color:var(--ink3);letter-spacing:-.2px}
+.res-big{font-size:64px;font-weight:800;letter-spacing:-2.5px;line-height:1.1;margin:4px 0 2px}
+.res-big small{font-size:20px;font-weight:700;margin-left:3px;letter-spacing:-.5px}
+.res-line{font-size:14px;color:var(--ink2);letter-spacing:-.2px}
+.res-line b{color:var(--ink);font-weight:700}
+.res-acts{display:flex;gap:8px;margin:22px 0 26px}
+.res-acts button{flex:1;padding:12px 6px;border-radius:16px;font-size:13px;color:var(--ink2);
+  transition:background .18s}
+.res-acts button:active{background:var(--accent-soft)}
+.res-label{font-size:11px;font-weight:800;letter-spacing:.14em;color:var(--ink4);margin-bottom:10px}
+.res-row{display:flex;align-items:center;gap:11px;width:100%;padding:12px 12px;border-radius:14px;
+  text-align:left;font-size:14px;color:var(--ink2);transition:background .18s}
+.res-row:active{background:var(--accent-soft)}
+.res-row .rq{flex:none;font-size:11px;font-weight:800;color:var(--no);letter-spacing:.04em;min-width:34px}
+.res-row .rt{flex:1;min-width:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.res-row .rr{flex:none;font-size:12px;color:var(--ink4)}
+/* 결과를 보는 동안에는 아래 줄(이전·다음)과 그림 칸을 감춘다 */
+body.result #foot,body.result #imgdock{display:none}
+body.result #scroll{display:none}
+
 /* ── 그림 크게 보기 ── */
 #lb{position:fixed;inset:0;z-index:60;display:none;align-items:center;justify-content:center;
   background:rgba(10,12,18,.93);-webkit-backdrop-filter:blur(6px); backdrop-filter:blur(6px);
@@ -388,7 +426,6 @@ body.sheet-open #tool{opacity:0 !important;pointer-events:none !important}
   #imgdock{display:none}
   #imgcard{margin-top:18px}
   #qimg{max-height:34vh}
-  #imgfold{display:none}
   body.has-img #scroll{padding-top:10vh}
   #sheet{left:30px;right:auto;width:340px;top:64px}
   /* 진도선은 글 기둥에 맞추기 어려우니(해설이 열리면 기둥이 왼쪽으로 간다)
@@ -430,7 +467,10 @@ body.sheet-open #tool{opacity:0 !important;pointer-events:none !important}
 <div id="app">
   <div id="top">
     <button id="dial" class="glass" onclick="toggleSheet()"><span id="dial-t">불러오는 중…</span> <span class="car"></span></button>
-    <button id="theme" class="glass" onclick="toggleTheme()" title="밝게 / 어둡게" aria-label="밝게 / 어둡게">☾</button>
+    <div id="topr">
+      <button id="submit" onclick="submitMock()">제출</button>
+      <button id="theme" class="glass" onclick="toggleTheme()" title="밝게 / 어둡게" aria-label="밝게 / 어둡게">☾</button>
+    </div>
   </div>
 
   <div id="stage">
@@ -448,8 +488,8 @@ body.sheet-open #tool{opacity:0 !important;pointer-events:none !important}
             <div id="imgmsg"></div>
           </div>
           <div id="imgbar">
-            <span>그림 · 눌러서 크게</span>
-            <button id="imgfold" onclick="toggleImgFold()">접기</button>
+            <span id="imgcap">그림 1장 · 눌러서 펴기</span>
+            <button id="imgfold" onclick="toggleImgFold()">펴기</button>
           </div>
         </div>
       </div>
@@ -467,6 +507,7 @@ body.sheet-open #tool{opacity:0 !important;pointer-events:none !important}
         <div id="expimg"></div></div>
     </div>
     <div id="empty"></div>
+    <div id="res"></div>
   </div>
 
   <div id="foot">
@@ -522,6 +563,13 @@ body.sheet-open #tool{opacity:0 !important;pointer-events:none !important}
      quiz_starred   { 자격증||회차||문항id: { cat, round, qId, level(1~5), addedAt } }
      quiz_flagged   { 자격증||회차||문항id: { cat, round, qId, addedAt } }
      quiz_hidden    { 자격증||회차||문항id: { cat, round, qId, addedAt } }
+     mock_records   [ { id, cat, mode, date, correct, total, pct, timeUsed, wrongCount,
+                        questionLog:[{round,qNum}] } ]
+     mock_wrong     [ { id: mock_시험번호_자격증_회차_번호, cat, round, q, myAnswer, mockId, addedAt } ]
+     mock_deck      { 자격증: [ '회차||번호', … ] }   ← '눈 돌리기'로 이미 낸 문제
+
+   study_mock 만은 이 화면 전용이다(이 기기에만 남는다) — 아직 제출하지 않은 시험을
+   되살리기 위한 것이라, 서버로도 정식 화면으로도 가지 않는다.
 
    답(answered) 값: 객관식은 고른 보기 번호(0부터), 필답형은 'correct'/'wrong'.
    0 이 유효한 값이라 참·거짓으로 판단하면 안 된다 — 항상 (i in answered) 로 본다.
@@ -562,7 +610,8 @@ async function save(key, value) {
 }
 
 const KEYS = ['quiz_index','quiz_categories','quiz_progress','quiz_wrong',
-              'quiz_starred','quiz_flagged','quiz_hidden','resume_bookmark'];
+              'quiz_starred','quiz_flagged','quiz_hidden','resume_bookmark',
+              'mock_records','mock_wrong','mock_deck'];
 let _syncing = false;
 async function syncDown(silent) {
   if (_syncing || !FIREBASE_OK) return;
@@ -768,8 +817,118 @@ function counts() {
     star: Object.keys(getStarred()).length,
     flag: Object.keys(getFlagged()).length,
     calc: calcItems().length,
+    mockwrong: mockWrongPool('').length,
   };
 }
+
+/* ══ 모의고사 ══
+   [형식 계약] 기록·오답·'눈 돌리기' 진도 모두 정식 화면과 같은 곳에 같은 모양으로 쌓는다
+   (mock_records · mock_wrong · mock_deck). 그래야 정식 화면의 모의고사 기록에 그대로 이어진다. */
+const getMockRecords = () => { const v = _get('mock_records', []); return Array.isArray(v) ? v : []; };
+const getMockWrongs  = () => { const v = _get('mock_wrong', []);   return Array.isArray(v) ? v : []; };
+const getMockDeck    = () => { const v = _get('mock_deck', {});    return (v && typeof v === 'object') ? v : {}; };
+const _deckKey = (round, num) => round + '||' + Number(num);
+
+const MOCK_MODES = [
+  { id: 'deck',   label: '눈 돌리기',   sub: '아직 안 본 문제에서만' },
+  { id: 'random', label: '완전 무작위', sub: '이미 본 문제도 다시' },
+  { id: 'wrong',  label: '오답에서만',  sub: '모의고사에서 틀렸던 것' },
+];
+// 지난번에 고른 방식·문항 수를 기억한다 (정식 화면과 같은 열쇠 · 이 기기 전용)
+function getMockMode() {
+  const m = (() => { try { return localStorage.getItem('mock_last_mode'); } catch (e) { return null; } })();
+  return MOCK_MODES.some(x => x.id === m) ? m : 'deck';
+}
+function getLastMockCount() {
+  const n = parseInt((() => { try { return localStorage.getItem('mock_last_count'); } catch (e) { return ''; } })() || '', 10);
+  return (!isNaN(n) && n > 0) ? n : 60;
+}
+
+// 이 자격증에서 이번 바퀴에 이미 낸 문제 — 처음이면 지금까지의 기록에서 채운다(정식과 같은 규칙)
+function getMockSeen(cat) {
+  const d = getMockDeck();
+  if (Array.isArray(d[cat])) return new Set(d[cat]);
+  const seeded = new Set();
+  getMockRecords().filter(r => r.cat === cat && (r.mode || 'deck') === 'deck')
+    .flatMap(r => r.questionLog || [])
+    .forEach(({ round, qNum }) => seeded.add(_deckKey(round, qNum)));
+  d[cat] = [...seeded];
+  save('mock_deck', d);
+  return seeded;
+}
+function setMockSeen(cat, set) { const d = getMockDeck(); d[cat] = [...set]; save('mock_deck', d); }
+
+// 모의고사 오답 통 — 같은 문제를 여러 번 틀렸으면 하나로 합치고, 지금 회차의 본문을 쓴다
+function mockWrongPool(cat) {
+  const seen = new Set(), pool = [];
+  getMockWrongs().forEach(w => {
+    if (!w || !w.q) return;
+    if (cat && w.cat !== cat) return;
+    if (isHidden(w.cat, w.round, w.q)) return;
+    const k = w.cat + ' ' + _deckKey(w.round, w.q.num);
+    if (seen.has(k)) return;
+    seen.add(k);
+    const live = getRoundQs(w.cat, w.round).find(x => Number(x.num) === Number(w.q.num));
+    pool.push({ q: live || w.q, cat: w.cat, round: w.round });
+  });
+  return pool;
+}
+
+// 제대로 된 섞기 (sort(()=>Math.random()-.5) 는 한쪽으로 치우친다)
+function _shuffle(a) {
+  for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; }
+  return a;
+}
+function mockPool(cat, mode) {
+  if (mode === 'wrong') return mockWrongPool(cat);
+  const pool = [];
+  roundList(cat).forEach(r => visibleRound(cat, r).items.forEach(q => pool.push({ q, cat, round: r })));
+  return pool;
+}
+function buildMock(cat, count, mode) {
+  const pool = mockPool(cat, mode);
+  if (!pool.length) return null;
+  count = Math.max(1, Math.min(parseInt(count) || 60, pool.length));
+  // 완전 무작위 · 오답에서만 — 통에서 그냥 뽑는다 (눈 돌리기 진도는 건드리지 않는다)
+  if (mode !== 'deck') return _shuffle(pool.slice()).slice(0, count);
+
+  const seen = getMockSeen(cat);
+  // 아직 제출 안 하고 풀던 시험이 있으면 그 문제는 빼 둔다 (새 시험에 겹쳐 나오지 않게)
+  const busy = new Set();
+  const ms = loadMockSave();
+  if (ms && ms.cat === cat) (ms.picks || []).forEach(p => busy.add(_deckKey(p.round, p.qNum)));
+
+  let left = _shuffle(pool.filter(it => {
+    const k = _deckKey(it.round, it.q.num);
+    return !seen.has(k) && !busy.has(k);
+  }));
+  let result;
+  if (left.length >= count) result = left.slice(0, count);
+  else {
+    // 남은 걸 다 써도 모자라면 한 바퀴 끝난 것 — 새로 섞어 이어 채운다
+    result = left.slice();
+    const used = new Set(result.map(it => _deckKey(it.round, it.q.num)));
+    result = result.concat(_shuffle(pool.filter(it => !used.has(_deckKey(it.round, it.q.num))))
+                          .slice(0, count - result.length));
+    setMockSeen(cat, new Set());
+    toast('전체 문제를 한 바퀴 다 봤어요 · 새로 섞어서 다시 시작합니다');
+  }
+  return result.length ? _shuffle(result) : null;
+}
+
+/* 아직 제출하지 않은 시험 (이 기기에만 남는다 — 새로고침해도 이어서 풀 수 있게) */
+function loadMockSave() { try { return JSON.parse(localStorage.getItem('study_mock') || 'null'); } catch (e) { return null; } }
+function saveMock() {
+  if (!deck || deck.kind !== 'mock' || deck.done) return;
+  try {
+    localStorage.setItem('study_mock', JSON.stringify({
+      cat: deck.cat, mode: deck.mode, startTime: deck.startTime, idx: deck.idx,
+      answered: deck.answered, inputs: deck.inputs,
+      picks: deck.items.map(it => ({ cat: it.cat, round: it.round, qNum: Number(it.q.num) })),
+    }));
+  } catch (e) {}
+}
+function clearMock() { try { localStorage.removeItem('study_mock'); } catch (e) {} }
 
 /* ── 묶음 열기 ── */
 async function openDeck(kind, cat, round, startIdx) {
@@ -798,20 +957,201 @@ async function openDeck(kind, cat, round, startIdx) {
     items = wrongDeckItems(); label = '<b>오답</b>';
   } else if (kind === 'star')  { items = markedItems('star').map(x => ({ q:x.q, cat:x.cat, round:x.round })); label = '<b>별표</b>';
   } else if (kind === 'flag')  { items = markedItems('flag').map(x => ({ q:x.q, cat:x.cat, round:x.round })); label = '<b>체크</b>';
-  } else if (kind === 'calc')  { items = calcItems(); label = '<b>계산문제</b>'; }
+  } else if (kind === 'calc')  { items = calcItems(); label = '<b>계산문제</b>';
+  } else if (kind === 'mockwrong') { items = mockWrongPool(''); label = '<b>모의고사 오답</b>'; }
 
   hideLoading();
   if (!items.length) {
     deck = null;
     showEmpty(kind === 'wrong' ? '오답이 없어요' : kind === 'star' ? '별표한 문제가 없어요'
-            : kind === 'flag' ? '체크한 문제가 없어요' : '계산문제가 없어요',
+            : kind === 'flag' ? '체크한 문제가 없어요'
+            : kind === 'mockwrong' ? '모의고사 오답이 없어요' : '계산문제가 없어요',
             '위 알약을 눌러 다른 걸 골라보세요');
     setDial(label + ' · 0');
     return;
   }
   deck = { kind, label, items, map, idx: Math.min(startIdx || 0, items.length - 1), answered, revealed: {}, inputs: {} };
+  hideResult();
   swapIn();
   saveSpot();
+}
+
+/* ── 모의고사 시작 ── */
+function startMock(cat, count, mode) {
+  closeAll();
+  const built = buildMock(cat, count, mode);
+  if (!built) { toast(mode === 'wrong' ? '이 자격증은 모의고사 오답이 아직 없어요' : '낼 문제가 없어요'); return; }
+  if (built.length < count) toast(`문제가 부족해서 ${built.length}문제로 만들었어요`);
+  try {
+    localStorage.setItem('mock_last_count', String(count));
+    localStorage.setItem('mock_last_mode', mode);
+  } catch (e) {}
+  deck = {
+    kind: 'mock', cat, mode, items: built, idx: 0, answered: {}, revealed: {}, inputs: {},
+    startTime: Date.now(), done: false,
+    label: `<b>${esc(cat)}</b> · ${mode === 'wrong' ? '오답 모의고사' : '모의고사'}`,
+  };
+  clearMock(); saveMock();
+  hideResult();
+  swapIn();
+}
+function mockAgain() {
+  if (!deck || deck.kind !== 'mock') return;
+  startMock(deck.cat, deck.items.length, deck.mode);
+}
+
+/* ── 제출 · 채점 ──
+   [주의] 안 푼 문제가 있으면 채점하지 않고 그 문항으로 데려간다 — 정식 화면과 같은 규칙이다.
+   (안 푼 것을 직접 찾아다니는 게 번거로워서 그렇게 정했다. 필답형은 O·X 를 누르지 않았으면 안 푼 것으로 본다) */
+function firstUnansweredIdx() {
+  if (!deck) return -1;
+  for (let i = 0; i < deck.items.length; i++) if (!(i in deck.answered)) return i;
+  return -1;
+}
+function submitMock() {
+  if (!deck || deck.kind !== 'mock') return;
+  if (deck.done) { showResult(); return; }
+  const gap = firstUnansweredIdx();
+  if (gap >= 0) {
+    deck.idx = gap; hideResult(); render();
+    toast(`아직 안 푼 문제가 ${deck.items.length - Object.keys(deck.answered).length}개 있어요`);
+    return;
+  }
+  gradeMock();
+}
+function gradeMock() {
+  const { items, answered, cat } = deck;
+  const mode = deck.mode || 'deck';
+  const wrongItems = [];
+  let correct = 0;
+  items.forEach((it, i) => {
+    const q = it.q, chosen = answered[i];
+    const opts = Array.isArray(q.options) ? q.options : [];
+    const isSubj = q.type === 'subj' || opts.length === 0;
+    if (isSubj) {
+      if (chosen === 'correct') correct++;
+      else if (chosen === 'wrong') wrongItems.push({ i, cat: it.cat, round: it.round, q, myAnswer: 'wrong' });
+    } else if (chosen === q.correct) correct++;
+    else wrongItems.push({ i, cat: it.cat, round: it.round, q, myAnswer: chosen !== undefined ? chosen : -1 });
+  });
+
+  const total = items.length;
+  const pct = Math.round(correct / total * 100);
+  const el = Math.floor((Date.now() - (deck.startTime || Date.now())) / 1000);
+  const timeUsed = `${Math.floor(el / 60)}분 ${el % 60}초`;
+  const recordId = Date.now();
+
+  const records = getMockRecords();
+  records.push({ id: recordId, cat, mode, date: recordId, correct, total, pct, timeUsed,
+                 wrongCount: wrongItems.length,
+                 questionLog: items.map(it => ({ round: it.round, qNum: Number(it.q.num) })) });
+  save('mock_records', records);
+
+  // '눈 돌리기' 진도는 실제로 제출한 시험만 친다 (무작위·오답 모의고사는 건드리지 않는다)
+  if (mode === 'deck') {
+    const seen = getMockSeen(cat);
+    items.forEach(it => seen.add(_deckKey(it.round, it.q.num)));
+    setMockSeen(cat, seen);
+  }
+
+  const mw = getMockWrongs();
+  wrongItems.forEach(w => {
+    mw.push({ id: `mock_${recordId}_${w.cat}_${w.round}_${w.q.num}`, cat: w.cat, round: w.round,
+              q: w.q, myAnswer: w.myAnswer, mockId: recordId, addedAt: Date.now() });
+  });
+  save('mock_wrong', mw);
+
+  deck.done = true;
+  deck.result = { correct, total, pct, timeUsed, wrong: wrongItems.map(w => ({ i: w.i, round: w.round, q: w.q })) };
+  clearMock();
+  showResult();
+}
+
+/* ── 결과 ── */
+function showResult() {
+  if (!deck || !deck.result) return;
+  const r = deck.result, pass = r.pct >= 60;
+  const rows = r.wrong.map(w => {
+    const t = String(w.q.question || '').replace(/\s+/g, ' ').slice(0, 46);
+    return `<button class="res-row" onclick="mockGoTo(${w.i})">
+      <span class="rq">Q ${w.i + 1}</span><span class="rt">${esc(t)}</span>
+      <span class="rr">${esc(w.round)}</span></button>`;
+  }).join('');
+  document.getElementById('res').innerHTML = `
+    <div class="res-in">
+      <div class="res-where">${esc(deck.cat)} ${deck.mode === 'wrong' ? '오답 모의고사' : '모의고사'} · ${pass ? '합격' : '불합격'}</div>
+      <div class="res-big" style="color:${pass ? 'var(--ok)' : 'var(--no)'}">${r.pct}<small>점</small></div>
+      <div class="res-line">${r.total}문항 중 <b>${r.correct}개</b> 정답 · 틀림 ${r.total - r.correct}개 · ${esc(r.timeUsed)}</div>
+      <div class="res-acts">
+        <button class="glass" onclick="mockAgain()">한 번 더</button>
+        <button class="glass" onclick="mockReviewWrong()">틀린 것만 보기</button>
+        <button class="glass" onclick="mockExit()">나가기</button>
+      </div>
+      ${r.wrong.length
+        ? `<div class="res-label">틀린 문제 ${r.wrong.length}개 · 누르면 그 문제로 갑니다</div>${rows}`
+        : `<div class="res-label">모두 맞혔어요</div>`}
+    </div>`;
+  document.getElementById('res').classList.add('show');
+  document.body.classList.add('result');
+  document.getElementById('empty').classList.remove('show');
+  setDial(deck.label + ' · 결과');
+  paintSubmit();
+}
+function hideResult() {
+  document.getElementById('res').classList.remove('show');
+  document.body.classList.remove('result');
+}
+function mockGoTo(i) {
+  if (!deck) return;
+  hideResult();
+  deck.idx = Math.max(0, Math.min(deck.items.length - 1, i));
+  deck.revealed[deck.idx] = true;      // 채점이 끝났으니 정답·해설을 펼친 채로 보여준다
+  render();
+}
+// 방금 시험에서 틀린 것만 다시 — 이건 시험이 아니라 그냥 훑어보는 묶음이다
+function mockReviewWrong() {
+  if (!deck || !deck.result || !deck.result.wrong.length) return;
+  const items = deck.result.wrong.map(w => ({ q: w.q, cat: deck.cat, round: w.round }));
+  const label = '<b>방금 시험 오답</b>';
+  deck = { kind: 'mockreview', label, items, map: null, idx: 0, answered: {}, revealed: {}, inputs: {} };
+  hideResult();
+  swapIn();
+}
+function mockExit() {
+  hideResult();
+  deck = null;
+  const bms = (() => { const v = _get('resume_bookmark', []); return Array.isArray(v) ? v : (v ? [v] : []); })();
+  const bm = bms.length ? bms[bms.length - 1] : null;
+  if (bm && bm.cat && roundCount(bm.cat, bm.round)) { openDeck('round', bm.cat, bm.round); return; }
+  const c = catList().filter(x => roundList(x).length)[0];
+  if (c) openDeck('round', c, roundList(c)[0]);
+  else showEmpty('등록된 문제가 없어요', '정식 화면에서 문제를 추가하세요');
+}
+
+/* 아직 제출 안 한 시험 되살리기 */
+async function resumeMock(ms) {
+  showLoading('풀던 모의고사를 불러오는 중…');
+  const need = new Set();
+  (ms.picks || []).forEach(p => { if (!getRoundQs(p.cat, p.round).length) need.add(p.cat + ' ' + p.round); });
+  for (const k of need) { const [c, r] = k.split(' '); await ensureRound(c, r); }
+  const items = [];
+  const keep = {};
+  (ms.picks || []).forEach((p, i) => {
+    const q = getRoundQs(p.cat, p.round).find(x => Number(x.num) === Number(p.qNum));
+    if (!q) return;                                  // 그 사이 지워진 문제는 빼고 이어 푼다
+    if (i in (ms.answered || {})) keep[items.length] = ms.answered[i];
+    items.push({ q, cat: p.cat, round: p.round });
+  });
+  hideLoading();
+  if (!items.length) { clearMock(); return false; }
+  deck = {
+    kind: 'mock', cat: ms.cat, mode: ms.mode || 'deck', items, idx: Math.min(ms.idx || 0, items.length - 1),
+    answered: keep, revealed: {}, inputs: ms.inputs || {}, startTime: ms.startTime || Date.now(), done: false,
+    label: `<b>${esc(ms.cat)}</b> · ${ms.mode === 'wrong' ? '오답 모의고사' : '모의고사'}`,
+  };
+  hideResult();
+  swapIn();
+  return true;
 }
 
 /* ── 문제 그림 ──
@@ -906,8 +1246,7 @@ function paintQImg(q) {
     return;
   }
   wrap.classList.add('show');
-  wrap.classList.toggle('fold', !isImgOpen());
-  document.getElementById('imgfold').textContent = isImgOpen() ? '접기' : '펴기';
+  _paintImgFold(isImgOpen());
   const mem = _memGet(id);
   if (mem) { _showQImg(mem); return; }
   img.style.display = 'none'; img.removeAttribute('src');
@@ -941,14 +1280,21 @@ function retryQImg() {
   _tryQImg(id, 0);
 }
 
-/* 접어 두면 다음 문제·다음 실행에도 접힌 채로 나온다.
-   열쇠는 정식 화면과 같은 'qimg_open' — 이 기기에만 남고 서버로 가지 않는다 */
-function isImgOpen() { try { return localStorage.getItem('qimg_open') !== '0'; } catch (e) { return true; } }
-function toggleImgFold() {
-  const open = !isImgOpen();
-  try { localStorage.setItem('qimg_open', open ? '1' : '0'); } catch (e) {}
+/* [수정] 그림은 접힌 채로 시작한다 — 문제부터 읽고 필요할 때 펴는 쪽이 편하다고 해서.
+   펴 둔 상태는 다음 문제·다음 실행에도 이어진다.
+   열쇠를 정식 화면('qimg_open')과 따로 두는 이유: 두 화면은 기본값이 서로 다르다
+   (정식은 펴진 채로 시작). 같이 쓰면 한쪽에서 접은 것이 다른 쪽까지 바꾼다.
+   이 기기에만 남고 서버로 가지 않는다. */
+function isImgOpen() { try { return localStorage.getItem('study_qimg_open') === '1'; } catch (e) { return false; } }
+function _paintImgFold(open) {
   document.getElementById('imgwrap').classList.toggle('fold', !open);
   document.getElementById('imgfold').textContent = open ? '접기' : '펴기';
+  document.getElementById('imgcap').textContent = open ? '그림 · 눌러서 크게' : '그림 1장 · 눌러서 펴기';
+}
+function toggleImgFold() {
+  const open = !isImgOpen();
+  try { localStorage.setItem('study_qimg_open', open ? '1' : '0'); } catch (e) {}
+  _paintImgFold(open);
 }
 
 // 해설 그림 — 정답을 본 뒤 해설 글 아래에 붙는다
@@ -1043,6 +1389,8 @@ function closeLightbox() {
 function setDial(html) { document.getElementById('dial-t').innerHTML = html; }
 
 function showEmpty(big, sub) {
+  hideResult();
+  document.body.classList.remove('mock');
   const el = document.getElementById('empty');
   el.innerHTML = `<div class="big">${esc(big)}</div><div>${esc(sub || '')}</div>`;
   el.classList.add('show');
@@ -1067,9 +1415,17 @@ function swapIn() {
   setTimeout(() => { render(); st.classList.remove('swap'); }, 150);
 }
 
+function paintSubmit() {
+  const b = document.getElementById('submit');
+  document.body.classList.toggle('mock', !!(deck && deck.kind === 'mock'));
+  if (!deck || deck.kind !== 'mock') return;
+  b.textContent = deck.done ? '결과' : `제출 ${Object.keys(deck.answered).length}/${deck.items.length}`;
+}
+
 function render() {
   if (!deck) return;
   hideEmpty();
+  paintSubmit();
   const it = deck.items[deck.idx], q = it.q;
   const opts = Array.isArray(q.options) ? q.options : [];
   const isSubj = q.type === 'subj' || opts.length === 0;
@@ -1143,6 +1499,8 @@ function pick(i) {
     if (i !== q.correct) addWrong(it.cat, it.round, q, i);
     saveProgress();
   }
+  // 모의고사는 오답노트를 건드리지 않는다 — 채점할 때 모의고사 오답으로만 쌓인다 (정식과 같은 규칙)
+  if (deck.kind === 'mock') saveMock();
   render();
 }
 function judge(r) {
@@ -1154,6 +1512,7 @@ function judge(r) {
     if (r === 'wrong') addWrong(it.cat, it.round, q, -1);
     saveProgress();
   }
+  if (deck.kind === 'mock') saveMock();
   render();
   // 판정하면 바로 다음 문항으로. 마지막에서는 넘기지 않는다(넘길 곳이 없다).
   // 눌린 것이 잠깐 보이고 넘어가야 내가 뭘 눌렀는지 알 수 있다.
@@ -1163,10 +1522,12 @@ function toggleAnswer() { if (!deck) return; deck.revealed[deck.idx] = !deck.rev
 
 function move(d) {
   if (!deck) return;
+  if (document.body.classList.contains('result')) return;   // 결과를 보는 중에는 문항이 넘어가지 않게
   const n = deck.idx + d;
   if (n < 0 || n >= deck.items.length) return;
   deck.idx = n;
   if (deck.kind === 'round') saveProgress();
+  if (deck.kind === 'mock') saveMock();
   saveSpot();
   render();
 }
@@ -1265,7 +1626,70 @@ function renderSheet() {
   rows.push(mk('calc', '계산문제', c.calc));
   rows.push('<div class="sdiv"></div>');
   rows.push(`<button class="srow" onclick="openPicker()"><span class="dot"></span>회차 고르기<span class="n">→</span></button>`);
+  rows.push(`<button class="srow${deck && deck.kind === 'mock' ? ' on' : ''}"
+    onclick="openMockSheet()"><span class="dot"></span>모의고사<span class="n">→</span></button>`);
+  rows.push(mk('mockwrong', '모의고사 오답', c.mockwrong));
   document.getElementById('sheet').innerHTML = rows.join('');
+}
+
+/* 모의고사 판 — 방식과 문항 수를 한 판에서 고르고, 문항 수를 누르면 바로 시작한다 */
+function openMockSheet(cat) {
+  const cats = catList().filter(c => roundList(c).length || mockWrongPool(c).length);
+  if (!cats.length) { toast('등록된 문제가 없어요'); return; }
+  if (!cat && cats.length === 1) cat = cats[0];
+  const rows = [`<button class="srow" onclick="renderSheet()"><span class="dot"></span>← 뒤로</button>`,
+                '<div class="sdiv"></div>'];
+  if (!cat) {
+    cats.forEach(c => rows.push(`<button class="srow" onclick="openMockSheet('${esc(c)}')">
+      <span class="dot"></span>${esc(c)}<span class="n">모의고사 →</span></button>`));
+    document.getElementById('sheet').innerHTML = rows.join('');
+    return;
+  }
+  const mode = getMockMode();
+  const ms = loadMockSave();
+  if (ms && ms.cat === cat && (ms.picks || []).length) {
+    const doneN = Object.keys(ms.answered || {}).length;
+    rows.push(`<button class="srow on" onclick="resumeMockSave()">
+      <span class="dot"></span>풀던 시험 이어서<span class="n">${doneN}/${ms.picks.length}</span></button>`);
+    rows.push('<div class="sdiv"></div>');
+  }
+  if (cats.length > 1) rows.push(`<button class="srow" onclick="openMockSheet()"><span class="dot"></span>← ${esc(cat)}</button>`);
+  rows.push('<div class="slab">출제 방식</div>');
+  MOCK_MODES.forEach(m => rows.push(`<button class="srow${mode === m.id ? ' on' : ''}"
+    onclick="setMockMode('${m.id}','${esc(cat)}')"><span class="dot"></span>${m.label}<span class="n">${m.sub}</span></button>`));
+
+  // 낼 수 있는 문제가 몇 개인지 먼저 알려 준다 (방식마다 통이 다르다)
+  const pool = mockPool(cat, mode).length;
+  let hint;
+  if (!pool) hint = mode === 'wrong' ? '이 자격증은 모의고사 오답이 아직 없어요' : '낼 문제가 없어요';
+  else if (mode === 'wrong') hint = `모의고사 오답 <b>${pool}개</b>에서 뽑아요`;
+  else if (mode === 'random') hint = `전체 <b>${pool}문제</b>에서 매번 새로 뽑아요`;
+  else {
+    const seen = getMockSeen(cat).size;
+    hint = `전체 ${pool}문제 중 <b>${Math.min(seen, pool)}개</b>를 봤어요 · 남은 ${Math.max(0, pool - seen)}개에서 겹치지 않게 냅니다`;
+  }
+  rows.push(`<div class="shint">${hint}</div>`);
+
+  if (pool) {
+    rows.push('<div class="slab">문항 수</div>');
+    const last = getLastMockCount();
+    const opts = [...new Set([10, 20, 40, 60, 100, last].filter(n => n > 0 && n <= pool))].sort((a, b) => a - b);
+    if (!opts.length) opts.push(pool);
+    else if (opts[opts.length - 1] < pool) opts.push(pool);       // 통을 다 쓰는 선택지도 하나
+    opts.forEach(n => rows.push(`<button class="srow${n === last ? ' on' : ''}"
+      onclick="startMock('${esc(cat)}',${n},'${mode}')">
+      <span class="dot"></span>${n}문항<span class="n">${n === pool ? '전부 · 시작 →' : '시작 →'}</span></button>`));
+  }
+  document.getElementById('sheet').innerHTML = rows.join('');
+}
+function setMockMode(m, cat) {
+  try { localStorage.setItem('mock_last_mode', m); } catch (e) {}
+  openMockSheet(cat);
+}
+async function resumeMockSave() {
+  const ms = loadMockSave();
+  closeAll();
+  if (!ms || !(await resumeMock(ms))) toast('풀던 시험을 되살리지 못했어요');
 }
 
 /* 회차 고르기 — 같은 판 안에서 한 겹 들어간다 */
@@ -1365,12 +1789,17 @@ function toggleTheme() {
 function saveSpot() {
   try {
     if (!deck) return;
+    // 모의고사는 자리만 적어 두면 되살릴 수 없다 (낸 문제 목록이 있어야 한다) → study_mock 이 따로 맡는다
+    if (deck.kind === 'mock' || deck.kind === 'mockreview') return;
     const it = deck.items[deck.idx];
     localStorage.setItem('study_spot', JSON.stringify({
       kind: deck.kind, cat: it.cat, round: it.round, idx: deck.idx, at: Date.now() }));
   } catch (e) {}
 }
 async function restoreSpot() {
+  // 풀다 만 모의고사가 있으면 그것부터 되살린다 (제출하기 전에 창을 닫아도 이어서 풀 수 있게)
+  const ms = loadMockSave();
+  if (ms && (ms.picks || []).length && await resumeMock(ms)) return;
   let s = null;
   try { s = JSON.parse(localStorage.getItem('study_spot') || 'null'); } catch (e) {}
   if (s && Date.now() - (s.at || 0) < 30 * 24 * 3600 * 1000) {
@@ -1433,10 +1862,13 @@ document.addEventListener('keydown', (e) => {
 });
 
 /* ── 시작 ── */
-window.addEventListener('pagehide', () => { if (deck && deck.kind === 'round') saveProgress(); saveSpot(); });
-document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'hidden') { if (deck && deck.kind === 'round') saveProgress(); saveSpot(); }
-});
+const _parkAll = () => {
+  if (deck && deck.kind === 'round') saveProgress();
+  if (deck && deck.kind === 'mock') saveMock();
+  saveSpot();
+};
+window.addEventListener('pagehide', _parkAll);
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') _parkAll(); });
 
 window._afterAuth = async function (user) {
   if (user) { await syncDown(true); }
