@@ -743,7 +743,17 @@ function isCalcQ(q) {
 let deck = null;   // { kind, label, items:[{q,cat,round}], idx, answered:{}, revealed:{}, map }
 let _lastTap = 0;
 
-const esc = (s) => String(s == null ? '' : s);
+/* [수정] esc 가 String() 이기만 했다. 보기 글·자격증 이름·문제 앞부분을 innerHTML 로
+   넣는 자리가 있어서, 문제 본문에 `<` 같은 글자가 섞이면 화면이 깨지거나 그 안의 태그가
+   그대로 살아난다(정식 화면은 escHtml 로 막고 있다). 같은 방식으로 맞춘다.
+   escArg 는 onclick="…('여기')" 처럼 속성 안 문자열 자리에 쓴다 — 이름에 따옴표가
+   들어가면 단추가 통째로 망가지기 때문이다. */
+const esc = (v) => v == null ? '' : String(v)
+  .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+const escArg = (v) => v == null ? '' : String(v)
+  .replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '&quot;')
+  .replace(/&(?!quot;|amp;|lt;|gt;|#)/g, '&amp;')
+  .replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\r?\n/g, ' ');
 
 function toast(msg) {
   const t = document.getElementById('toast');
@@ -1614,7 +1624,7 @@ function renderSheet() {
   const rows = [];
   if (bm && bm.cat && roundCount(bm.cat, bm.round)) {
     rows.push(`<button class="srow${deck && deck.kind === 'round' ? ' on' : ''}"
-      onclick="openDeck('round','${esc(bm.cat)}','${esc(bm.round)}')">
+      onclick="openDeck('round','${escArg(bm.cat)}','${escArg(bm.round)}')">
       <span class="dot"></span>이어서 풀기<span class="n">${esc(bm.cat)} ${esc(bm.round)}</span></button>`);
     rows.push('<div class="sdiv"></div>');
   }
@@ -1640,7 +1650,7 @@ function openMockSheet(cat) {
   const rows = [`<button class="srow" onclick="renderSheet()"><span class="dot"></span>← 뒤로</button>`,
                 '<div class="sdiv"></div>'];
   if (!cat) {
-    cats.forEach(c => rows.push(`<button class="srow" onclick="openMockSheet('${esc(c)}')">
+    cats.forEach(c => rows.push(`<button class="srow" onclick="openMockSheet('${escArg(c)}')">
       <span class="dot"></span>${esc(c)}<span class="n">모의고사 →</span></button>`));
     document.getElementById('sheet').innerHTML = rows.join('');
     return;
@@ -1656,7 +1666,7 @@ function openMockSheet(cat) {
   if (cats.length > 1) rows.push(`<button class="srow" onclick="openMockSheet()"><span class="dot"></span>← ${esc(cat)}</button>`);
   rows.push('<div class="slab">출제 방식</div>');
   MOCK_MODES.forEach(m => rows.push(`<button class="srow${mode === m.id ? ' on' : ''}"
-    onclick="setMockMode('${m.id}','${esc(cat)}')"><span class="dot"></span>${m.label}<span class="n">${m.sub}</span></button>`));
+    onclick="setMockMode('${m.id}','${escArg(cat)}')"><span class="dot"></span>${m.label}<span class="n">${m.sub}</span></button>`));
 
   // 낼 수 있는 문제가 몇 개인지 먼저 알려 준다 (방식마다 통이 다르다)
   const pool = mockPool(cat, mode).length;
@@ -1677,7 +1687,7 @@ function openMockSheet(cat) {
     if (!opts.length) opts.push(pool);
     else if (opts[opts.length - 1] < pool) opts.push(pool);       // 통을 다 쓰는 선택지도 하나
     opts.forEach(n => rows.push(`<button class="srow${n === last ? ' on' : ''}"
-      onclick="startMock('${esc(cat)}',${n},'${mode}')">
+      onclick="startMock('${escArg(cat)}',${n},'${mode}')">
       <span class="dot"></span>${n}문항<span class="n">${n === pool ? '전부 · 시작 →' : '시작 →'}</span></button>`));
   }
   document.getElementById('sheet').innerHTML = rows.join('');
@@ -1700,7 +1710,7 @@ function openPicker(cat) {
   const rows = [`<button class="srow" onclick="renderSheet()"><span class="dot"></span>← 뒤로</button>`,
                 '<div class="sdiv"></div>'];
   if (!cat) {
-    cats.forEach(c => rows.push(`<button class="srow" onclick="openPicker('${esc(c)}')">
+    cats.forEach(c => rows.push(`<button class="srow" onclick="openPicker('${escArg(c)}')">
       <span class="dot"></span>${esc(c)}<span class="n">${roundList(c).length}회차</span></button>`));
   } else {
     const prog = getProg();
@@ -1708,7 +1718,7 @@ function openPicker(cat) {
     roundList(cat).forEach(r => {
       const total = roundCount(cat, r);
       const doneN = Object.keys((prog[cat + '_' + r] || {}).answered || {}).length;
-      rows.push(`<button class="srow" onclick="openDeck('round','${esc(cat)}','${esc(r)}')">
+      rows.push(`<button class="srow" onclick="openDeck('round','${escArg(cat)}','${escArg(r)}')">
         <span class="dot"></span>${esc(r)}회차<span class="n">${doneN}/${total}</span></button>`);
     });
   }
@@ -1868,7 +1878,13 @@ const _parkAll = () => {
   saveSpot();
 };
 window.addEventListener('pagehide', _parkAll);
-document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') _parkAll(); });
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'hidden') { _parkAll(); return; }
+  // [추가] 이 화면은 열 때 한 번만 서버와 맞춘다. 탭을 오래 열어 둔 채 다른 화면에서
+  //        기록을 바꾸고 돌아오면, 여기 있던 낡은 값이 새 것을 덮을 수 있었다.
+  //        → 돌아올 때마다 조용히 다시 맞춘다.
+  syncDown(true);
+});
 
 window._afterAuth = async function (user) {
   if (user) { await syncDown(true); }
