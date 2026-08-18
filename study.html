@@ -252,10 +252,16 @@ body.has-img #scroll{padding-top:20px}
 #judge button.on-no{background:var(--no);border-color:var(--no);color:#fff}
 #judge button.on{background:var(--accent);border-color:var(--accent);color:#fff}
 
-/* 해설 — 폰에서는 아래, PC 에서는 오른쪽 */
-#exp{display:none;margin-top:20px;border-radius:20px;padding:20px;flex:none}
-#exp.show{display:block;animation:expIn .34s var(--ease)}
-@keyframes expIn{from{opacity:0;transform:translateY(10px)}}
+/* 해설 — 폰에서는 아래, PC 에서는 오른쪽
+   [수정] 예전엔 display:none ↔ block 이라 열릴 때만 애니메이션이 있고 닫을 때는 툭 사라졌다
+   (정답을 다시 눌러 접을 때 어색했던 이유). 이제 높이를 0fr↔1fr 로 줄였다 폈다 해서
+   닫힐 때도 같은 속도로 접힌다. 안쪽 .exp-in 이 그 한 칸이다. */
+#exp{display:grid;grid-template-rows:0fr;opacity:0;flex:none;
+  margin-top:0;padding:0 20px;border-radius:20px;border-color:transparent;
+  transition:grid-template-rows .34s var(--ease), opacity .26s var(--ease),
+             margin-top .34s var(--ease), padding .34s var(--ease)}
+#exp.show{grid-template-rows:1fr;opacity:1;margin-top:20px;padding:20px;border-color:var(--glass-edge)}
+.exp-in{min-height:0;overflow:hidden}
 /* 스크롤 막대는 숨긴다 — 잘리면 알아서 밀어 보면 된다 */
 #exp{scrollbar-width:none;-ms-overflow-style:none}
 #exp::-webkit-scrollbar{width:0;height:0;display:none}
@@ -415,18 +421,26 @@ body.result #scroll{display:none}
   /* 문제와 해설을 나란히 세우고 둘을 통째로 가운데에 둔다.
      오른쪽 기둥은 처음부터 자리를 잡고 비어 있다가 해설이 채운다 —
      그래서 답을 골라도 문제 기둥은 1px 도 움직이지 않는다. */
+  /* [수정] 문제 기둥을 좁히고 해설 기둥을 넓혔다 — 외울 건 해설이라 그쪽에 자리를 더 준다.
+     본문이 시작하는 높이도 조금 올렸다(16vh → 12vh). */
   #scroll{display:flex;align-items:flex-start;justify-content:center;
-    gap:clamp(30px,4vw,60px);max-width:none;padding:16vh 0 16px}
-  #main{width:min(700px,50vw);flex:none}
-  #exp{display:block;width:min(420px,28vw);flex:none;margin:0;position:static;
-    max-height:66vh;overflow-y:auto;opacity:0;transform:translateX(18px);visibility:hidden;
-    transition:opacity .32s var(--ease), transform .36s var(--ease);pointer-events:none}
-  #exp.show{opacity:1;transform:none;visibility:visible;pointer-events:auto;animation:none}
+    gap:clamp(30px,4vw,60px);max-width:none;padding:12vh 0 16px}
+  #main{width:min(560px,42vw);flex:none}
+  /* [수정] 닫을 때가 어색했던 이유: visibility 가 전환 목록에 없어서 사라지는 순간 뚝 끊겼다.
+     이제 흐려지는 것이 끝난 뒤에(0.36초) 감춘다 — 열 때는 곧바로 보이게 한다. */
+  #exp{display:block;grid-template-rows:none;width:min(520px,34vw);flex:none;margin:0;position:static;
+    padding:20px;border-color:var(--glass-edge);
+    max-height:70vh;overflow-y:auto;opacity:0;transform:translateX(18px);visibility:hidden;
+    transition:opacity .32s var(--ease), transform .36s var(--ease), visibility 0s .36s;
+    pointer-events:none}
+  #exp.show{opacity:1;transform:none;visibility:visible;pointer-events:auto;animation:none;
+    margin:0;padding:20px;transition:opacity .28s var(--ease), transform .3s var(--ease), visibility 0s 0s}
+  .exp-in{overflow:visible}
   /* 그림은 문제 기둥 안, 문제 바로 아래 — 오른쪽 기둥은 해설만 쓴다 */
   #imgdock{display:none}
   #imgcard{margin-top:18px}
   #qimg{max-height:34vh}
-  body.has-img #scroll{padding-top:10vh}
+  body.has-img #scroll{padding-top:7vh}
   #sheet{left:30px;right:auto;width:340px;top:64px}
   /* 진도선은 글 기둥에 맞추기 어려우니(해설이 열리면 기둥이 왼쪽으로 간다)
      화면 전체를 가로지르는 실낱으로 둔다 */
@@ -454,6 +468,44 @@ body.result #scroll{display:none}
   .tbtn{padding:9px 0;font-size:10px}
   .tbtn b{font-size:15px;margin-bottom:1px}
   #toast{bottom:34px}
+
+  /* ── 판정(O · 정답 · X)도 왼쪽 세로 막대로 ──
+     도구 막대와 같은 결로 둔다: 평소엔 옅게 떠 있고 마우스가 가면 또렷해진다.
+     필답형에서만 나오므로(부모 #subjwrap 이 그때만 보인다) 객관식 화면은 그대로다.
+     [주의] 도구 막대와 같은 자리에 두면 겹친다 — 필답형일 때만 도구를 위로,
+     판정을 아래로 갈라 놓는다(가운데에서 각각 96px). */
+  #judge{position:fixed;z-index:24;left:22px;top:50%;width:64px;
+    flex-direction:column;gap:4px;margin:0;padding:9px 7px;border-radius:22px;
+    border:1px solid transparent;background:transparent;box-shadow:none;
+    transform:translate(-14px,calc(-50% + 96px));
+    transition:transform .3s var(--ease), background .24s, border-color .24s, box-shadow .24s}
+  #judge:hover,#judge:has(:focus-visible){transform:translate(0,calc(-50% + 96px));background:var(--glass);
+    border-color:var(--glass-edge);box-shadow:0 1px 0 var(--glass-hi) inset, var(--shadow)}
+  #judge button{flex:none;padding:9px 0;font-size:10.5px;border-radius:16px;
+    background:transparent;border-color:transparent;opacity:.22;
+    transition:opacity .18s, background .18s, border-color .18s}
+  #judge #j-ok,#judge #j-no{font-size:15px}
+  #judge:hover button,#judge:has(:focus-visible) button{opacity:1;background:var(--glass);border-color:var(--glass-edge)}
+  /* 눌러 둔 것은 늘 또렷하게 (도구 막대의 별표·체크와 같은 규칙) */
+  #judge button.on-ok,#judge button.on-no,#judge button.on{opacity:1}
+  body.subj #tool{transform:translate(-14px,calc(-50% - 96px))}
+  body.subj #tool.show{transform:translate(0,calc(-50% - 96px))}
+
+  /* ── 위 알약·테마·아래 줄도 같은 결로 ──
+     지워지는 게 아니라 옅게 남아 있다가, 마우스가 가면 또렷해진다. */
+  #dial,#theme{opacity:.3;background:transparent;border-color:transparent;box-shadow:none;
+    transition:opacity .22s var(--ease), background .22s, border-color .22s, box-shadow .22s}
+  #top:hover #dial,#top:hover #theme,#dial:focus-visible,#theme:focus-visible,
+  body.sheet-open #dial,#dial.open{opacity:1;background:var(--glass);border-color:var(--glass-edge);
+    box-shadow:0 1px 0 var(--glass-hi) inset, 0 6px 18px -10px rgba(20,24,40,.3)}
+  #foot .arrow{opacity:.26;background:transparent;border-color:transparent;box-shadow:none;
+    transition:opacity .22s var(--ease), background .22s, border-color .22s, box-shadow .22s, transform .16s var(--ease)}
+  #foot:hover .arrow,.arrow:focus-visible{opacity:1;background:var(--glass);border-color:var(--glass-edge);
+    box-shadow:0 1px 0 var(--glass-hi) inset, 0 6px 18px -10px rgba(20,24,40,.3)}
+  #foot .arrow:disabled{opacity:.1}
+  #foot:hover .arrow:disabled{opacity:.26}
+  #bar{opacity:.32;transition:opacity .22s var(--ease)}
+  #foot:hover #bar,#bar.drag{opacity:1}
 }
 @media (prefers-reduced-motion: reduce){
   *{animation-duration:.01ms !important;transition-duration:.01ms !important}
@@ -503,8 +555,12 @@ body.result #scroll{display:none}
         </div>
       </div>
     </div>
-      <div id="exp" class="glass"><div class="et">해설</div><div class="eb" id="exp-b"></div>
-        <div id="expimg"></div></div>
+      <!-- [수정] 안쪽을 한 겹 감싼다 — 폰에서 해설이 닫힐 때도 스르르 접히게 하려면
+           높이를 0fr↔1fr 로 줄여야 하는데, 그러려면 자식이 하나여야 한다 -->
+      <div id="exp" class="glass"><div class="exp-in">
+        <div class="et">해설</div><div class="eb" id="exp-b"></div>
+        <div id="expimg"></div>
+      </div></div>
     </div>
     <div id="empty"></div>
     <div id="res"></div>
@@ -1454,6 +1510,8 @@ function render() {
 
   const ops = document.getElementById('ops');
   const sw = document.getElementById('subjwrap');
+  // 넓은 화면에서는 판정 막대가 왼쪽에 따로 서므로, 도구 막대가 자리를 비켜야 한다
+  document.body.classList.toggle('subj', isSubj);
   if (isSubj) {
     ops.innerHTML = ''; ops.style.display = 'none'; sw.style.display = 'block';
     const ta = document.getElementById('subj');
