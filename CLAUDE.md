@@ -10,7 +10,9 @@
   모의고사·모의고사 오답)을 갈아탄다. 유리 질감·전환이 있는 쪽.
   **정식과 같은 저장소·같은 형식** — 파일 맨 위 '형식 계약' 참고.
   모의고사도 정식과 같은 곳에 쌓는다(`mock_records`·`mock_wrong`·`mock_deck`). 아직 제출하지 않은
-  시험만 이 화면 전용 `study_mock`(이 기기)에 둔다. 문제 그림은 `q.imgId`/`q.expImgId` →
+  시험만 이 화면 전용 `study_mock`(이 기기)에 둔다.
+  어두운 화면의 배경은 WebGL 빛줄기(React Bits 의 Lightfall 을 옮긴 것 · 라이브러리 없이 순수
+  WebGL). **밝은 화면·다른 탭·움직임 줄이기에서는 돌리지 않는다** — `lfStart`/`lfStop` 참고. 문제 그림은 `q.imgId`/`q.expImgId` →
   IndexedDB(`yjnote-img`) → 서버 `quiz_img_<id>` 순서로 **읽기만** 한다.
 - `light.html` = 더 작은 라이트 버전(문제 풀기·오답노트), `home.html` = 예전 원페이지 홈
   (설정에서 뺐지만 파일은 남아 있음).
