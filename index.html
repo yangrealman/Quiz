@@ -5352,7 +5352,16 @@
   .mx-sqrt { display: inline-flex; align-items: stretch; margin: 0 2px; }
   .mx-sym { font-size: 1.05em; line-height: 1; }
   .mx-rad { border-top: 1.6px solid currentColor; padding: 2px 4px 0; margin-top: 0.18em; display: flex; align-items: center; }
-  .mx-pow { font-size: 0.6em; align-self: flex-start; margin-left: 1px; }
+  /* 거듭제곱 — [수정] 예전엔 글자 맨 위에 나란히 붙여 두기만 했다.
+     지수가 분수처럼 두 줄이면 밑과 키가 비슷해져서, 8의 2/3제곱인지 8 곱하기 2/3인지
+     구분이 안 됐다. 종이에 쓰듯 지수 아랫변이 밑의 머리끝쯤 오도록 위로 올린다.
+     (top 의 em 은 이미 작아진 지수 기준이라 실제로는 본문의 절반쯤 올라간다) */
+  .mx-pow { font-size: 0.5em; align-self: flex-start; margin-left: 2px;
+            position: relative; top: -1.15em; }
+  /* 올린 지수가 위로 잘리지 않게 식 칸에 여유를 준다.
+     [주의] .mx 는 가로 스크롤(overflow-x:auto)이라 세로로도 잘린다 — 올린 높이(약 14px)보다
+     넉넉해야 한다. 안 그러면 2² 의 2 가 윗변에서 잘린다. */
+  .mx { padding-top: 22px; overflow-y: hidden; }
   .mx-grp { display: inline-flex; align-items: center; }
   .mx-par { color: var(--gray-500); }
   /* 아직 안 채운 칸 — 지금 입력받는 칸은 진하게 */
@@ -7424,8 +7433,8 @@
       <div class="calc-result" id="calc-result"></div>
     </div>
     <div class="calc-modes">
-      <button class="calc-mode on" id="calc-mode-frac" onclick="calcSetMode('frac')">분수</button>
-      <button class="calc-mode" id="calc-mode-dec" onclick="calcSetMode('dec')">소수</button>
+      <button class="calc-mode on" id="calc-mode-dec" onclick="calcSetMode('dec')">소수</button>
+      <button class="calc-mode" id="calc-mode-frac" onclick="calcSetMode('frac')">분수</button>
       <button class="calc-chip" onclick="calcClearHist()">이력 지우기</button>
     </div>
     <div class="calc-keys" id="calc-keys"></div>
@@ -12656,6 +12665,20 @@ function rDiv(a, b) {
   const d = toNum(b); if (d === 0) throw new Error('0으로 나눌 수 없어요');
   return F(toNum(a) / d);
 }
+// 정확한 k제곱근 (딱 떨어질 때만 값을 돌려주고, 아니면 null)
+function _iRoot(v, k) {
+  if (v < 0n) return null;
+  if (v < 2n || k === 1n) return v;
+  let x = 1n;                                   // 자릿수로 어림잡아 시작점을 잡는다
+  while ((x + 1n) ** k <= v && x < 1n << 64n) x <<= 1n;
+  for (;;) {                                    // 뉴턴 방식으로 내려간다
+    const nx = ((k - 1n) * x + v / x ** (k - 1n)) / k;
+    if (nx >= x) break;
+    x = nx;
+  }
+  return x ** k === v ? x : null;
+}
+
 function rPow(a, b) {
   // 지수가 정수면 분수를 유지한다 (예: (2/3)^3 = 8/27)
   if (isR(a) && isR(b) && b.d === 1n && _bAbs(b.n) <= 512n) {
@@ -12663,6 +12686,13 @@ function rPow(a, b) {
     if (e >= 0n) return R(a.n ** e, a.d ** e);
     if (a.n === 0n) throw new Error('0으로 나눌 수 없어요');
     return R(a.d ** (-e), a.n ** (-e));
+  }
+  // [추가] 지수가 분수여도 딱 떨어지면 분수를 지킨다 — (4/9)^(1/2) 는 0.666… 이 아니라 2/3.
+  //        예전엔 분수 지수를 만나면 곧장 소수로 넘어가서, '분수' 단추를 눌러도 소수만 나왔다.
+  //        음수 밑은 실수 범위에서 뜻이 애매하므로 손대지 않고 그대로 소수 계산에 맡긴다.
+  if (isR(a) && isR(b) && b.d > 1n && b.d <= 64n && a.n >= 0n && _bAbs(b.n) <= 512n) {
+    const rn = _iRoot(a.n, b.d), rd = _iRoot(a.d, b.d);
+    if (rn !== null && rd !== null) return rPow(R(rn, rd), R(b.n));
   }
   return F(Math.pow(toNum(a), toNum(b)));
 }
@@ -12997,7 +13027,9 @@ function _mxFindRoot(f) {
 }
 
 // ── 결과 표시 ──
-let _mxMode = 'frac';        // 'frac' | 'dec'
+// [수정] 기본을 분수에서 소수로 바꿨다 — 평소에는 소수로 보고, 분수가 필요할 때만
+//        '분수' 를 누른다. 계산기를 닫았다 열면 다시 소수로 돌아온다.
+let _mxMode = 'dec';         // 'dec' | 'frac'
 let _mxLast = null;
 
 function calcFormat(v) {
@@ -13183,6 +13215,7 @@ function toggleCalc() {
   document.getElementById('calc-fab')?.classList.toggle('on', open);
   if (open) {
     renderCalcKeys(); renderCalcHist();
+    calcSetMode('dec');              // [추가] 열 때마다 소수로 시작 (분수는 필요할 때 눌러서)
     _mxBindScreen(); mxRender();     // [수정] 입력칸이 없어졌다 — 수식 편집기를 그린다
   }
 }
@@ -20694,6 +20727,11 @@ applyRenderFlags();
 //   k: 'new'(새 기능) · 'fix'(고침) · 'chg'(바뀜)
 // ══════════════════════════════════════════════════════════════════════
 const PATCH_NOTES = [
+  { v: '260819-0146', at: '2026-08-19', items: [
+    { k: 'fix', t: '계산기에서 <b>지수(제곱) 자리를 위로 올렸습니다</b>. 예전에는 8의 2/3제곱이 <b>8 곱하기 2/3 처럼</b> 보였어요 — 지수가 분수처럼 두 줄이면 밑과 키가 비슷해져서 구분이 안 됐습니다. 이제 종이에 쓰듯 지수가 어깨 위에 올라갑니다' },
+    { k: 'chg', t: '계산 결과를 <b>소수로 먼저</b> 보여줍니다. 분수가 필요하면 <b>분수</b> 단추를 누르면 되고, 계산기를 닫았다 열면 다시 소수로 시작해요' },
+    { k: 'fix', t: '<b>분수 지수도 딱 떨어지면 분수로</b> 나옵니다 — (4/9)의 1/2제곱은 0.666… 이 아니라 <b>2/3</b>, (8/27)의 2/3제곱은 <b>4/9</b>. 예전에는 지수가 분수이기만 하면 곧장 소수로 넘어가서 분수 단추를 눌러도 소수만 나왔습니다' },
+  ]},
   { v: '260818-1637', at: '2026-08-18', items: [
     { k: 'fix', t: '<b>한 화면</b>에서 문제 본문·보기·자격증 이름에 <b>&lt; 나 따옴표 같은 글자가 섞여 있으면</b> 화면이 깨지거나 그 글자가 명령처럼 동작할 수 있던 것을 막았습니다 (기존 화면은 원래 막고 있던 부분이에요). 겉보기 변화는 없고, 그런 글자도 이제 글자 그대로 보입니다' },
     { k: 'chg', t: '<b>한 화면</b>을 탭에 오래 열어 둔 뒤 돌아오면 <b>서버와 다시 맞춥니다</b> — 예전에는 열 때 한 번만 맞춰서, 그 사이 다른 화면에서 바꾼 기록을 낡은 값이 덮을 수 있었어요' },
@@ -21206,7 +21244,7 @@ function closePatchNotes() {
 // ── 앱 버전 ──
 // 폰이 옛 파일을 캐시해 두고 있는지 바로 확인할 수 있도록 화면에 표시한다.
 // (설정 맨 아래 · 개발자 도구 콘솔에도 찍힘)
-const APP_VERSION = '260818-1637';
+const APP_VERSION = '260819-0146';
 console.log('%c양진웅 Note 버전 ' + APP_VERSION, 'font-weight:bold');
 
 // PWA 서비스워커 등록
