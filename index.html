@@ -5352,16 +5352,18 @@
   .mx-sqrt { display: inline-flex; align-items: stretch; margin: 0 2px; }
   .mx-sym { font-size: 1.05em; line-height: 1; }
   .mx-rad { border-top: 1.6px solid currentColor; padding: 2px 4px 0; margin-top: 0.18em; display: flex; align-items: center; }
-  /* 거듭제곱 — [수정] 예전엔 글자 맨 위에 나란히 붙여 두기만 했다.
-     지수가 분수처럼 두 줄이면 밑과 키가 비슷해져서, 8의 2/3제곱인지 8 곱하기 2/3인지
-     구분이 안 됐다. 종이에 쓰듯 지수 아랫변이 밑의 머리끝쯤 오도록 위로 올린다.
-     (top 의 em 은 이미 작아진 지수 기준이라 실제로는 본문의 절반쯤 올라간다) */
+  /* 거듭제곱 — 지수는 종이에 쓰듯 밑의 어깨 위에 올린다.
+     [수정] 처음엔 글자 맨 위에 나란히 붙이기만 해서, 지수가 분수처럼 두 줄이면 밑과 키가
+     비슷해져 8의 2/3제곱인지 8 곱하기 2/3인지 구분이 안 됐다.
+     [재수정] 그다음엔 position:relative + top 으로 끌어올렸는데, 그렇게 하면 올라간 만큼의
+     자리를 차지하지 않는다 — 분모에 제곱을 넣으면 지수가 분수선을 넘어 분자를 침범했다.
+     이제 아래쪽에 여백(margin-bottom)을 두어 올린다. 보이는 높이는 그대로면서
+     그만큼 칸이 넓어지므로 분수 안에서도 서로 겹치지 않는다. */
   .mx-pow { font-size: 0.5em; align-self: flex-start; margin-left: 2px;
-            position: relative; top: -1.15em; }
-  /* 올린 지수가 위로 잘리지 않게 식 칸에 여유를 준다.
-     [주의] .mx 는 가로 스크롤(overflow-x:auto)이라 세로로도 잘린다 — 올린 높이(약 14px)보다
-     넉넉해야 한다. 안 그러면 2² 의 2 가 윗변에서 잘린다. */
-  .mx { padding-top: 22px; overflow-y: hidden; }
+            margin-bottom: 3em; }
+  /* 지수가 제 자리를 차지하므로 위로 넘칠 일은 없지만, 숨 쉴 틈은 남겨 둔다.
+     [주의] .mx 는 가로 스크롤(overflow-x:auto)이라 세로로도 잘린다. */
+  .mx { padding-top: 8px; overflow-y: hidden; }
   .mx-grp { display: inline-flex; align-items: center; }
   .mx-par { color: var(--gray-500); }
   /* 아직 안 채운 칸 — 지금 입력받는 칸은 진하게 */
@@ -20727,6 +20729,9 @@ applyRenderFlags();
 //   k: 'new'(새 기능) · 'fix'(고침) · 'chg'(바뀜)
 // ══════════════════════════════════════════════════════════════════════
 const PATCH_NOTES = [
+  { v: '260819-1948', at: '2026-08-19', items: [
+    { k: 'fix', t: '계산기에서 <b>분모에 제곱을 넣으면 지수가 분수선을 넘어 분자를 침범하던</b> 것을 고쳤습니다. 지수를 끌어올리기만 하고 그만큼의 자리는 만들지 않아서 생긴 일이었어요. 이제 지수가 제 자리를 차지하므로 분수 안에서도 서로 겹치지 않습니다' },
+  ]},
   { v: '260819-0225', at: '2026-08-19', items: [
     { k: 'new', t: '<b>한 화면 · 어둡게</b> 배경이 <b>떨어지는 빛줄기</b>로 바뀌었습니다. 마우스를 움직이면 그 자리에 은은한 빛이 따라옵니다' },
     { k: 'chg', t: '빛줄기는 <b>어두운 화면에서만</b> 돕니다 — 밝은 화면이거나, 다른 탭에 가 있거나, 기기에서 <b>움직임 줄이기</b>를 켜 두었으면 아예 그리지 않습니다 (배터리 때문이에요). 그림이 안 되는 기기에서는 예전 색 뭉치 배경이 그대로 나옵니다' },
@@ -21254,7 +21259,7 @@ function closePatchNotes() {
 // ── 앱 버전 ──
 // 폰이 옛 파일을 캐시해 두고 있는지 바로 확인할 수 있도록 화면에 표시한다.
 // (설정 맨 아래 · 개발자 도구 콘솔에도 찍힘)
-const APP_VERSION = '260819-0225';
+const APP_VERSION = '260819-1948';
 console.log('%c양진웅 Note 버전 ' + APP_VERSION, 'font-weight:bold');
 
 // PWA 서비스워커 등록
