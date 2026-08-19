@@ -1914,6 +1914,24 @@
     margin-bottom: 12px;
     box-shadow: var(--shadow);
   }
+  /* 검색 — 이름이 걸린 회차(단원) 카드와, 이 기기에 없어 빠진 회차 알림 */
+  .sch-round-box { margin-bottom: 14px; }
+  .sch-round-t { font-size: 11px; font-weight: 800; color: var(--gray-400); margin-bottom: 8px; }
+  .sch-round {
+    display: flex; align-items: center; gap: 10px; width: 100%;
+    background: #fff; border: 1px solid var(--gray-200); border-radius: var(--radius);
+    padding: 13px 16px; margin-bottom: 8px; text-align: left; box-shadow: var(--shadow);
+  }
+  .sch-round-n { font-size: 15px; font-weight: 700; color: var(--gray-800); }
+  .sch-round-c { font-size: 12px; color: var(--gray-400); }
+  .sch-round-go { margin-left: auto; font-size: 12px; font-weight: 700; color: var(--primary); flex: none; }
+  .sch-missing {
+    font-size: 12.5px; color: var(--gray-500); background: var(--gray-100);
+    border-radius: 12px; padding: 10px 14px; margin-bottom: 12px;
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  }
+  body.dark .sch-round { background: var(--card); border-color: var(--card-border); }
+
   .search-result-source {
     font-size: 11px;
     font-weight: 700;
@@ -17787,7 +17805,20 @@ function highlight(text, keyword) {
 
 let _schCat = null;          // 지금 고른 자격증 (null = 전체)
 let _schAll = [];            // 마지막 검색 결과 전체
+let _schRounds = [];         // 이름이 걸린 회차(단원)들
+let _schMissing = [];        // 이 기기에 아직 안 받아온 회차들
 let _schKw = '';
+
+// 아직 안 받아온 회차를 받아와서 다시 찾는다
+async function schPullMissing(btn) {
+  const list = _schMissing.slice();
+  if (!list.length) return;
+  if (!FIREBASE_OK) { showToast('로그인해야 받아올 수 있어요'); return; }
+  if (btn) { btn.disabled = true; btn.textContent = '받아오는 중…'; }
+  await pullRounds(list);
+  doSearch(_schKw);
+  showToast(`${list.length}개 회차를 받아왔어요`);
+}
 
 function setSearchCat(cat) {
   _schCat = cat;
@@ -17798,10 +17829,24 @@ function doSearch(keyword) {
   const data = getData();
   const circleNums = ['①','②','③','④','⑤','⑥'];
   const results = [];
+  const kwLow = keyword.toLowerCase();
+  const idxCats = getQdIndex().cats;
+  const hitRounds = [];      // 회차(단원) 이름이 걸린 것
+  const missing = [];        // 색인엔 있는데 이 기기에 내용이 없는 것
 
   for (const cat of Object.keys(data)) {
     for (const round of Object.keys(data[cat])) {
       const qs = data[cat][round] || [];
+
+      // [추가] 작업형처럼 '09 충전용기 및 부속품' 식으로 단원을 회차 이름에 적어 두면,
+      //        그 낱말이 문제 본문에는 없어서 아무것도 안 나왔다 — 회차 이름도 같이 찾는다.
+      if (String(round).toLowerCase().includes(kwLow)) {   // 자격증 이름까지 넣으면 그 자격증 회차가 전부 딸려 나온다
+        hitRounds.push({ cat, round, n: qs.length || ((idxCats[cat] || {})[round] || {}).n || 0 });
+      }
+      // [추가] 색인에는 문항이 있다는데 이 기기에 내용이 없으면 검색에서 통째로 빠진다.
+      //        예전엔 아무 말 없이 없는 셈 쳤다 — 이제 몇 개가 빠졌는지 알려주고 받아올 수 있게 한다.
+      if (!qs.length && (((idxCats[cat] || {})[round] || {}).n || 0) > 0) { missing.push({ cat, round }); continue; }
+
       for (const q of qs) {
         const isSubj = q.type === 'subj';
         const kw = keyword.toLowerCase();
@@ -17821,6 +17866,8 @@ function doSearch(keyword) {
 
   // [수정] 결과를 기억해두고 자격증별로 걸러 보여 준다
   _schAll = results;
+  _schRounds = hitRounds;
+  _schMissing = missing;
   _schKw = keyword;
   if (_schCat && !results.some(r => r.cat === _schCat)) _schCat = null;   // 없는 자격증이면 전체로
   paintSearch();
@@ -17849,19 +17896,39 @@ function paintSearch() {
   }
 
   const results = _schCat ? all.filter(r => r.cat === _schCat) : all;
+  const rounds = (_schCat ? _schRounds.filter(r => r.cat === _schCat) : _schRounds);
 
   document.getElementById('search-status').textContent =
     all.length
       ? (_schCat ? `${escHtml(_schCat)} · ${results.length}개` : `총 ${all.length}개 문제 검색됨`)
-      : '검색 결과가 없어요';
+      : (rounds.length ? '문제 본문에서는 못 찾았어요' : '검색 결과가 없어요');
+
+  // 이름이 걸린 회차(단원) 먼저 — 눌러서 바로 그 회차를 풀 수 있게
+  const roundHtml = rounds.length ? `
+    <div class="sch-round-box">
+      <div class="sch-round-t">이름이 맞는 회차 ${rounds.length}개</div>
+      ${rounds.map(r => `
+        <button class="sch-round" onclick="startQuizFromDash('${escArg(r.cat)}','${escArg(r.round)}')">
+          <span class="sch-round-n">${highlight(escHtml(r.round), keyword)}</span>
+          <span class="sch-round-c">${escHtml(r.cat)} · ${r.n}문제</span>
+          <span class="sch-round-go">풀기 →</span>
+        </button>`).join('')}
+    </div>` : '';
+
+  // 이 기기에 없어서 검색에서 빠진 회차 알림 (예전엔 아무 말 없이 빠졌다)
+  const missHtml = _schMissing.length ? `
+    <div class="sch-missing">
+      <span>이 기기에 아직 안 받아온 회차 <b>${_schMissing.length}개</b>는 검색에서 빠졌어요</span>
+      <button class="btn btn-secondary btn-sm" onclick="schPullMissing(this)">받아오기</button>
+    </div>` : '';
 
   if (!results.length) {
-    document.getElementById('search-results').innerHTML =
-      `<div class="empty-state"><div class="emoji"><svg class="ic ic-empty" viewBox="0 0 24 24"><use href="#ic-search"/></svg></div><p>"${escHtml(keyword)}" 에 대한 결과가 없어요</p></div>`;
+    document.getElementById('search-results').innerHTML = roundHtml + missHtml
+      + (rounds.length ? '' : `<div class="empty-state"><div class="emoji"><svg class="ic ic-empty" viewBox="0 0 24 24"><use href="#ic-search"/></svg></div><p>"${escHtml(keyword)}" 에 대한 결과가 없어요</p></div>`);
     return;
   }
 
-  document.getElementById('search-results').innerHTML = results.map(({ cat, round, q }) => {
+  document.getElementById('search-results').innerHTML = roundHtml + missHtml + results.map(({ cat, round, q }) => {
     const isSubj = q.type === 'subj';
     return `
       <div class="search-result-item">
@@ -20729,6 +20796,10 @@ applyRenderFlags();
 //   k: 'new'(새 기능) · 'fix'(고침) · 'chg'(바뀜)
 // ══════════════════════════════════════════════════════════════════════
 const PATCH_NOTES = [
+  { v: '260820-0245', at: '2026-08-20', items: [
+    { k: 'new', t: '검색이 <b>회차(단원) 이름도 함께 찾습니다</b>. 작업형처럼 <b>09 충전용기 및 부속품</b> 식으로 단원을 회차 이름에 적어 두면, 그 낱말이 문제 본문에는 없어서 아무것도 안 나왔어요. 이제 이름이 맞는 회차가 결과 맨 위에 뜨고 <b>바로 풀기</b>로 넘어갑니다' },
+    { k: 'fix', t: '<b>이 기기에 아직 안 받아온 회차</b>가 검색에서 조용히 빠지던 것을 고쳤습니다. 몇 개가 빠졌는지 알려주고 <b>받아오기</b>를 누르면 그 자리에서 받아와 다시 찾습니다 (다른 기기에서 넣은 회차를 이 기기에서 아직 안 열어봤을 때 그랬어요)' },
+  ]},
   { v: '260819-1948', at: '2026-08-19', items: [
     { k: 'fix', t: '계산기에서 <b>분모에 제곱을 넣으면 지수가 분수선을 넘어 분자를 침범하던</b> 것을 고쳤습니다. 지수를 끌어올리기만 하고 그만큼의 자리는 만들지 않아서 생긴 일이었어요. 이제 지수가 제 자리를 차지하므로 분수 안에서도 서로 겹치지 않습니다' },
   ]},
@@ -21259,7 +21330,7 @@ function closePatchNotes() {
 // ── 앱 버전 ──
 // 폰이 옛 파일을 캐시해 두고 있는지 바로 확인할 수 있도록 화면에 표시한다.
 // (설정 맨 아래 · 개발자 도구 콘솔에도 찍힘)
-const APP_VERSION = '260819-1948';
+const APP_VERSION = '260820-0245';
 console.log('%c양진웅 Note 버전 ' + APP_VERSION, 'font-weight:bold');
 
 // PWA 서비스워커 등록
