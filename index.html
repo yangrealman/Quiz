@@ -7667,6 +7667,14 @@
           <svg class="ic set-chev" viewBox="0 0 24 24"><use href="#ic-chevron-right"/></svg>
         </button>
 
+        <button class="set-row set-row-btn" onclick="exportQuestionsOnly()">
+          <div class="set-row-main">
+            <div class="set-row-title">문제만 내보내기</div>
+            <div class="set-row-desc">푼 기록 없이 문제 본문만 저장합니다 (그림은 빠집니다)</div>
+          </div>
+          <svg class="ic set-chev" viewBox="0 0 24 24"><use href="#ic-chevron-right"/></svg>
+        </button>
+
         <button class="set-row set-row-btn" onclick="document.getElementById('import-file').click()">
           <div class="set-row-main">
             <div class="set-row-title">데이터 가져오기</div>
@@ -8223,6 +8231,8 @@
         <div class="form-label" style="font-size:14px; margin-bottom:6px"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-upload"/></svg> 데이터 내보내기</div>
         <p style="font-size:13px; color:var(--gray-500); margin-bottom:12px; line-height:1.6">현재 저장된 문제, 자격증, 오답 데이터를 JSON 파일로 저장합니다.<br>다른 기기에서 <b>가져오기</b>로 불러올 수 있어요.</p>
         <button class="btn btn-primary" onclick="exportData()" style="width:100%"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-save"/></svg> 전체 데이터 내보내기 (.json)</button>
+        <button class="btn btn-secondary" onclick="exportQuestionsOnly()" style="width:100%; margin-top:8px"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-save"/></svg> 문제만 내보내기 (.json)</button>
+        <p style="font-size:12px; color:var(--gray-400); margin-top:8px; line-height:1.6">문제만 내보내기는 <b>푼 기록·오답·별표·모의고사 기록 없이</b> 문제 본문만 담습니다 (그림 파일은 빠지고 그림이 있다는 표시만 남습니다).</p>
       </div>
       <hr class="divider">
       <!-- 가져오기 -->
@@ -14504,6 +14514,64 @@ function exportData() {
   a.click();
   URL.revokeObjectURL(url);
   showToast('내보내기 완료! 📦');
+}
+
+// ── 문제만 내보내기 ──
+// [추가] 기존 내보내기·백업에는 푼 기록·오답·별표·모의고사가 함께 들어간다.
+//        문제 자료만 따로 쓰고 싶을 때가 있어서(다른 곳에 옮기거나 자료로 다룰 때)
+//        문제 본문만 담은 파일을 따로 만든다. 기존 것은 그대로 둔다.
+// 그림 자체(용량의 대부분)는 넣지 않는다 — imgId/expImgId 로 '그림이 있다'는 것만 남기고,
+// 실제 그림은 설정 > 데이터 내보내기(전체 백업)에 들어 있다.
+const QONLY_FIELDS = ['num', 'type', 'question', 'options', 'correct', 'answer', 'explanation', 'imgId', 'expImgId'];
+
+function buildQuestionsOnly() {
+  const data = getAllData();
+  const out = {};
+  let rounds = 0, questions = 0, withImage = 0;
+  Object.keys(data).sort().forEach(cat => {
+    const rs = {};
+    sortRounds(Object.keys(data[cat])).forEach(round => {
+      const list = (data[cat][round] || []).map(q => {
+        const o = {};
+        QONLY_FIELDS.forEach(k => {
+          const v = q[k];
+          if (v !== undefined && v !== null && v !== '') o[k] = v;
+        });
+        if (!o.type) o.type = (Array.isArray(q.options) && q.options.length) ? 'obj' : 'subj';
+        if (o.imgId || o.expImgId) withImage++;
+        return o;
+      });
+      if (!list.length) return;
+      rs[round] = list; rounds++; questions += list.length;
+    });
+    if (Object.keys(rs).length) out[cat] = rs;
+  });
+  return { out, rounds, questions, withImage };
+}
+
+function exportQuestionsOnly() {
+  const { out, rounds, questions, withImage } = buildQuestionsOnly();
+  if (!questions) { showToast('내보낼 문제가 없어요'); return; }
+  const payload = {
+    _app: '양진웅 Note',
+    _type: 'questions-only',
+    _version: 1,
+    _exportedAt: new Date().toISOString(),
+    _note: '문제 본문만 담았습니다 — 푼 기록·오답·별표·체크·모의고사 기록은 들어 있지 않습니다. '
+         + '그림은 imgId/expImgId 로 표시만 되어 있고 그림 파일 자체는 없습니다(전체 백업에 들어 있어요).',
+    counts: { categories: Object.keys(out).length, rounds, questions, withImage },
+    categories: Object.keys(out),
+    quizData: out,
+  };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  const d = new Date();
+  a.href = URL.createObjectURL(blob);
+  // 파일 이름은 영문으로 — 다른 도구에 넘길 때 한글 이름이 깨지는 일이 있다
+  a.download = `yjnote_questions_${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}.json`;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  showToast(`문제 ${questions.toLocaleString()}개를 내보냈어요`);
 }
 
 // ══════════════════════════════════════════════════════════════════════
@@ -20796,6 +20864,10 @@ applyRenderFlags();
 //   k: 'new'(새 기능) · 'fix'(고침) · 'chg'(바뀜)
 // ══════════════════════════════════════════════════════════════════════
 const PATCH_NOTES = [
+  { v: '260821-2324', at: '2026-08-21', items: [
+    { k: 'new', t: '<b>문제만 내보내기</b>가 생겼습니다 (설정 &gt; 데이터, 관리 &gt; 데이터). 푼 기록·오답·별표·체크·모의고사 기록 <b>없이 문제 본문만</b> 담은 JSON 을 저장해요 — 문제 자료만 따로 쓸 때를 위한 것입니다' },
+    { k: 'chg', t: '기존 <b>데이터 내보내기(전체 백업)</b>는 그대로입니다. 기록까지 다 담기니 <b>복원용은 계속 이쪽</b>을 쓰세요. 문제만 내보내기에는 그림 파일이 들어가지 않고 \'그림이 있다\'는 표시만 남습니다' },
+  ]},
   { v: '260820-0245', at: '2026-08-20', items: [
     { k: 'new', t: '검색이 <b>회차(단원) 이름도 함께 찾습니다</b>. 작업형처럼 <b>09 충전용기 및 부속품</b> 식으로 단원을 회차 이름에 적어 두면, 그 낱말이 문제 본문에는 없어서 아무것도 안 나왔어요. 이제 이름이 맞는 회차가 결과 맨 위에 뜨고 <b>바로 풀기</b>로 넘어갑니다' },
     { k: 'fix', t: '<b>이 기기에 아직 안 받아온 회차</b>가 검색에서 조용히 빠지던 것을 고쳤습니다. 몇 개가 빠졌는지 알려주고 <b>받아오기</b>를 누르면 그 자리에서 받아와 다시 찾습니다 (다른 기기에서 넣은 회차를 이 기기에서 아직 안 열어봤을 때 그랬어요)' },
@@ -21330,7 +21402,7 @@ function closePatchNotes() {
 // ── 앱 버전 ──
 // 폰이 옛 파일을 캐시해 두고 있는지 바로 확인할 수 있도록 화면에 표시한다.
 // (설정 맨 아래 · 개발자 도구 콘솔에도 찍힘)
-const APP_VERSION = '260820-0245';
+const APP_VERSION = '260821-2324';
 console.log('%c양진웅 Note 버전 ' + APP_VERSION, 'font-weight:bold');
 
 // PWA 서비스워커 등록
