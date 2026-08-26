@@ -1715,6 +1715,25 @@
     background: var(--card, #fff);
     margin-bottom: 12px;
   }
+  /* ── 지문 칸 안의 그림 단추 (넓은 화면에서만) ──
+     글자 없이 아이콘만 — 왼쪽 사진 넣기, 오른쪽 이전 그림.
+     [주의] 오른쪽 끝은 크기 조절 손잡이 자리라 조금 띄운다. */
+  .fg-imgq { position: relative; }
+  .imgq-bar { display: none; position: absolute; right: 26px; bottom: 12px; gap: 6px; }
+  .imgq {
+    width: 34px; height: 34px; border-radius: 9px; cursor: pointer;
+    border: 1px solid var(--gray-200); background: var(--card, #fff); color: var(--gray-400);
+    display: flex; align-items: center; justify-content: center;
+    transition: color .15s, border-color .15s, background .15s;
+  }
+  .imgq:hover { color: var(--primary); border-color: var(--primary); background: var(--primary-light); }
+  .imgq.on { color: var(--primary); border-color: var(--primary); background: var(--primary-light); }
+  @media (min-width: 900px) {
+    .imgq-bar { display: flex; }
+    .fg-imgq .form-textarea { padding-bottom: 52px; }
+  }
+  body.dark .imgq { background: var(--card); border-color: var(--card-border); }
+
   /* ── 위 칸 고르기 (암기 칸 / 줄 암기장) ── */
   .memo-pick { display: flex; gap: 6px; margin-bottom: 10px; }
   .memo-pick-b {
@@ -7900,8 +7919,8 @@
         </div>
       </div>
 
-      <!-- 아래 칸: 자유 메모 -->
-      <div class="memo-tab-pane memo-fs-hide">
+      <!-- 아래 칸: 자유 메모 (줄 암기장을 쓸 때는 자리를 비켜 준다 — 칸이 좁으면 외우기 힘들다) -->
+      <div class="memo-tab-pane memo-fs-hide" id="memo-pane-free">
         <div class="memo-tab-label">
           <span>🗒 자유 메모</span>
           <button onclick="document.getElementById('memo-tab-bottom').value=''" style="background:none;border:1px solid var(--gray-300);border-radius:6px;padding:2px 10px;font-size:11px;cursor:pointer;color:var(--gray-600);">지우기</button>
@@ -8199,9 +8218,17 @@
           </label>
         </div>
       </div>
-      <div class="form-group">
+      <!-- [추가] 지문 칸 오른쪽 아래에 그림 단추 둘 (넓은 화면에서만) — 아래 그림 칸까지
+           내려가지 않고 여기서 바로 넣는다. 왼쪽이 사진 넣기, 오른쪽이 이전 그림. -->
+      <div class="form-group fg-imgq">
         <label class="form-label">문제</label>
         <textarea class="form-textarea" id="add-question" placeholder="문제를 입력하세요"></textarea>
+        <div class="imgq-bar">
+          <button type="button" class="imgq" id="imgq-add" onclick="pickQImg('add')"
+                  title="사진 넣기" aria-label="사진 넣기"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-camera"/></svg></button>
+          <button type="button" class="imgq" onclick="openImgReuse('add')"
+                  title="이전 그림" aria-label="이전 그림"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-layers"/></svg></button>
+        </div>
       </div>
       <!-- 객관식 영역 -->
       <div id="obj-area">
@@ -18926,6 +18953,11 @@ async function renderImgPicker(which) {
   const picker = document.getElementById(which + '-img-picker');
   if (!picker) return;
   const pending = _qImgPending[which];
+  // [추가] 지문 칸 안의 사진 단추도 같이 물들인다 — 그림을 붙였는지 여기서 바로 보이게
+  if (which === 'add') {
+    const q = document.getElementById('imgq-add');
+    if (q) q.classList.toggle('on', !!(pending && (pending.data || pending.reuseId)));
+  }
   const preview = picker.querySelector('.img-picker-preview');
   let data = null, meta = '';
   if (pending && pending.reuseId) {
@@ -19504,6 +19536,10 @@ function pickMemoPane(which) {
   const a = document.getElementById('memo-pane-anki'), l = document.getElementById('memo-pane-lines');
   if (a) a.style.display = lines ? 'none' : '';
   if (l) l.style.display = lines ? '' : 'none';
+  // [추가] 줄 암기장일 때는 자유 메모를 감춘다 — 같은 글은 '암기 칸' 쪽에 있고,
+  //        둘로 나누면 줄 암기장 칸이 너무 좁아져 외우기 힘들다
+  const f = document.getElementById('memo-pane-free');
+  if (f) f.style.display = lines ? 'none' : '';
   document.getElementById('mp-anki')?.classList.toggle('on', !lines);
   document.getElementById('mp-lines')?.classList.toggle('on', lines);
   try { localStorage.setItem('memo_pane', which); } catch (_) {}
@@ -21071,6 +21107,10 @@ applyRenderFlags();
 //   k: 'new'(새 기능) · 'fix'(고침) · 'chg'(바뀜)
 // ══════════════════════════════════════════════════════════════════════
 const PATCH_NOTES = [
+  { v: '260826-2055', at: '2026-08-26', items: [
+    { k: 'chg', t: '<b>줄 암기장</b>을 쓸 때는 아래 <b>자유 메모가 빠집니다</b> — 칸이 좁아 보기 힘들었어요. 이제 줄 암기장이 화면을 다 씁니다 (자유 메모는 <b>암기 칸</b> 쪽에 그대로 있어요)' },
+    { k: 'new', t: '<b>PC에서 문제를 등록할 때</b>, 문제 칸 오른쪽 아래에 <b>그림 단추 두 개</b>가 생겼습니다 — 왼쪽이 <b>사진 넣기</b>, 오른쪽이 <b>이전 그림</b>. 아래 그림 칸까지 내려가지 않고 그 자리에서 넣을 수 있어요. 그림을 붙이면 왼쪽 단추에 색이 들어옵니다' },
+  ]},
   { v: '260826-2045', at: '2026-08-26', items: [
     { k: 'new', t: '메모장에 <b>줄 암기장</b>이 생겼습니다. 위쪽에서 <b>암기 칸 / 줄 암기장</b>을 골라 쓰세요 — 줄 암기장은 <b>줄마다 따로</b> 가릴 수 있습니다 (기본 여섯 줄, 줄은 더하거나 뺄 수 있어요)' },
     { k: 'new', t: '빈 곳을 누르거나 <b>Tab</b> 을 누르면 <b>맨 위에서부터 한 줄씩 가려집니다.</b> 다 가려진 뒤에 또 누르면 <b>맨 위부터 한 줄씩 다시 보여요</b> — 가렸다 보였다를 한 바퀴로 돌며 외울 수 있습니다. 폰에서는 아래 <b>한 줄 가리기</b> 단추를 쓰세요' },
@@ -21614,7 +21654,7 @@ function closePatchNotes() {
 // ── 앱 버전 ──
 // 폰이 옛 파일을 캐시해 두고 있는지 바로 확인할 수 있도록 화면에 표시한다.
 // (설정 맨 아래 · 개발자 도구 콘솔에도 찍힘)
-const APP_VERSION = '260826-2045';
+const APP_VERSION = '260826-2055';
 console.log('%c양진웅 Note 버전 ' + APP_VERSION, 'font-weight:bold');
 
 // PWA 서비스워커 등록
