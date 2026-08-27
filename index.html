@@ -2529,6 +2529,13 @@
     gap: 10px; margin-bottom: 16px; flex-wrap: wrap;
   }
   .mst-title { font-size: 14px; font-weight: 800; color: var(--gray-800); }
+  /* [추가] 지금 무엇을 기준으로 보고 있는지 — 숫자가 갑자기 달라 보일 때 헷갈리지 않게 */
+  .mst-mode {
+    margin-left: 6px; padding: 2px 7px; border-radius: 999px;
+    font-size: 10.5px; font-weight: 700; color: var(--gray-500);
+    background: var(--gray-100); border: 1px solid var(--gray-200);
+  }
+  body.dark .mst-mode { background: var(--navy-1); border-color: var(--card-border); }
   .mst-catsel {
     padding: 6px 10px; border: 1px solid var(--gray-200);
     border-radius: 8px; font-size: 12.5px; font-family: inherit;
@@ -7710,6 +7717,14 @@
 
         <div class="set-row">
           <div class="set-row-main">
+            <div class="set-row-title">암기도를 정답률로 보기</div>
+            <div class="set-row-desc">회차 칸과 홈 <b>암기 현황</b>의 숫자를 <b>그 회차에서 맞힌 비율</b>로 바꿉니다 · 끄면 지금처럼 <b>직접 끄는 슬라이더</b> 값을 씁니다 (손으로 매긴 값은 지워지지 않아 언제든 되돌아와요)</div>
+          </div>
+          <button class="set-switch" id="sw-mstacc" aria-label="암기도를 정답률로 보기" title="암기도를 정답률로 보기" onclick="toggleSetting('masteryByAcc')" role="switch"><span></span></button>
+        </div>
+
+        <div class="set-row">
+          <div class="set-row-main">
             <div class="set-row-title">정답 효과</div>
             <div class="set-row-desc">정답을 맞히면 작은 축하 효과가 나타납니다</div>
           </div>
@@ -8791,6 +8806,7 @@ function getAllData() {
 
 // ── 쓰기 ──────────────────────────────────────────────────────────────
 function saveRound(cat, round, arr, opt) {
+  clearAccMemo();                            // [추가] 정답이 바뀌면 정답률도 다시 세야 한다
   const idx = getQdIndex();
   if (!idx.cats[cat]) idx.cats[cat] = {};
   const prev = idx.cats[cat][round] || { rev: 0 };
@@ -9040,7 +9056,8 @@ function saveData(d) {
 }
 
 function getProgress() { return _getCache('quiz_progress', {}); }
-function saveProgress(p) { syncToFirebase('quiz_progress', p); }
+// [수정] 푼 기록이 바뀌면 정답률도 바뀐다 → 기억해 둔 정답률을 버린다
+function saveProgress(p) { clearAccMemo(); syncToFirebase('quiz_progress', p); }
 
 function getWrongAnswers() { return _getCache('quiz_wrong', []); }
 function saveWrongAnswers(w) { syncToFirebase('quiz_wrong', w); }
@@ -9299,6 +9316,43 @@ function bumpDailyStat() {
 
 function getMastery() { return _getCache('quiz_mastery', {}); }
 function saveMasteryData(d) { syncToFirebase('quiz_mastery', d); }
+
+// ── 암기도를 무엇으로 볼 것인가 ────────────────────────────────────────
+// [추가] 예전에는 손으로 끄는 슬라이더(quiz_mastery) 하나뿐이었다. 손이 가고,
+//        실제로 얼마나 맞히는지와 어긋나기도 해서 '정답률 기준'을 고를 수 있게 했다.
+//   손으로  — 내가 매긴 값 그대로 (예전과 같음)
+//   정답률  — 그 회차에서 맞힌 비율. 저절로 갱신되지만, 한 번도 안 푼 회차는 0% 로 남고
+//            회차 내용을 이 기기에 안 받아왔으면 맞는지 틀렸는지 셀 수 없어 역시 0% 다.
+// 손으로 매긴 값은 지우지 않는다 → 스위치를 되돌리면 예전 값이 그대로 돌아온다.
+// 이 스위치는 '보는 방식'이라 이 기기에만 둔다(appSettings).
+let _accMemo = {};
+// (앱을 켜는 도중에 불려도 터지지 않게 — 이 줄보다 위에 있는 저장 함수들도 부른다)
+function clearAccMemo() { try { _accMemo = {}; } catch (_) {} }
+function masteryByAcc() { return !!getSettings().masteryByAcc; }
+function mstLabel() { return masteryByAcc() ? '정답률' : '암기도'; }
+
+// 회차 하나의 값(%) — 기준이 무엇이든 이것만 부르면 된다
+function roundMastery(cat, round) {
+  if (!masteryByAcc()) return getMastery()[cat + '||' + round] || 0;
+  const key = cat + '||' + round;
+  // [주의] 정답률은 회차 본문(정답)을 읽어야 해서 회차 수만큼 JSON 을 푼다.
+  //        홈은 자주 다시 그려지므로 기억해 두고, 푼 기록·회차가 바뀔 때만 버린다.
+  if (_accMemo[key] === undefined) {
+    const a = _roundAccuracy(cat, round, getRound(cat, round));
+    _accMemo[key] = a ? a.pct : 0;
+  }
+  return _accMemo[key];
+}
+
+// 기준을 바꾸면 홈·회차 목록의 숫자가 통째로 달라진다
+function repaintMasteryViews() {
+  clearAccMemo();
+  try { renderMasteryPanel(); } catch (_) {}
+  try {
+    if (typeof selectedCategory !== 'undefined' && selectedCategory &&
+        document.getElementById('rt-grid')) renderRoundList(selectedCategory);
+  } catch (_) {}
+}
 
 // ── 암기도 슬라이더: 손잡이 드래그 전용 ──
 let _mstDrag = null;
@@ -9989,7 +10043,6 @@ function changeMstCat(v) {
 function renderMasteryPanel() {
   const el = document.getElementById('mst-panel');
   if (!el) return;
-  const mst = getMastery();
   const cats = getCategories().filter(c => getRoundList(c).length);
 
   if (!cats.length) { el.innerHTML = ''; return; }
@@ -9997,7 +10050,9 @@ function renderMasteryPanel() {
 
   const cat = dashMstCat;
   const rounds = getRoundList(cat);
-  const items = rounds.map(r => ({ round: r, v: mst[cat + '||' + r] || 0 }));
+  // [수정] 손으로 매긴 값이냐 정답률이냐 — 설정에 따라 같은 화면이 다른 기준을 본다
+  const byAcc = masteryByAcc(), mstL = mstLabel();
+  const items = rounds.map(r => ({ round: r, v: roundMastery(cat, r) }));
 
   const n = items.length;
   const avg = n ? Math.round(items.reduce((s, i) => s + i.v, 0) / n) : 0;
@@ -10011,21 +10066,21 @@ function renderMasteryPanel() {
     { c: '#FBBF24', n: b[2], label: '절반 50–69%' },
     { c: '#F87171', n: b[3], label: '부족 21–49%' },
     { c: '#DC2626', n: b[4], label: '많이부족 1–20%' },
-    { c: '#CBD5E1', n: b[5], label: '아직 0%' }
+    { c: '#CBD5E1', n: b[5], label: byAcc ? '아직 안 풂' : '아직 0%' }
   ];
   const pctOf = x => (x / n * 100).toFixed(2);
 
   el.innerHTML = `
     <div class="mst-card">
       <div class="mst-head">
-        <span class="mst-title"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-chart"/></svg> 암기 현황</span>
+        <span class="mst-title"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-chart"/></svg> 암기 현황<span class="mst-mode" title="설정 &gt; 기능에서 바꿀 수 있어요">${byAcc ? '정답률 기준' : '직접 매김'}</span></span>
         <select class="mst-catsel" onchange="changeMstCat(this.value)">
           ${cats.map(c => `<option value="${c}" ${c === cat ? 'selected' : ''}>${c}</option>`).join('')}
         </select>
       </div>
 
       <div class="mst-avg-row">
-        <span><span class="mst-avg-num">${avg}%</span> <span style="margin-left:4px">평균 암기도</span></span>
+        <span><span class="mst-avg-num">${avg}%</span> <span style="margin-left:4px">평균 ${mstL}</span></span>
         <span>70%+ <b style="color:var(--gray-700)">${b[0] + b[1]}</b> / ${n}회차</span>
       </div>
       <div class="mst-track"><i style="width:${avg}%"></i></div>
@@ -10040,13 +10095,13 @@ function renderMasteryPanel() {
 
       <div class="mst-rounds">
         <button class="mst-rounds-toggle ${dashMstOpen ? 'open' : ''}" onclick="toggleMstRounds()">
-          <span>회차별 암기도 <b>${n}</b>개</span>
+          <span>회차별 ${mstL} <b>${n}</b>개</span>
           <span class="mst-caret">▾</span>
         </button>
         <div class="mst-rounds-body ${dashMstOpen ? 'open' : ''}">
         <div>
         ${items.map(i => `
-          <button class="mst-row" title="${escHtml(cat)} ${escHtml(i.round)}회차 · 암기 ${i.v}% · 눌러서 바로 풀기"
+          <button class="mst-row" title="${escHtml(cat)} ${escHtml(i.round)}회차 · ${mstL} ${i.v}% · 눌러서 바로 풀기"
                   onclick="startQuizFromDash('${escArg(cat)}','${escArg(i.round)}')">
             <span class="mst-row-label">${escHtml(i.round)}</span>
             <span class="mst-row-track"><i class="mst-row-fill" style="width:${i.v}%; background:${mstColor(i.v)}"></i></span>
@@ -11067,17 +11122,17 @@ function renderRoundList(cat) {
   _openRound = null;
 
   const checks = getChecks();
-  const mastery = getMastery();
+  const mstL = mstLabel();                        // [추가] 손으로 / 정답률 — 지금 기준의 이름
 
   const tiles = rounds.map((r, i) => {
     const qs = { length: getRoundCount(cat, r) };   // [수정] 개수만 필요 → 색인에서
-    const pct = mastery[cat + '||' + r] || 0;
+    const pct = roundMastery(cat, r);
     const nm = splitRoundName(r);
     const isChecked = !!checks[cat + '||' + r];
     const nHid = hiddenCountIn(cat, r);             // [추가] 숨긴 게 있다는 걸 잊지 않게 표시
     return `
       <button class="rt${isChecked ? ' done' : ''}" data-idx="${i}" data-round="${escHtml(r)}"
-              onclick="toggleRoundTile(${i})" title="${escHtml(r)}회차 · ${qs.length - nHid}문제${nHid ? ` (숨김 ${nHid})` : ''} · 암기도 ${pct}%">
+              onclick="toggleRoundTile(${i})" title="${escHtml(r)}회차 · ${qs.length - nHid}문제${nHid ? ` (숨김 ${nHid})` : ''} · ${mstL} ${pct}%">
         ${isChecked ? '<span class="rt-check"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-check"/></svg></span>' : ''}
         ${nHid ? `<span class="rt-hid" title="숨긴 문제 ${nHid}개">${nHid}</span>` : ''}
         ${nm.top ? `<span class="rt-top">${escHtml(nm.top)}</span>` : ''}
@@ -11146,6 +11201,7 @@ function _openRoundPanel(grid, tile, round) {
       </button>
     </div>
 
+    ${masteryByAcc() ? '' : `
     <div class="rtp-mst">
       <span class="rtp-mst-label">암기도</span>
       <div class="mst-slider" data-cat="${escHtml(cat)}" data-round="${escHtml(round)}">
@@ -11153,7 +11209,8 @@ function _openRoundPanel(grid, tile, round) {
         <div class="mst-sl-thumb" style="left:${pct}%; background:${mstColor(pct)}"></div>
       </div>
       <b class="rtp-mst-pct" id="mastery-pct-${escHtml(cat)}-${escHtml(round)}" style="color:${mstColor(pct)}">${pct}%</b>
-    </div>
+    </div>`}
+    ${masteryByAcc() && !acc ? `<div class="rtp-acc-note">아직 안 풀어서 정답률이 없어요</div>` : ''}
     ${acc ? `
     <div class="rtp-acc">
       <span class="rtp-mst-label">정답률</span>
@@ -20546,6 +20603,7 @@ const DEFAULT_SETTINGS = {
   sound: false,            // 효과음 (기본 꺼짐)
   autoNextOnJudge: false,  // 맞았어요/틀렸어요 누르면 자동으로 다음 문제 (기본 꺼짐)
   quizImgBtn: true,        // [추가] 푸는 화면 지문 아래의 그림 단추 (기본 켜짐)
+  masteryByAcc: false,     // [추가] 암기도를 정답률로 볼지 (기본: 손으로 매긴 값)
   calSize: 'md'            // 캘린더 크기 sm/md/lg
 };
 
@@ -20700,6 +20758,8 @@ function toggleSetting(key) {
   saveSettings(s);
   applySettings();
   renderSettings();
+  // [추가] 암기도 기준을 바꾸면 홈·회차 목록의 숫자가 통째로 달라진다 → 그 자리에서 다시 그린다
+  if (key === 'masteryByAcc') repaintMasteryViews();
   const labels = {
     swipeNav: '스와이프 이동',
     particles: '정답 효과', reduceMotion: '애니메이션 줄이기',
@@ -20707,6 +20767,11 @@ function toggleSetting(key) {
     autoNextOnJudge: '판정 후 자동으로 다음',
     quizImgBtn: '문제에서 그림 붙이기'
   };
+  // 이 스위치는 켜고 끄기보다 '무엇으로 보는가'라 말이 달라야 한다
+  if (key === 'masteryByAcc') {
+    showToast(s[key] ? '이제 암기도를 정답률로 봐요' : '암기도를 다시 직접 매긴 값으로 봐요');
+    return;
+  }
   showToast(`${labels[key] || key} ${s[key] ? '켜짐' : '꺼짐'}`);
 }
 
@@ -20866,6 +20931,7 @@ function renderSettings() {
   sw('sw-haptic', s.haptic);
   sw('sw-autonext', s.autoNextOnJudge);
   sw('sw-imgbtn', s.quizImgBtn);
+  sw('sw-mstacc', s.masteryByAcc);
   sw('sw-sound', s.sound);
   sw('sw-live', liveEnabled());
 
@@ -21184,6 +21250,11 @@ applyRenderFlags();
 //   k: 'new'(새 기능) · 'fix'(고침) · 'chg'(바뀜)
 // ══════════════════════════════════════════════════════════════════════
 const PATCH_NOTES = [
+  { v: '260828-0211', at: '2026-08-28', items: [
+    { k: 'new', t: '<b>암기도를 정답률로 볼 수 있습니다</b> (설정 &gt; 기능 → <b>암기도를 정답률로 보기</b>). 켜면 회차 칸의 띠와 홈 <b>암기 현황</b>의 숫자가 전부 <b>그 회차에서 맞힌 비율</b>로 바뀌어요 — 손으로 끌 필요 없이 풀기만 하면 저절로 따라옵니다' },
+    { k: 'chg', t: '정답률로 보는 동안에는 회차를 눌렀을 때 <b>암기도 슬라이더가 나오지 않습니다</b> (정답률이 대신 나와요). 손으로 매겨 둔 값은 <b>지워지지 않으니</b> 스위치를 끄면 예전 값이 그대로 돌아옵니다' },
+    { k: 'chg', t: '홈 <b>암기 현황</b> 제목 옆에 지금 무엇을 기준으로 보는지(<b>직접 매김 / 정답률 기준</b>)가 표시됩니다. 아직 안 푼 회차는 정답률 기준에서 <b>0%</b> 로 남아요' },
+  ]},
   { v: '260827-0512', at: '2026-08-27', items: [
     { k: 'chg', t: '문제를 푸는 중에 쓰는 <b>그림 단추 두 개</b>가 자리를 옮겼습니다. 지문 칸 선에 걸쳐 떠 있던 것을 <b>그림이 실제로 들어갈 자리</b>(지문 아래 · 보기 위)에 제 줄로 세웠어요. 평소에는 <b>흐릿하게</b> 있다가 마우스를 올리면 또렷해집니다' },
     { k: 'new', t: '이제 <b>폰에서도</b> 문제를 푸는 중에 그림을 바로 붙일 수 있습니다 — 예전에는 넓은 화면에서만 나왔어요' },
@@ -21736,7 +21807,7 @@ function closePatchNotes() {
 // ── 앱 버전 ──
 // 폰이 옛 파일을 캐시해 두고 있는지 바로 확인할 수 있도록 화면에 표시한다.
 // (설정 맨 아래 · 개발자 도구 콘솔에도 찍힘)
-const APP_VERSION = '260827-0512';
+const APP_VERSION = '260828-0211';
 console.log('%c양진웅 Note 버전 ' + APP_VERSION, 'font-weight:bold');
 
 // PWA 서비스워커 등록
