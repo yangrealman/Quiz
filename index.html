@@ -19911,7 +19911,8 @@ function renderAL() {
       <button class="al-eye" onclick="alToggle(${i})" title="${_alHidden[i] ? '이 줄 보이기' : '이 줄 가리기'}"
               aria-label="${_alHidden[i] ? '이 줄 보이기' : '이 줄 가리기'}">${_alHidden[i] ? '🙈' : '👁'}</button>
       <input class="al-in" value="${escHtml(t)}" placeholder="${i + 1}번째 줄"
-             oninput="alEdit(${i}, this.value)" onpaste="alPaste(event, ${i})">
+             oninput="alEdit(${i}, this.value)" onpaste="alPaste(event, ${i})"
+             onkeydown="alKey(event, ${i})">
       <button class="al-del" onclick="alDel(${i})" title="이 줄 지우기" aria-label="이 줄 지우기">✕</button>
     </div>`).join('');
   const t = document.getElementById('al-step-t');
@@ -19922,6 +19923,22 @@ function alEdit(i, v) {
   const lines = alGet();
   lines[i] = v;
   alSet(lines);                    // 글자는 저장한다 (가린 상태는 저장하지 않는다)
+}
+
+// [추가] ↑ ↓ 로 줄 사이를 오간다 — 여러 줄을 이어 칠 때 줄마다 마우스로 짚지 않게.
+//        한 줄짜리 칸이라 화살표에 원래 하던 일이 없어 가로채도 잃는 게 없다.
+//        맨 위에서 ↑, 맨 아래에서 ↓ 는 아무 일도 하지 않는다 (한 바퀴 돌지 않는다 —
+//        끝에 왔다는 걸 손이 알아채야 하니까).
+function alKey(e, i) {
+  if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
+  const rows = document.querySelectorAll('#al-list .al-in');
+  const to = i + (e.key === 'ArrowDown' ? 1 : -1);
+  if (to < 0 || to >= rows.length) return;
+  e.preventDefault();
+  const el = rows[to];
+  el.focus();
+  try { const n = el.value.length; el.setSelectionRange(n, n); } catch (_) {}   // 커서는 글 끝에
 }
 
 // 여러 줄을 한꺼번에 붙여 넣으면 줄마다 나눠 담는다 (외울 글을 통째로 복사해 올 때)
@@ -21586,6 +21603,9 @@ applyRenderFlags();
 //   k: 'new'(새 기능) · 'fix'(고침) · 'chg'(바뀜)
 // ══════════════════════════════════════════════════════════════════════
 const PATCH_NOTES = [
+  { v: '260831-0308', at: '2026-08-31', items: [
+    { k: 'new', t: '줄 암기장에서 <b>↑ ↓ 화살표로 줄 사이를 오갑니다.</b> 여러 줄을 이어 칠 때 줄마다 마우스로 짚지 않아도 돼요 (커서는 그 줄 글자 끝에 놓입니다)' },
+  ]},
   { v: '260831-0036', at: '2026-08-31', items: [
     { k: 'new', t: '문제를 푸는 중에 <b>닮은 문제</b> 단추를 누르면, 같은 자격증 안에서 <b>비슷한 문제가 아래에 쌓입니다.</b> 거기서 바로 <b>숨기기</b>를 하면 뒤 회차를 풀 때 같은 걸 또 안 봐도 돼요' },
     { k: 'new', t: '닮았다고 다 같은 문제는 아니라서 <b>딱지로 알려 줍니다</b> — <b>반대 물음일 수 있어요</b>(‘옳은 것은?’ ↔ ‘옳지 않은 것은?’), <b>숫자가 달라요</b>(0.5MPa ↔ 1.0MPa), <b>정답이 달라요</b>. <b>자동으로 숨기지 않으니</b> 보고 직접 고르세요' },
@@ -22148,7 +22168,7 @@ function closePatchNotes() {
 // ── 앱 버전 ──
 // 폰이 옛 파일을 캐시해 두고 있는지 바로 확인할 수 있도록 화면에 표시한다.
 // (설정 맨 아래 · 개발자 도구 콘솔에도 찍힘)
-const APP_VERSION = '260831-0036';
+const APP_VERSION = '260831-0308';
 console.log('%c양진웅 Note 버전 ' + APP_VERSION, 'font-weight:bold');
 
 // PWA 서비스워커 등록
