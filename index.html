@@ -4718,7 +4718,69 @@
     transition: color 0.15s, border-color 0.15s;
   }
   .qmemo-send:hover { color: var(--primary); border-color: var(--primary); }
+  .qmemo-send.on { color: var(--primary); border-color: var(--primary); background: var(--primary-light); }
   .qmemo-send .ic { width: 14px; height: 14px; }
+  /* 폰에서는 줄이 좁아 단추 둘이 안 들어간다 → 글자를 빼고 아이콘만 (title 로 알 수 있다) */
+  @media (max-width: 420px) {
+    .qmemo-send span { display: none; }
+    .qmemo-send { padding: 6px 8px; }
+  }
+
+  /* ═══════════════════════════════════════════════════════════
+     닮은 문제 — 버튼을 누르면 이 문제와 비슷한 문제가 아래에 쌓인다.
+     [주의] 닮았다고 같은 문제가 아니다. 반대 물음(옳은/옳지 않은)·숫자 차이·
+     정답 차이는 눈에 띄는 딱지로 알린다 — 이걸 놓치면 중요한 문제를 숨겨 버린다.
+     ═══════════════════════════════════════════════════════════ */
+  .dupbox { margin-top: var(--sp-3); }
+  .dup-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
+  .dup-title { font-size: 13px; font-weight: 800; color: var(--gray-700); }
+  .dup-title b { color: var(--primary); }
+  .dup-th { display: inline-flex; align-items: center; gap: 6px; margin-left: auto;
+            font-size: 11px; color: var(--gray-400); }
+  .dup-th input { width: 96px; accent-color: var(--primary); }
+  .dup-th b { min-width: 30px; color: var(--gray-600); }
+  .dup-close { border: none; background: none; cursor: pointer; color: var(--gray-400); padding: 2px; }
+  .dup-close .ic { width: 16px; height: 16px; }
+  .dup-miss {
+    font-size: 11.5px; color: var(--gray-500); background: var(--gray-100);
+    border: 1px solid var(--gray-200); border-radius: var(--radius); padding: 8px 10px; margin-bottom: 8px;
+  }
+  .dup-pull {
+    margin-left: 6px; padding: 3px 9px; border-radius: 999px; cursor: pointer;
+    border: 1px solid var(--primary); background: var(--primary-light); color: var(--primary);
+    font: inherit; font-size: 11px; font-weight: 700;
+  }
+  .dup-empty { font-size: 12px; color: var(--gray-400); padding: 14px 2px; text-align: center; }
+  .dup-item {
+    border: 1px solid var(--card-border); border-radius: var(--radius);
+    background: var(--card); padding: 11px 12px; margin-bottom: 8px;
+  }
+  .dup-item.hid { opacity: 0.55; }
+  .dup-meta { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 6px; }
+  .dup-where { font-size: 11px; font-weight: 700; color: var(--gray-500); }
+  .dup-sim { font-size: 12px; font-weight: 900; }
+  .dup-bad { font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 999px; }
+  .dup-bad.danger { color: #B42318; background: #FEF3F2; border: 1px solid #FDA29B; }
+  .dup-bad.warn { color: #B54708; background: #FFFAEB; border: 1px solid #FEC84B; }
+  .dup-bad.hid { color: var(--gray-500); background: var(--gray-100); border: 1px solid var(--gray-200); }
+  .dup-q { font-size: 13px; line-height: 1.6; color: var(--gray-700); }
+  .dup-ops { display: flex; flex-wrap: wrap; gap: 4px 10px; margin-top: 6px; }
+  .dup-ops span { font-size: 11.5px; color: var(--gray-400); }
+  .dup-ops span.on { color: var(--primary); font-weight: 700; }
+  .dup-ans { font-size: 11.5px; color: var(--primary); font-weight: 700; margin-top: 6px; }
+  .dup-acts { display: flex; gap: 6px; margin-top: 9px; }
+  .dup-act {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 6px 11px; border-radius: 999px; cursor: pointer;
+    border: 1px solid var(--card-border); background: var(--card);
+    font: inherit; font-size: 11.5px; font-weight: 700; color: var(--gray-500);
+  }
+  .dup-act:hover { color: var(--primary); border-color: var(--primary); }
+  .dup-act.on { color: var(--primary); border-color: var(--primary); background: var(--primary-light); }
+  .dup-act .ic { width: 14px; height: 14px; }
+  body.dark .dup-bad.danger { color: #FDA29B; background: rgba(180,35,24,.16); border-color: rgba(253,162,155,.4); }
+  body.dark .dup-bad.warn { color: #FEC84B; background: rgba(181,71,8,.16); border-color: rgba(254,200,75,.4); }
+  body.dark .dup-miss { background: var(--navy-1); border-color: var(--card-border); }
 
   .qmemo-bar {
     display: flex; align-items: center; gap: 7px;
@@ -7107,6 +7169,12 @@
         <button class="qmemo-send" onclick="sendCurrentQuizToMemo()" title="암기칸에 보내기" aria-label="암기칸에 보내기">
           <svg class="ic" viewBox="0 0 24 24"><use href="#ic-note"/></svg><span>암기칸</span>
         </button>
+        <!-- [추가] 닮은 문제 — 이 문제와 비슷한 문제를 아래에 쌓아 준다.
+             같은 걸 뒤 회차에서 또 푸는 시간을 아끼려고 거기서 바로 숨긴다. -->
+        <button class="qmemo-send" onclick="toggleDupPanel()" id="dup-btn"
+                title="이 문제와 닮은 문제 찾기" aria-label="닮은 문제">
+          <svg class="ic" viewBox="0 0 24 24"><use href="#ic-search"/></svg><span>닮은 문제</span>
+        </button>
       </div>
       <div class="qmemo-body" id="qmemo-body">
         <div>
@@ -7114,6 +7182,8 @@
         </div>
       </div>
     </div>
+    <!-- 닮은 문제가 쌓이는 자리 (버튼을 누르기 전에는 비어 있다) -->
+    <div class="dupbox" id="dup-box" style="display:none"></div>
     <div class="quiz-nav">
       <button class="btn btn-secondary" id="quiz-prev-btn" onclick="quizPrev()"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-arrow-left"/></svg>이전</button>
       <button class="btn btn-primary" id="quiz-next-btn" onclick="quizNext()">다음<svg class="ic" viewBox="0 0 24 24"><use href="#ic-arrow-right"/></svg></button>
@@ -8807,6 +8877,7 @@ function getAllData() {
 // ── 쓰기 ──────────────────────────────────────────────────────────────
 function saveRound(cat, round, arr, opt) {
   clearAccMemo();                            // [추가] 정답이 바뀌면 정답률도 다시 세야 한다
+  clearDupIdx();                             // [추가] 지문이 바뀌면 닮은 문제도 다시 찾아야 한다
   const idx = getQdIndex();
   if (!idx.cats[cat]) idx.cats[cat] = {};
   const prev = idx.cats[cat][round] || { rev: 0 };
@@ -9459,6 +9530,117 @@ function saveMastery(cat, round, value) {
 
 function getStarKey(cat, round, qId) {
   return cat + '||' + round + '||' + qId;
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// 닮은 문제 찾기
+//   [추가] 같은 걸 묻는 문제가 회차마다 되풀이돼서, 뒤 회차를 풀 때 시간이 샜다.
+//          풀다가 그 자리에서 닮은 문제를 모아 보고 필요 없는 것만 숨긴다.
+//   판별은 세 겹이다.
+//     1) 다듬은 지문이 글자까지 같으면 = 같은 문제 (복사해 넣은 것들)
+//     2) 아니면 글자 두 개씩 자른 집합(2-gram)이 얼마나 겹치는지 (자카드)
+//        — 한국어는 형태소 분석기 없이도 이 방법이 꽤 잘 맞고, 조사·어순이
+//          조금 달라도 잡힌다. 라이브러리가 필요 없다.
+//     3) 닮았다고 다 같은 문제가 아니다 → 아래 세 가지는 반드시 경고한다.
+//        · 부정어 유무가 다름 — "옳은 것은?" 과 "옳지 않은 것은?" 은 글자로는
+//          거의 같은데 답이 정반대다. 이걸 놓치면 중요한 문제를 숨겨 버린다.
+//        · 숫자가 다름 — 0.5MPa ↔ 1.0MPa, 8/10 ↔ 9/10 은 다른 문제다.
+//        · 정답이 다름 — 지문은 같은데 묻는 답이 다를 수 있다.
+//   그래서 앱은 "닮았다"까지만 하고, 무엇을 숨길지는 사람이 고른다. 자동으로
+//   숨기지 않는다.
+// ══════════════════════════════════════════════════════════════════════
+const DUP_TH_MIN = 0.35, DUP_TH_MAX = 0.95, DUP_TH_DEF = 0.62;
+const DUP_MAX_HITS = 30;
+
+function dupThreshold() {
+  const v = parseFloat(getSettings().dupThreshold);
+  return (isFinite(v) && v >= DUP_TH_MIN && v <= DUP_TH_MAX) ? v : DUP_TH_DEF;
+}
+function setDupThreshold(v) {
+  const s = getSettings();
+  s.dupThreshold = Math.min(DUP_TH_MAX, Math.max(DUP_TH_MIN, parseFloat(v) || DUP_TH_DEF));
+  saveSettings(s);
+}
+
+// 비교용으로 문장을 다듬는다 — 보기 번호·기호·띄어쓰기 차이로 다른 문제가 되지 않게
+function _dupNorm(s) {
+  return String(s == null ? '' : s)
+    .replace(/[①②③④⑤⑥⑦⑧⑨⑩㉠㉡㉢㉣]/g, ' ')
+    .replace(/[.,·․‧()\[\]{}<>「」『』《》"'"'`~!?;:/\\|+\-–—=*&^%$#@\s]+/g, ' ')
+    .trim().toLowerCase();
+}
+// 띄어쓰기는 사람마다 달라서 아예 빼고 글자 두 개씩 자른다
+function _dupGrams(norm) {
+  const s = norm.replace(/ /g, ''), set = new Set();
+  if (s.length < 2) { if (s) set.add(s); return set; }
+  for (let i = 0; i < s.length - 1; i++) set.add(s.slice(i, i + 2));
+  return set;
+}
+// 자카드 — 겹치는 것 / 합쳐서 있는 것
+function _dupSim(a, b) {
+  if (!a.size || !b.size) return 0;
+  const [s, l] = a.size < b.size ? [a, b] : [b, a];
+  let inter = 0;
+  s.forEach(g => { if (l.has(g)) inter++; });
+  return inter / (a.size + b.size - inter);
+}
+// 숫자·분수는 다듬기 전 원문에서 뽑는다 (기호를 지우면 8/10 이 8,10 으로 갈라진다)
+function _dupNums(s) {
+  return (String(s || '').match(/\d+(?:[./]\d+)*/g) || [])
+    .map(v => v.replace(/^0+(?=\d)/, '')).sort().join(',');
+}
+const DUP_NEG = /(않은|않는|않다|아닌|아닙|틀린|틀리|잘못|거리가\s*먼|제외|아니한|아닌\s*것)/;
+function _dupNeg(s) { return DUP_NEG.test(String(s || '')); }
+// 정답 글월 — 객관식은 고른 보기의 글, 필답형은 답
+function _dupAnsText(q) {
+  if (!q) return '';
+  if (q.type === 'subj') return _dupNorm(q.answer);
+  const o = q.options || [];
+  return _dupNorm(o[q.correct] != null ? o[q.correct] : '');
+}
+
+// 자격증 하나치를 미리 다듬어 둔다 (회차가 바뀌면 버린다)
+let _dupIdx = null, _dupIdxCat = null;
+function clearDupIdx() { try { _dupIdx = null; _dupIdxCat = null; } catch (_) {} }
+
+function buildDupIndex(cat) {
+  if (_dupIdx && _dupIdxCat === cat) return _dupIdx;
+  const list = [];
+  getRoundList(cat).forEach(r => {
+    getRound(cat, r).forEach((q, at) => {
+      const norm = _dupNorm(q && q.question);
+      if (norm.replace(/ /g, '').length < 6) return;   // 너무 짧으면 비교가 의미 없다
+      list.push({ round: r, at, q, norm, grams: _dupGrams(norm),
+                  nums: _dupNums(q.question), neg: _dupNeg(q.question) });
+    });
+  });
+  _dupIdx = list; _dupIdxCat = cat;
+  return list;
+}
+
+// 아직 이 기기에 안 받아온 회차 — 그 회차 문제와는 비교 자체가 안 된다
+function dupMissingRounds(cat) {
+  return getRoundList(cat).filter(r => getRoundCount(cat, r) > 0 && getRound(cat, r).length === 0);
+}
+
+function findSimilarTo(cat, round, q, th) {
+  if (!q || !q.question) return [];
+  const norm = _dupNorm(q.question);
+  const base = { norm, grams: _dupGrams(norm), nums: _dupNums(q.question), neg: _dupNeg(q.question),
+                 ans: _dupAnsText(q) };
+  const me = _flagKeyOf(cat, round, q);
+  const out = [];
+  buildDupIndex(cat).forEach(it => {
+    if (_flagKeyOf(cat, it.round, it.q) === me) return;          // 자기 자신은 뺀다
+    const sim = it.norm === base.norm ? 1 : _dupSim(base.grams, it.grams);
+    if (sim < th) return;
+    out.push({ round: it.round, at: it.at, q: it.q, sim,
+      warnNeg: it.neg !== base.neg,                              // 반대 물음일 수 있다
+      warnNum: it.nums !== base.nums,                            // 숫자가 다르다
+      warnAns: _dupAnsText(it.q) !== base.ans });                // 정답이 다르다
+  });
+  out.sort((a, b) => b.sim - a.sim);
+  return out.slice(0, DUP_MAX_HITS);
 }
 
 // ══════════════════════════════════════════════════════════════════════
@@ -11647,6 +11829,9 @@ function renderQuestion() {
   document.getElementById('quiz-question').textContent = q.question;
   renderQImage('quiz-img-wrap', q);   // [추가] 문제 그림
   if (typeof paintQuizImgBtn === 'function') paintQuizImgBtn();   // [추가] 그림 단추 상태
+  // [추가] 닮은 문제 칸이 열려 있으면 지금 문제 기준으로 다시 찾는다
+  //        (안 그러면 문제를 넘겨도 앞 문제의 결과가 그대로 남아 헷갈린다)
+  if (_dupOpen && typeof renderDupPanel === 'function') renderDupPanel();
   // [추가] 형광펜 : 이 문제의 지문(과 주관식 모범답안) 칸을 표시하고 저장된 강조를 다시 칠함
   //  · 객관식 해설은 이 화면에서 일부러 감추므로(결과에서 공개) 대상에서 제외
   const _hk = srsKey(cat, round, q, idx);
@@ -14948,6 +15133,157 @@ function hideCurrentQuestion() {
 
   renderQuestion();
   showToast('숨겼어요 · 복습 > 숨긴 문제에서 되살릴 수 있어요');
+}
+
+// ── 닮은 문제 칸 ──────────────────────────────────────────────────────
+let _dupOpen = false;
+
+function toggleDupPanel() {
+  _dupOpen = !_dupOpen;
+  if (_dupOpen) renderDupPanel(); else closeDupPanel();
+}
+function closeDupPanel() {
+  _dupOpen = false;
+  const box = document.getElementById('dup-box');
+  if (box) { box.style.display = 'none'; box.innerHTML = ''; }
+  const btn = document.getElementById('dup-btn');
+  if (btn) btn.classList.remove('on');
+}
+
+function renderDupPanel() {
+  const box = document.getElementById('dup-box');
+  if (!box) return;
+  const st = (typeof currentQuiz !== 'undefined') ? currentQuiz : null;
+  const q = st && st.questions && st.questions[st.idx];
+  if (!q) { closeDupPanel(); showToast('지금 풀고 있는 문제가 없어요'); return; }
+
+  const btn = document.getElementById('dup-btn');
+  if (btn) btn.classList.add('on');
+
+  const th = dupThreshold();
+  const hits = findSimilarTo(st.cat, st.round, q, th);
+  const miss = dupMissingRounds(st.cat);
+  const hidden = getHidden();
+
+  const head = `
+    <div class="dup-head">
+      <span class="dup-title">닮은 문제 <b>${hits.length}</b>개</span>
+      <label class="dup-th" title="낮출수록 더 많이 잡히고, 엉뚱한 것도 섞입니다">
+        <span>기준</span>
+        <input type="range" min="${DUP_TH_MIN}" max="${DUP_TH_MAX}" step="0.01" value="${th}"
+               oninput="dupThPreview(this.value)" onchange="dupThApply(this.value)">
+        <b id="dup-th-num">${Math.round(th * 100)}%</b>
+      </label>
+      <button class="dup-close" onclick="closeDupPanel()" title="닫기" aria-label="닫기">
+        <svg class="ic" viewBox="0 0 24 24"><use href="#ic-x"/></svg>
+      </button>
+    </div>`;
+
+  const note = miss.length
+    ? `<div class="dup-miss">아직 안 받아온 회차 <b>${miss.length}</b>개는 비교에서 빠졌어요
+         <button class="dup-pull" onclick="dupPullMissing(this)">받아오기</button></div>` : '';
+
+  const body = hits.length ? hits.map(h => {
+    const key = _flagKeyOf(st.cat, h.round, h.q);
+    const isHid = !!hidden[key];
+    const qid = String((h.q.id || h.q.num) || 0);
+    const badges = [
+      h.warnNeg ? '<span class="dup-bad danger">반대 물음일 수 있어요</span>' : '',
+      h.warnNum ? '<span class="dup-bad warn">숫자가 달라요</span>' : '',
+      (h.warnAns && !h.warnNeg) ? '<span class="dup-bad warn">정답이 달라요</span>' : '',
+      isHid ? '<span class="dup-bad hid">숨김</span>' : ''
+    ].join('');
+    const ops = (h.q.type === 'subj')
+      ? `<div class="dup-ans">답 · ${escHtml(String(h.q.answer || '').slice(0, 120))}</div>`
+      : `<div class="dup-ops">${(h.q.options || []).map((o, i) =>
+          `<span class="${i === h.q.correct ? 'on' : ''}">${'①②③④⑤⑥'[i] || (i + 1)} ${escHtml(String(o).slice(0, 60))}</span>`).join('')}</div>`;
+    return `
+      <div class="dup-item${isHid ? ' hid' : ''}">
+        <div class="dup-meta">
+          <span class="dup-where">${escHtml(h.round)} · ${escHtml(String(h.q.num || ''))}번</span>
+          <span class="dup-sim" style="color:${mstColor(Math.round(h.sim * 100))}">${Math.round(h.sim * 100)}%</span>
+          ${badges}
+        </div>
+        <div class="dup-q">${escHtml(h.q.question || '')}</div>
+        ${ops}
+        <div class="dup-acts">
+          <button class="dup-act${isHid ? ' on' : ''}"
+                  onclick="dupToggleHide('${escArg(st.cat)}','${escArg(h.round)}','${escArg(qid)}')">
+            <svg class="ic" viewBox="0 0 24 24"><use href="${isHid ? '#ic-eye' : '#ic-eye-off'}"/></svg>
+            ${isHid ? '되살리기' : '숨기기'}
+          </button>
+          <button class="dup-act" onclick="dupGoTo('${escArg(st.cat)}','${escArg(h.round)}','${escArg(qid)}')">
+            <svg class="ic" viewBox="0 0 24 24"><use href="#ic-arrow-right"/></svg>이 문제로
+          </button>
+        </div>
+      </div>`;
+  }).join('')
+    : `<div class="dup-empty">기준 ${Math.round(th * 100)}% 이상으로 닮은 문제가 없어요 ·
+         기준을 낮춰 보세요</div>`;
+
+  box.innerHTML = head + note + body;
+  box.style.display = '';
+}
+
+// 슬라이더를 끄는 동안에는 숫자만 바꾸고, 손을 뗄 때 다시 찾는다 (매 픽셀마다 다 뒤지면 버벅인다)
+function dupThPreview(v) {
+  const el = document.getElementById('dup-th-num');
+  if (el) el.textContent = Math.round(parseFloat(v) * 100) + '%';
+}
+function dupThApply(v) { setDupThreshold(v); renderDupPanel(); }
+
+function dupToggleHide(cat, round, qid) {
+  const arr = getRound(cat, round);
+  const q = arr.find(x => String((x.id || x.num) || 0) === String(qid));
+  if (!q) { showToast('그 문제를 찾지 못했어요'); return; }
+  const on = toggleHiddenEntry(cat, round, q);
+  if (on) _dupDropFromDeck(cat, round, q);      // 지금 풀고 있는 회차의 문제였다면 목록에서도 뺀다
+  renderDupPanel();
+  showToast(on ? '숨겼어요 · 복습 > 숨긴 문제에서 되살릴 수 있어요' : '다시 보이게 했어요');
+}
+
+// 지금 풀고 있는 목록 안의 문제를 숨기면 그 자리에서 빠져야 한다 (다음에 열 때가 아니라)
+function _dupDropFromDeck(cat, round, q) {
+  const st = (typeof currentQuiz !== 'undefined') ? currentQuiz : null;
+  if (!st || st.cat !== cat || st.round !== round || !st.questions) return;
+  const key = _flagKeyOf(cat, round, q);
+  const at = st.questions.findIndex(x => _flagKeyOf(cat, round, x) === key);
+  if (at < 0 || at === st.idx) return;                 // 지금 보고 있는 문제는 건드리지 않는다
+  if (st.questions.length <= 1) return;
+  st.questions.splice(at, 1);
+  if (st.origIdx) st.origIdx.splice(at, 1);
+  const shifted = {};
+  Object.keys(st.answered || {}).forEach(k => {
+    const i = Number(k);
+    if (i < at) shifted[i] = st.answered[k];
+    else if (i > at) shifted[i - 1] = st.answered[k];
+  });
+  st.answered = shifted;
+  if (at < st.idx) st.idx--;
+  renderQuestion();
+}
+
+function dupGoTo(cat, round, qid) {
+  closeDupPanel();
+  startQuizFromDash(cat, round);
+  setTimeout(() => {
+    try {
+      const at = currentQuiz.questions.findIndex(x => String((x.id || x.num) || 0) === String(qid));
+      if (at >= 0) { currentQuiz.idx = at; renderQuestion(); }
+      else showToast('숨긴 문제라 목록에 없어요');
+    } catch (_) {}
+  }, 80);
+}
+
+async function dupPullMissing(btn) {
+  const st = (typeof currentQuiz !== 'undefined') ? currentQuiz : null;
+  if (!st) return;
+  const miss = dupMissingRounds(st.cat);
+  if (!miss.length) return;
+  btn.disabled = true; btn.textContent = '받는 중…';
+  try { await pullRounds(miss.map(r => ({ cat: st.cat, round: r }))); } catch (_) {}
+  clearDupIdx();
+  renderDupPanel();
 }
 
 function toggleFlagCurrent() {
@@ -21250,6 +21586,11 @@ applyRenderFlags();
 //   k: 'new'(새 기능) · 'fix'(고침) · 'chg'(바뀜)
 // ══════════════════════════════════════════════════════════════════════
 const PATCH_NOTES = [
+  { v: '260831-0036', at: '2026-08-31', items: [
+    { k: 'new', t: '문제를 푸는 중에 <b>닮은 문제</b> 단추를 누르면, 같은 자격증 안에서 <b>비슷한 문제가 아래에 쌓입니다.</b> 거기서 바로 <b>숨기기</b>를 하면 뒤 회차를 풀 때 같은 걸 또 안 봐도 돼요' },
+    { k: 'new', t: '닮았다고 다 같은 문제는 아니라서 <b>딱지로 알려 줍니다</b> — <b>반대 물음일 수 있어요</b>(‘옳은 것은?’ ↔ ‘옳지 않은 것은?’), <b>숫자가 달라요</b>(0.5MPa ↔ 1.0MPa), <b>정답이 달라요</b>. <b>자동으로 숨기지 않으니</b> 보고 직접 고르세요' },
+    { k: 'new', t: '오른쪽 <b>기준</b> 막대로 얼마나 닮아야 잡을지 조절합니다 (기본 62%). 낮추면 더 많이 잡히고 엉뚱한 것도 섞여요. 아직 안 받아온 회차가 있으면 알려 주고 그 자리에서 받아올 수 있습니다' },
+  ]},
   { v: '260828-0211', at: '2026-08-28', items: [
     { k: 'new', t: '<b>암기도를 정답률로 볼 수 있습니다</b> (설정 &gt; 기능 → <b>암기도를 정답률로 보기</b>). 켜면 회차 칸의 띠와 홈 <b>암기 현황</b>의 숫자가 전부 <b>그 회차에서 맞힌 비율</b>로 바뀌어요 — 손으로 끌 필요 없이 풀기만 하면 저절로 따라옵니다' },
     { k: 'chg', t: '정답률로 보는 동안에는 회차를 눌렀을 때 <b>암기도 슬라이더가 나오지 않습니다</b> (정답률이 대신 나와요). 손으로 매겨 둔 값은 <b>지워지지 않으니</b> 스위치를 끄면 예전 값이 그대로 돌아옵니다' },
@@ -21807,7 +22148,7 @@ function closePatchNotes() {
 // ── 앱 버전 ──
 // 폰이 옛 파일을 캐시해 두고 있는지 바로 확인할 수 있도록 화면에 표시한다.
 // (설정 맨 아래 · 개발자 도구 콘솔에도 찍힘)
-const APP_VERSION = '260828-0211';
+const APP_VERSION = '260831-0036';
 console.log('%c양진웅 Note 버전 ' + APP_VERSION, 'font-weight:bold');
 
 // PWA 서비스워커 등록
