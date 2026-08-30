@@ -1749,17 +1749,24 @@
 
   /* ── 줄 암기장 ── 줄마다 가리고, 탭을 누르면 위에서부터 한 줄씩 ── */
   .al-wrap { flex: 1; padding: 10px 12px 12px; display: flex; flex-direction: column; min-height: 0; overflow-y: auto; }
-  .al-row { display: flex; align-items: center; gap: 8px; padding: 2px 0; }
+  /* [수정] 글이 길어지면 칸이 아래로 자라므로(여러 줄) 단추는 가운데가 아니라
+     첫 줄 옆에 붙어 있어야 한다 → 위 맞춤 + 첫 줄 높이만큼 내린다 */
+  .al-row { display: flex; align-items: flex-start; gap: 8px; padding: 2px 0; }
   .al-eye {
-    flex: none; width: 30px; height: 30px; border-radius: 8px; cursor: pointer;
+    flex: none; width: 30px; height: 30px; border-radius: 8px; cursor: pointer; margin-top: 6px;
     border: 1px solid var(--gray-200); background: var(--gray-50, #fff); color: var(--gray-400);
     display: flex; align-items: center; justify-content: center; font-size: 13px;
   }
   .al-row.gone .al-eye { background: var(--primary-light); border-color: var(--primary); color: var(--primary); }
+  /* [수정] 한 줄짜리 input 이라 긴 글이 옆으로 흘러 안 보였다 → textarea 로 바꿔
+     글자 수에 맞춰 세로로 자라게 한다. 평소(짧을 때)의 높이는 예전과 같다.
+     resize 손잡이는 없애고(높이는 글이 정한다) 스크롤도 숨긴다(잘릴 일이 없으니까). */
   .al-in {
     flex: 1; min-width: 0; border: none; border-bottom: 1px solid var(--gray-200);
     background: none; padding: 8px 4px; font-family: inherit; font-size: 15px; line-height: 1.7;
     color: var(--gray-800); outline: none;
+    display: block; resize: none; overflow: hidden;
+    white-space: pre-wrap; overflow-wrap: break-word;
   }
   .al-in:focus { border-bottom-color: var(--primary); }
   /* 가린 줄은 '빈 줄' — 글자를 아예 안 보이게 하고 줄 자리만 남긴다 */
@@ -19910,14 +19917,34 @@ function renderAL() {
     <div class="al-row${_alHidden[i] ? ' gone' : ''}" data-i="${i}">
       <button class="al-eye" onclick="alToggle(${i})" title="${_alHidden[i] ? '이 줄 보이기' : '이 줄 가리기'}"
               aria-label="${_alHidden[i] ? '이 줄 보이기' : '이 줄 가리기'}">${_alHidden[i] ? '🙈' : '👁'}</button>
-      <input class="al-in" value="${escHtml(t)}" placeholder="${i + 1}번째 줄"
-             oninput="alEdit(${i}, this.value)" onpaste="alPaste(event, ${i})"
-             onkeydown="alKey(event, ${i})">
+      <textarea class="al-in" rows="1" placeholder="${i + 1}번째 줄"
+             oninput="alEdit(${i}, this.value); alGrow(this)" onpaste="alPaste(event, ${i})"
+             onkeydown="alKey(event, ${i})">${escHtml(t)}</textarea>
       <button class="al-del" onclick="alDel(${i})" title="이 줄 지우기" aria-label="이 줄 지우기">✕</button>
     </div>`).join('');
   const t = document.getElementById('al-step-t');
   if (t) t.textContent = _alPhase === 'hide' ? '한 줄 가리기' : '한 줄 보이기';
+  alGrowAll();                     // [추가] 이미 긴 글이 담긴 줄은 그려지자마자 키를 맞춘다
 }
+
+// [추가] 글자 수에 맞춰 칸의 세로를 늘린다 — 짧으면 한 줄 높이 그대로.
+//        (auto 로 한 번 접어야 글을 지웠을 때 다시 줄어든다)
+function alGrow(el) {
+  if (!el) return;
+  const prev = el.style.height;
+  el.style.height = 'auto';
+  const h = el.scrollHeight;
+  // 아직 화면에 없으면(숨은 칸) 높이가 0으로 나온다 → 손대지 않고 뒀다가 보일 때 다시 잰다
+  if (!h) { el.style.height = prev; return; }
+  el.style.height = h + 'px';
+}
+function alGrowAll() {
+  document.querySelectorAll('#al-list .al-in').forEach(alGrow);
+}
+// 화면 폭이 바뀌면 줄바꿈이 달라진다 → 키를 다시 잰다
+window.addEventListener('resize', () => {
+  if (document.getElementById('al-list')) alGrowAll();
+});
 
 function alEdit(i, v) {
   const lines = alGet();
@@ -19926,19 +19953,36 @@ function alEdit(i, v) {
 }
 
 // [추가] ↑ ↓ 로 줄 사이를 오간다 — 여러 줄을 이어 칠 때 줄마다 마우스로 짚지 않게.
-//        한 줄짜리 칸이라 화살표에 원래 하던 일이 없어 가로채도 잃는 게 없다.
 //        맨 위에서 ↑, 맨 아래에서 ↓ 는 아무 일도 하지 않는다 (한 바퀴 돌지 않는다 —
 //        끝에 왔다는 걸 손이 알아채야 하니까).
+//   [수정] 칸이 textarea 가 되면서 글이 길면 한 줄이 여러 줄로 접힌다. 그래서 곧바로
+//          옆 줄로 넘기면 접힌 글 안에서 위아래로 못 움직인다 → 커서가 글의 맨 앞(↑)
+//          이나 맨 끝(↓)에 있을 때만 옆 줄로 넘긴다. 그 전에는 칸이 알아서 접힌 줄
+//          사이를 오간다.
 function alKey(e, i) {
-  if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
   if (e.ctrlKey || e.metaKey || e.altKey) return;
+  // 한 칸 = 한 줄이다. 줄 안에서 줄바꿈이 생기면 저장 모양이 깨지므로 엔터는 막는다
+  //   (여러 줄을 한꺼번에 넣고 싶으면 붙여넣기 — 줄마다 알아서 나눠 담는다)
+  if (e.key === 'Enter') { e.preventDefault(); return; }
+  if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
+
+  const el = e.target;
+  const s = el.selectionStart, t = el.selectionEnd;
+  if (s !== t) return;                                   // 골라 놓은 게 있으면 칸에 맡긴다
+  if (e.key === 'ArrowUp' && s !== 0) return;            // 아직 글 안에 있으면 칸이 처리
+  if (e.key === 'ArrowDown' && s !== el.value.length) return;
+
   const rows = document.querySelectorAll('#al-list .al-in');
   const to = i + (e.key === 'ArrowDown' ? 1 : -1);
   if (to < 0 || to >= rows.length) return;
   e.preventDefault();
-  const el = rows[to];
-  el.focus();
-  try { const n = el.value.length; el.setSelectionRange(n, n); } catch (_) {}   // 커서는 글 끝에
+  const next = rows[to];
+  next.focus();
+  // ↓ 로 왔으면 글 맨 앞, ↑ 로 왔으면 글 맨 끝 — 들어온 쪽에서 이어지도록
+  try {
+    const at = e.key === 'ArrowDown' ? 0 : next.value.length;
+    next.setSelectionRange(at, at);
+  } catch (_) {}
 }
 
 // 여러 줄을 한꺼번에 붙여 넣으면 줄마다 나눠 담는다 (외울 글을 통째로 복사해 올 때)
@@ -20025,7 +20069,8 @@ function pickMemoPane(which) {
   document.getElementById('mp-anki')?.classList.toggle('on', !lines);
   document.getElementById('mp-lines')?.classList.toggle('on', lines);
   try { localStorage.setItem('memo_pane', which); } catch (_) {}
-  if (lines) renderAL();
+  // [수정] 숨어 있을 때 그리면 칸 높이를 못 재므로, 보이게 한 다음 한 번 더 잰다
+  if (lines) { renderAL(); requestAnimationFrame(alGrowAll); }
 }
 function memoPaneIsLines() {
   try { return localStorage.getItem('memo_pane') === 'lines'; } catch (_) { return false; }
@@ -21603,6 +21648,11 @@ applyRenderFlags();
 //   k: 'new'(새 기능) · 'fix'(고침) · 'chg'(바뀜)
 // ══════════════════════════════════════════════════════════════════════
 const PATCH_NOTES = [
+  { v: '260831-0313', at: '2026-08-31', items: [
+    { k: 'new', t: '줄 암기장 칸이 <b>글이 길어지면 아래로 늘어납니다.</b> 예전에는 한 줄에 안 들어가면 옆으로 흘러 안 보였어요 · 짧을 때 높이는 예전 그대로입니다' },
+    { k: 'chg', t: '↑ ↓ 는 <b>글 안에서 먼저 움직이고</b>, 맨 앞(↑)이나 맨 끝(↓)에 닿았을 때 옆 줄로 넘어갑니다. 넘어가면 들어온 쪽에 커서가 놓여요' },
+    { k: 'chg', t: '한 칸은 <b>한 줄</b>이라 칸 안에서 <b>엔터로 줄을 바꿀 수 없습니다.</b> 여러 줄을 한꺼번에 넣으려면 그냥 <b>붙여넣기</b> 하세요 — 줄마다 알아서 나눠 담습니다' },
+  ]},
   { v: '260831-0308', at: '2026-08-31', items: [
     { k: 'new', t: '줄 암기장에서 <b>↑ ↓ 화살표로 줄 사이를 오갑니다.</b> 여러 줄을 이어 칠 때 줄마다 마우스로 짚지 않아도 돼요 (커서는 그 줄 글자 끝에 놓입니다)' },
   ]},
@@ -22168,7 +22218,7 @@ function closePatchNotes() {
 // ── 앱 버전 ──
 // 폰이 옛 파일을 캐시해 두고 있는지 바로 확인할 수 있도록 화면에 표시한다.
 // (설정 맨 아래 · 개발자 도구 콘솔에도 찍힘)
-const APP_VERSION = '260831-0308';
+const APP_VERSION = '260831-0313';
 console.log('%c양진웅 Note 버전 ' + APP_VERSION, 'font-weight:bold');
 
 // PWA 서비스워커 등록
