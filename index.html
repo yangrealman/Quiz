@@ -4770,6 +4770,10 @@
   .dup-bad.danger { color: #B42318; background: #FEF3F2; border: 1px solid #FDA29B; }
   .dup-bad.warn { color: #B54708; background: #FFFAEB; border: 1px solid #FEC84B; }
   .dup-bad.hid { color: var(--gray-500); background: var(--gray-100); border: 1px solid var(--gray-200); }
+  .dup-bad.ok { color: #067647; background: #ECFDF3; border: 1px solid #75E0A7; }
+  /* 아래 칸(해설로 이어지는 문제)은 위와 성격이 달라 선으로 끊어 준다 */
+  .dup-head2 { margin-top: 16px; padding-top: 12px; border-top: 1px dashed var(--gray-200); }
+  .dup-hint { font-size: 11px; color: var(--gray-400); }
   .dup-q { font-size: 13px; line-height: 1.6; color: var(--gray-700); }
   .dup-ops { display: flex; flex-wrap: wrap; gap: 4px 10px; margin-top: 6px; }
   .dup-ops span { font-size: 11.5px; color: var(--gray-400); }
@@ -4787,6 +4791,8 @@
   .dup-act .ic { width: 14px; height: 14px; }
   body.dark .dup-bad.danger { color: #FDA29B; background: rgba(180,35,24,.16); border-color: rgba(253,162,155,.4); }
   body.dark .dup-bad.warn { color: #FEC84B; background: rgba(181,71,8,.16); border-color: rgba(254,200,75,.4); }
+  body.dark .dup-bad.ok { color: #75E0A7; background: rgba(6,118,71,.18); border-color: rgba(117,224,167,.4); }
+  body.dark .dup-head2 { border-top-color: var(--card-border); }
   body.dark .dup-miss { background: var(--navy-1); border-color: var(--card-border); }
 
   .qmemo-bar {
@@ -7802,6 +7808,14 @@
 
         <div class="set-row">
           <div class="set-row-main">
+            <div class="set-row-title">닮은 문제 · 해설까지 살펴보기</div>
+            <div class="set-row-desc">지문은 안 닮았어도 <b>내 해설이 그 문제를 설명하고 있으면</b> 아래에 따로 모아 줍니다 · 끄면 지문끼리만 비교해요</div>
+          </div>
+          <button class="set-switch" id="sw-dupexp" aria-label="닮은 문제 해설까지 살펴보기" title="닮은 문제 해설까지 살펴보기" onclick="toggleSetting('dupUseExp')" role="switch"><span></span></button>
+        </div>
+
+        <div class="set-row">
+          <div class="set-row-main">
             <div class="set-row-title">정답 효과</div>
             <div class="set-row-desc">정답을 맞히면 작은 축하 효과가 나타납니다</div>
           </div>
@@ -9558,6 +9572,8 @@ function getStarKey(cat, round, qId) {
 // ══════════════════════════════════════════════════════════════════════
 const DUP_TH_MIN = 0.35, DUP_TH_MAX = 0.95, DUP_TH_DEF = 0.62;
 const DUP_MAX_HITS = 30;
+const DUP_EXP_CAP = 500;      // 해설은 앞쪽 이만큼만 본다 (뒤에 붙는 딴 얘기까지 재면 흐려진다)
+const DUP_EXP_HITS = 15;
 
 function dupThreshold() {
   const v = parseFloat(getSettings().dupThreshold);
@@ -9606,6 +9622,66 @@ function _dupAnsText(q) {
   return _dupNorm(o[q.correct] != null ? o[q.correct] : '');
 }
 
+// ── 해설로 이어지는 문제 ──────────────────────────────────────────────
+// [추가] 지문끼리 안 닮았어도, 내 해설이 다른 문제를 통째로 설명하고 있을 수 있다.
+//        (예: 내 해설의 "안전밸브는 스프링식이 원칙" → 다른 회차의 "안전밸브의 형식은?")
+//        그 해설을 제대로 외웠으면 그 문제는 이미 아는 것이다.
+//   [주의 1] 여기엔 자카드를 쓰면 안 된다. 해설(길다)과 지문(짧다)은 크기가 몇 배씩
+//     달라서, 지문이 해설에 통째로 들어 있어도 자카드는 40/300 = 13% 밖에 안 나온다.
+//     → '짧은 쪽이 긴 쪽에 얼마나 들어 있는가'(포함도)로 잰다.
+//   [주의 2] 포함도는 후해서 그냥 쓰면 엉뚱한 게 우수수 잡힌다. 지문마다 똑같이 붙는
+//     "다음 중 ~으로 옳은 것은?" 같은 상투구가 지문의 절반이고 해설에도 흔해서,
+//     아무 관계 없는 짝도 70% 씩 나온다. → 상투구를 먼저 걷어내고 알맹이로만 잰다.
+const DUP_STOP = [
+  /다음\s*중/g, /다음의/g, /아래\s*중/g, /보기\s*중/g,
+  /에\s*(대한|관한)\s*설명으?로/g, /에\s*(대하여|관하여|대해|관해)/g,
+  /으?로\s*옳지\s*않은\s*것은/g, /으?로\s*옳은\s*것은/g, /으?로\s*맞는\s*것은/g,
+  /옳지\s*않은\s*것은/g, /옳은\s*것은/g, /틀린\s*것은/g, /아닌\s*것은/g, /맞는\s*것은/g,
+  /가장\s*(적합한|알맞은|가까운|거리가\s*먼)/g, /적절하지\s*않은/g,
+  /무엇인가/g, /얼마인가/g, /고르시오/g, /쓰시오/g, /구하시오/g,
+  /설명하시오/g, /서술하시오/g, /기술하시오/g, /답하시오/g,
+  /정답은?/g, /해설/g, /참고/g,
+  /것은/g, /것을/g, /것이/g, /경우/g
+];
+// 상투구를 걷어낸 '알맹이' — 띄어쓰기까지 빼서 글자만 남긴다
+function _dupCore(s, cap) {
+  let t = _dupNorm(s);
+  DUP_STOP.forEach(re => { t = t.replace(re, ' '); });
+  t = t.replace(/\s+/g, '');
+  return cap ? t.slice(0, cap) : t;
+}
+// 포함도 — 짧은 쪽 조각이 긴 쪽 글 안에 몇이나 있는가.
+// (긴 쪽은 집합을 안 만들고 글 그대로 두고 찾는다 — 회차 전부의 해설을 집합으로
+//  만들면 폰에서 수십 MB를 먹는다. 이렇게 하면 더 쓰는 메모리가 없다.)
+function _dupContain(shortGrams, longStr) {
+  if (!shortGrams || !shortGrams.size || !longStr) return 0;
+  let hit = 0;
+  shortGrams.forEach(g => { if (longStr.indexOf(g) >= 0) hit++; });
+  return hit / shortGrams.size;
+}
+// 정답 글 그대로 (다듬기 전) — 객관식은 고른 보기, 필답형은 답
+function _dupAnsRaw(q) {
+  if (!q) return '';
+  if (q.type === 'subj') return String(q.answer || '');
+  const o = q.options || [];
+  return String(o[q.correct] != null ? o[q.correct] : '');
+}
+// 한쪽 해설이 다른 쪽 문제를 얼마나 덮는가
+//   [주의] 지문 글자만 대보면 잘 안 잡힌다. "안전밸브의 형식은?" 과
+//     "안전밸브는 스프링식이 원칙" 은 뜻이 같아도 겹치는 글자가 적다.
+//     → 그 문제의 정답 글("스프링식")이 이 해설 안에 있는지를 더 무겁게 본다.
+//       '이 해설을 외우면 저 문제를 맞힌다'는 가장 곧은 신호이기 때문이다.
+//     다만 주제가 안 걸치는데 정답만 맞는 건 우연이므로(짧은 정답일수록 흔하다)
+//     지문이 최소한은 걸쳐야 이 셈을 쓴다.
+function _dupCover(stemGrams, ansGrams, expStr) {
+  const cs = _dupContain(stemGrams, expStr);
+  if (!ansGrams || ansGrams.size < 2 || cs < 0.25) return cs;
+  return Math.max(cs, 0.35 * cs + 0.65 * _dupContain(ansGrams, expStr));
+}
+// 포함도는 후하므로 지문끼리의 기준보다 한 단계 높게 잡는다 (막대 하나로 같이 움직인다)
+function dupContainTh() { return Math.min(0.95, Math.max(0.55, dupThreshold() + 0.10)); }
+function dupUseExp() { return getSettings().dupUseExp !== false; }
+
 // 자격증 하나치를 미리 다듬어 둔다 (회차가 바뀌면 버린다)
 let _dupIdx = null, _dupIdxCat = null;
 function clearDupIdx() { try { _dupIdx = null; _dupIdxCat = null; } catch (_) {} }
@@ -9617,8 +9693,12 @@ function buildDupIndex(cat) {
     getRound(cat, r).forEach((q, at) => {
       const norm = _dupNorm(q && q.question);
       if (norm.replace(/ /g, '').length < 6) return;   // 너무 짧으면 비교가 의미 없다
+      // core/ecore 는 글(문자열)로만 들고 있는다 — 집합으로 미리 만들면 자리를 많이 먹는다.
+      // 지문 알맹이의 조각(cgrams)은 실제로 엇갈려 볼 때 한 번만 만든다.
       list.push({ round: r, at, q, norm, grams: _dupGrams(norm),
-                  nums: _dupNums(q.question), neg: _dupNeg(q.question) });
+                  nums: _dupNums(q.question), neg: _dupNeg(q.question),
+                  core: _dupCore(q.question), ecore: _dupCore(q.explanation, DUP_EXP_CAP),
+                  cgrams: null });
     });
   });
   _dupIdx = list; _dupIdxCat = cat;
@@ -9648,6 +9728,47 @@ function findSimilarTo(cat, round, q, th) {
   });
   out.sort((a, b) => b.sim - a.sim);
   return out.slice(0, DUP_MAX_HITS);
+}
+
+// 해설로 이어지는 문제 — 두 방향을 다 본다
+//   A) 내 해설  ⊃ 남의 지문 : "내 해설이 저 문제를 이미 설명하고 있다"
+//   B) 남의 해설 ⊃ 내 지문   : "저 문제 해설 안에 내가 이미 나온다"
+// skipKeys 로 위쪽 '닮은 문제' 에 이미 뜬 것은 뺀다 (같은 문제가 두 번 보이지 않게)
+const DUP_MIN_CORE = 7;      // 알맹이 조각이 이보다 적으면 우연히 들어맞는다
+const DUP_MIN_EXP  = 40;     // 해설이 이보다 짧으면 신호로 쓰지 않는다
+function findExpLinks(cat, round, q, skipKeys) {
+  if (!q || !dupUseExp()) return [];
+  const th = dupContainTh();
+  const myE = _dupCore(q.explanation, DUP_EXP_CAP);
+  const myC = _dupGrams(_dupCore(q.question));
+  const myA = _dupGrams(_dupCore(_dupAnsRaw(q)));
+  const canA = myE.length >= DUP_MIN_EXP;                 // 내 해설을 신호로 쓸 수 있나
+  const canB = myC.size >= DUP_MIN_CORE;                  // 내 지문을 신호로 쓸 수 있나
+  if (!canA && !canB) return [];
+  const me = _flagKeyOf(cat, round, q);
+  const out = [];
+  buildDupIndex(cat).forEach(it => {
+    const key = _flagKeyOf(cat, it.round, it.q);
+    if (key === me || (skipKeys && skipKeys.has(key))) return;
+    let best = 0, dir = '';
+    if (canA) {
+      if (!it.cgrams) {                                   // 쓸 때 한 번만 만든다
+        it.cgrams = _dupGrams(it.core);
+        it.agrams = _dupGrams(_dupCore(_dupAnsRaw(it.q)));
+      }
+      if (it.cgrams.size >= DUP_MIN_CORE) {
+        const c = _dupCover(it.cgrams, it.agrams, myE);
+        if (c > best) { best = c; dir = 'in-mine'; }      // 내 해설 안에 저 문제가 있다
+      }
+    }
+    if (canB && it.ecore.length >= DUP_MIN_EXP) {
+      const c = _dupCover(myC, myA, it.ecore);
+      if (c > best) { best = c; dir = 'in-theirs'; }      // 저 문제 해설 안에 내가 있다
+    }
+    if (best >= th) out.push({ round: it.round, at: it.at, q: it.q, sim: best, dir });
+  });
+  out.sort((a, b) => b.sim - a.sim);
+  return out.slice(0, DUP_EXP_HITS);
 }
 
 // ══════════════════════════════════════════════════════════════════════
@@ -15190,46 +15311,67 @@ function renderDupPanel() {
     ? `<div class="dup-miss">아직 안 받아온 회차 <b>${miss.length}</b>개는 비교에서 빠졌어요
          <button class="dup-pull" onclick="dupPullMissing(this)">받아오기</button></div>` : '';
 
-  const body = hits.length ? hits.map(h => {
-    const key = _flagKeyOf(st.cat, h.round, h.q);
-    const isHid = !!hidden[key];
-    const qid = String((h.q.id || h.q.num) || 0);
-    const badges = [
+  const body = hits.length ? hits.map(h => _dupCard(st, h, hidden, [
       h.warnNeg ? '<span class="dup-bad danger">반대 물음일 수 있어요</span>' : '',
       h.warnNum ? '<span class="dup-bad warn">숫자가 달라요</span>' : '',
-      (h.warnAns && !h.warnNeg) ? '<span class="dup-bad warn">정답이 달라요</span>' : '',
-      isHid ? '<span class="dup-bad hid">숨김</span>' : ''
-    ].join('');
-    const ops = (h.q.type === 'subj')
-      ? `<div class="dup-ans">답 · ${escHtml(String(h.q.answer || '').slice(0, 120))}</div>`
-      : `<div class="dup-ops">${(h.q.options || []).map((o, i) =>
-          `<span class="${i === h.q.correct ? 'on' : ''}">${'①②③④⑤⑥'[i] || (i + 1)} ${escHtml(String(o).slice(0, 60))}</span>`).join('')}</div>`;
-    return `
-      <div class="dup-item${isHid ? ' hid' : ''}">
-        <div class="dup-meta">
-          <span class="dup-where">${escHtml(h.round)} · ${escHtml(String(h.q.num || ''))}번</span>
-          <span class="dup-sim" style="color:${mstColor(Math.round(h.sim * 100))}">${Math.round(h.sim * 100)}%</span>
-          ${badges}
-        </div>
-        <div class="dup-q">${escHtml(h.q.question || '')}</div>
-        ${ops}
-        <div class="dup-acts">
-          <button class="dup-act${isHid ? ' on' : ''}"
-                  onclick="dupToggleHide('${escArg(st.cat)}','${escArg(h.round)}','${escArg(qid)}')">
-            <svg class="ic" viewBox="0 0 24 24"><use href="${isHid ? '#ic-eye' : '#ic-eye-off'}"/></svg>
-            ${isHid ? '되살리기' : '숨기기'}
-          </button>
-          <button class="dup-act" onclick="dupGoTo('${escArg(st.cat)}','${escArg(h.round)}','${escArg(qid)}')">
-            <svg class="ic" viewBox="0 0 24 24"><use href="#ic-arrow-right"/></svg>이 문제로
-          </button>
-        </div>
-      </div>`;
-  }).join('')
+      (h.warnAns && !h.warnNeg) ? '<span class="dup-bad warn">정답이 달라요</span>' : ''
+    ])).join('')
     : `<div class="dup-empty">기준 ${Math.round(th * 100)}% 이상으로 닮은 문제가 없어요 ·
          기준을 낮춰 보세요</div>`;
 
-  box.innerHTML = head + note + body;
+  // [추가] 지문끼리는 안 닮았어도 해설로 이어지는 문제 — 위에 이미 뜬 것은 뺀다
+  let expPart = '';
+  if (dupUseExp()) {
+    const skip = new Set(hits.map(h => _flagKeyOf(st.cat, h.round, h.q)));
+    const links = findExpLinks(st.cat, st.round, q, skip);
+    if (links.length) {
+      expPart = `
+        <div class="dup-head dup-head2">
+          <span class="dup-title">해설로 이어지는 문제 <b>${links.length}</b>개</span>
+          <span class="dup-hint">지문은 안 닮았지만 해설이 서로를 덮어요</span>
+        </div>` +
+        links.map(h => _dupCard(st, h, hidden, [
+          h.dir === 'in-mine'
+            ? '<span class="dup-bad ok">내 해설에 들어 있음</span>'
+            : '<span class="dup-bad ok">저 해설에 내가 있음</span>'
+        ])).join('');
+    }
+  }
+
+  box.innerHTML = head + note + body + expPart;
   box.style.display = '';
+}
+
+// 한 칸 그리기 — 위(닮은 문제)·아래(해설로 이어지는 문제)가 같은 모양을 쓴다
+function _dupCard(st, h, hidden, badges) {
+  const key = _flagKeyOf(st.cat, h.round, h.q);
+  const isHid = !!hidden[key];
+  const qid = String((h.q.id || h.q.num) || 0);
+  const pct = Math.round(h.sim * 100);
+  const ops = (h.q.type === 'subj')
+    ? `<div class="dup-ans">답 · ${escHtml(String(h.q.answer || '').slice(0, 120))}</div>`
+    : `<div class="dup-ops">${(h.q.options || []).map((o, i) =>
+        `<span class="${i === h.q.correct ? 'on' : ''}">${'①②③④⑤⑥'[i] || (i + 1)} ${escHtml(String(o).slice(0, 60))}</span>`).join('')}</div>`;
+  return `
+    <div class="dup-item${isHid ? ' hid' : ''}">
+      <div class="dup-meta">
+        <span class="dup-where">${escHtml(h.round)} · ${escHtml(String(h.q.num || ''))}번</span>
+        <span class="dup-sim" style="color:${mstColor(pct)}">${pct}%</span>
+        ${badges.join('')}${isHid ? '<span class="dup-bad hid">숨김</span>' : ''}
+      </div>
+      <div class="dup-q">${escHtml(h.q.question || '')}</div>
+      ${ops}
+      <div class="dup-acts">
+        <button class="dup-act${isHid ? ' on' : ''}"
+                onclick="dupToggleHide('${escArg(st.cat)}','${escArg(h.round)}','${escArg(qid)}')">
+          <svg class="ic" viewBox="0 0 24 24"><use href="${isHid ? '#ic-eye' : '#ic-eye-off'}"/></svg>
+          ${isHid ? '되살리기' : '숨기기'}
+        </button>
+        <button class="dup-act" onclick="dupGoTo('${escArg(st.cat)}','${escArg(h.round)}','${escArg(qid)}')">
+          <svg class="ic" viewBox="0 0 24 24"><use href="#ic-arrow-right"/></svg>이 문제로
+        </button>
+      </div>
+    </div>`;
 }
 
 // 슬라이더를 끄는 동안에는 숫자만 바꾸고, 손을 뗄 때 다시 찾는다 (매 픽셀마다 다 뒤지면 버벅인다)
@@ -21002,6 +21144,7 @@ const DEFAULT_SETTINGS = {
   autoNextOnJudge: false,  // 맞았어요/틀렸어요 누르면 자동으로 다음 문제 (기본 꺼짐)
   quizImgBtn: true,        // [추가] 푸는 화면 지문 아래의 그림 단추 (기본 켜짐)
   masteryByAcc: false,     // [추가] 암기도를 정답률로 볼지 (기본: 손으로 매긴 값)
+  dupUseExp: true,         // [추가] 닮은 문제에서 해설로 이어지는 것까지 볼지 (기본 켜짐)
   calSize: 'md'            // 캘린더 크기 sm/md/lg
 };
 
@@ -21158,12 +21301,15 @@ function toggleSetting(key) {
   renderSettings();
   // [추가] 암기도 기준을 바꾸면 홈·회차 목록의 숫자가 통째로 달라진다 → 그 자리에서 다시 그린다
   if (key === 'masteryByAcc') repaintMasteryViews();
+  // [추가] 닮은 문제 칸이 열려 있으면 바뀐 기준으로 다시 찾는다
+  if (key === 'dupUseExp' && _dupOpen) renderDupPanel();
   const labels = {
     swipeNav: '스와이프 이동',
     particles: '정답 효과', reduceMotion: '애니메이션 줄이기',
     haptic: '진동 피드백', sound: '효과음',
     autoNextOnJudge: '판정 후 자동으로 다음',
-    quizImgBtn: '문제에서 그림 붙이기'
+    quizImgBtn: '문제에서 그림 붙이기',
+    dupUseExp: '닮은 문제 · 해설까지'
   };
   // 이 스위치는 켜고 끄기보다 '무엇으로 보는가'라 말이 달라야 한다
   if (key === 'masteryByAcc') {
@@ -21330,6 +21476,7 @@ function renderSettings() {
   sw('sw-autonext', s.autoNextOnJudge);
   sw('sw-imgbtn', s.quizImgBtn);
   sw('sw-mstacc', s.masteryByAcc);
+  sw('sw-dupexp', s.dupUseExp !== false);
   sw('sw-sound', s.sound);
   sw('sw-live', liveEnabled());
 
@@ -21648,6 +21795,11 @@ applyRenderFlags();
 //   k: 'new'(새 기능) · 'fix'(고침) · 'chg'(바뀜)
 // ══════════════════════════════════════════════════════════════════════
 const PATCH_NOTES = [
+  { v: '260831-0333', at: '2026-08-31', items: [
+    { k: 'new', t: '닮은 문제에 <b>해설로 이어지는 문제</b> 칸이 생겼습니다. 지문은 안 닮았어도 <b>내 해설이 그 문제를 통째로 설명하고 있으면</b> 아래에 따로 모아 줘요 — 그 해설만 제대로 외우면 그 문제는 이미 아는 셈입니다' },
+    { k: 'new', t: '두 방향을 다 봅니다 — <b>내 해설에 들어 있음</b>(내 해설이 저 문제를 덮음) · <b>저 해설에 내가 있음</b>(저 문제 해설 안에 내가 나옴). 위쪽 <b>닮은 문제</b>는 <b>예전 그대로</b>이고, 이미 위에 뜬 문제는 아래에 겹쳐 나오지 않아요' },
+    { k: 'new', t: '설정 &gt; 기능 → <b>닮은 문제 · 해설까지 살펴보기</b> 로 끄고 켭니다 (기본 켬). 끄면 예전처럼 지문끼리만 비교해요' },
+  ]},
   { v: '260831-0313', at: '2026-08-31', items: [
     { k: 'new', t: '줄 암기장 칸이 <b>글이 길어지면 아래로 늘어납니다.</b> 예전에는 한 줄에 안 들어가면 옆으로 흘러 안 보였어요 · 짧을 때 높이는 예전 그대로입니다' },
     { k: 'chg', t: '↑ ↓ 는 <b>글 안에서 먼저 움직이고</b>, 맨 앞(↑)이나 맨 끝(↓)에 닿았을 때 옆 줄로 넘어갑니다. 넘어가면 들어온 쪽에 커서가 놓여요' },
@@ -22218,7 +22370,7 @@ function closePatchNotes() {
 // ── 앱 버전 ──
 // 폰이 옛 파일을 캐시해 두고 있는지 바로 확인할 수 있도록 화면에 표시한다.
 // (설정 맨 아래 · 개발자 도구 콘솔에도 찍힘)
-const APP_VERSION = '260831-0313';
+const APP_VERSION = '260831-0333';
 console.log('%c양진웅 Note 버전 ' + APP_VERSION, 'font-weight:bold');
 
 // PWA 서비스워커 등록
