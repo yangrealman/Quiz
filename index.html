@@ -910,6 +910,40 @@
   .subj-input-wrap {
     margin: 14px 0;
   }
+  /* [추가] 답 쓰는 칸 — 기본은 접혀 있고 줄을 누르면 펴진다.
+     지문 바로 아래에 답 칸이 오도록, 예전에 위에 있던 '주관식' 딱지는 맨 아래로 옮겼다. */
+  .subj-write { margin: 12px 0 0; }
+  .subj-write-bar {
+    display: flex; align-items: center; gap: 7px;
+    width: 100%; padding: 9px 4px;
+    background: none; border: none;
+    border-top: 1px solid var(--card-border); border-bottom: 1px solid var(--card-border);
+    font: inherit; color: var(--gray-500); cursor: pointer; text-align: left;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .subj-write-bar:hover { color: var(--primary); }
+  .subj-write-caret {
+    width: 14px; height: 14px; flex-shrink: 0;
+    transition: transform 0.22s cubic-bezier(0.22,1,0.36,1);
+  }
+  .subj-write.open .subj-write-caret { transform: rotate(90deg); }
+  .subj-write-title { font-size: 12.5px; font-weight: 700; flex-shrink: 0; }
+  .subj-write.has .subj-write-title { color: var(--primary); }
+  .subj-write-peek {
+    flex: 1; min-width: 0; font-size: 12px; color: var(--gray-400);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  /* 높이를 0fr ↔ 1fr 로 바꿔 내용 높이에 맞춰 부드럽게 펴진다 */
+  .subj-write-body {
+    display: grid; grid-template-rows: 0fr;
+    transition: grid-template-rows 0.28s cubic-bezier(0.22,1,0.36,1);
+  }
+  .subj-write.open .subj-write-body { grid-template-rows: 1fr; }
+  .subj-write-body > div { overflow: hidden; }
+  .subj-write .subj-input { margin-top: 10px; }
+  body.reduce-motion .subj-write-body { transition: none; }
+  /* 맨 아래로 내려간 '주관식' 딱지 */
+  .subj-type-badge.foot { margin: 14px 0 0; }
   .subj-input {
     width: 100%;
     min-height: 160px;
@@ -11998,6 +12032,31 @@ function subjPlaceholderAttr() {
     : '여기에 답을 써보세요…';
 }
 
+// ── 답 쓰는 칸 접기 ──────────────────────────────────────────────────
+// [추가] 답 칸이 늘 펴져 있어서 지문 바로 아래를 큰 빈 칸이 차지했다.
+//        눈으로만 푸는 때가 더 많으니 기본은 접어 두고, 쓸 때만 편다.
+//        한 번 펴 두면 그대로 두는 게 편해서 이 기기에 기억한다(문항마다 다시
+//        누르지 않게). 저장할 값이 아니라 보는 방식이라 서버로는 안 올린다.
+function isSubjWriteOpen() {
+  try { return localStorage.getItem('subj_write_open') === '1'; } catch (_) { return false; }
+}
+function toggleSubjWrite(btn) {
+  const box = btn.closest('.subj-write');
+  if (!box) return;
+  const open = !box.classList.contains('open');
+  box.classList.toggle('open', open);
+  btn.setAttribute('aria-expanded', String(open));
+  try { localStorage.setItem('subj_write_open', open ? '1' : '0'); } catch (_) {}
+  // 펴는 순간 바로 쓸 수 있게 (접을 때는 건드리지 않는다)
+  if (open) setTimeout(() => { const t = box.querySelector('.subj-input'); if (t) t.focus(); }, 200);
+}
+// 접혀 있을 때도 무엇을 썼는지 줄에서 보이게
+function subjWritePeek(v) {
+  const s = String(v || '').replace(/\s+/g, ' ').trim();
+  if (!s) return '';
+  return escHtml(s.length > 40 ? s.slice(0, 40) + '…' : s);
+}
+
 function subjHintHTML() {
   let seen = 0;
   try {
@@ -12074,9 +12133,15 @@ function renderQuestion() {
     const revealed = currentQuiz.revealed ? currentQuiz.revealed[idx] : false;
 
     document.getElementById('quiz-options').innerHTML = `
-      <span class="subj-type-badge"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-pencil"/></svg>주관식</span>
-      <div class="subj-input-wrap">
+      <div class="subj-write${isSubjWriteOpen() ? ' open' : ''}${savedSubj ? ' has' : ''}">
+        <button class="subj-write-bar" onclick="toggleSubjWrite(this)" aria-expanded="${isSubjWriteOpen()}">
+          <svg class="ic subj-write-caret" viewBox="0 0 24 24"><use href="#ic-chevron-right"/></svg>
+          <span class="subj-write-title">답 쓰기</span>
+          <span class="subj-write-peek">${subjWritePeek(savedSubj)}</span>
+        </button>
+        <div class="subj-write-body"><div>
         <textarea class="subj-input" id="subj-my-answer" spellcheck="false" placeholder="${subjPlaceholderAttr()}" oninput="saveSubjInput(this.value)" onkeydown="if(event.key==='Tab'){event.preventDefault();toggleSubjReveal();}">${savedSubj}</textarea>
+        </div></div>
       </div>
 
       <div class="subj-answer-box ${revealed ? 'show' : ''}" id="subj-answer-box">
@@ -12096,6 +12161,7 @@ function renderQuestion() {
         </button>
       </div>
       ${subjHintHTML()}
+      <span class="subj-type-badge foot"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-pencil"/></svg>주관식</span>
     `;
 
     // 정답 보기 여부와 상관없이 다음 버튼 항상 활성화
@@ -12150,7 +12216,7 @@ function revealSubjAnswer() {
   // 화면 다시 렌더 (정답 공개 + 입력 가능 + 다음 버튼 활성화)
   renderQuestion();
   // 포커스 복원
-  setTimeout(() => { const t = document.getElementById('subj-my-answer'); if (t) t.focus(); }, 0);
+  setTimeout(() => { const t = document.getElementById('subj-my-answer'); if (t && isSubjWriteOpen()) t.focus(); }, 0);
 }
 
 function toggleSubjReveal() {
@@ -12167,7 +12233,7 @@ function toggleSubjReveal() {
   // 포커스 및 커서 위치 복원
   setTimeout(() => {
     const t = document.getElementById('subj-my-answer');
-    if (t) {
+    if (t && isSubjWriteOpen()) {
       t.focus();
       if (cursorPos !== null) t.setSelectionRange(cursorPos, cursorPos);
     }
@@ -14370,9 +14436,15 @@ function renderWQ() {
     const revealed = wqState.revealed ? wqState.revealed[idx] : false;
     const judged = answered[idx];
     optEl.innerHTML = `
-      <span class="subj-type-badge"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-pencil"/></svg>주관식</span>
-      <div class="subj-input-wrap">
+      <div class="subj-write${isSubjWriteOpen() ? ' open' : ''}${savedSubj ? ' has' : ''}">
+        <button class="subj-write-bar" onclick="toggleSubjWrite(this)" aria-expanded="${isSubjWriteOpen()}">
+          <svg class="ic subj-write-caret" viewBox="0 0 24 24"><use href="#ic-chevron-right"/></svg>
+          <span class="subj-write-title">답 쓰기</span>
+          <span class="subj-write-peek">${subjWritePeek(savedSubj)}</span>
+        </button>
+        <div class="subj-write-body"><div>
         <textarea class="subj-input" id="wq-subj-input" spellcheck="false" placeholder="${subjPlaceholderAttr()}" oninput="wqState.subjInputs=wqState.subjInputs||{}; wqState.subjInputs[${idx}]=this.value" onkeydown="if(event.key==='Tab'){event.preventDefault();toggleWQReveal();}">${savedSubj}</textarea>
+        </div></div>
       </div>
       <div class="subj-answer-box ${revealed ? 'show' : ''}">
         <div class="subj-answer-title"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-check-square"/></svg>모범 답안</div>
@@ -14391,6 +14463,7 @@ function renderWQ() {
         </button>
       </div>
       ${subjHintHTML()}
+      <span class="subj-type-badge foot"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-pencil"/></svg>주관식</span>
     `;
     expBox.classList.remove('show');
     document.getElementById('wq-next-btn').disabled = false;
@@ -14428,7 +14501,7 @@ function toggleWQReveal() {
   renderWQ();
   setTimeout(() => {
     const t = document.getElementById('wq-subj-input');
-    if (t) { t.focus(); if (cursorPos !== null) t.setSelectionRange(cursorPos, cursorPos); }
+    if (t && isSubjWriteOpen()) { t.focus(); if (cursorPos !== null) t.setSelectionRange(cursorPos, cursorPos); }
   }, 0);
 }
 
@@ -16292,9 +16365,15 @@ function renderSQ() {
     const revealed = sqState.revealed ? sqState.revealed[idx] : false;
     const judged = answered[idx];
     optEl.innerHTML = `
-      <span class="subj-type-badge"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-pencil"/></svg>주관식</span>
-      <div class="subj-input-wrap">
+      <div class="subj-write${isSubjWriteOpen() ? ' open' : ''}${savedSubj ? ' has' : ''}">
+        <button class="subj-write-bar" onclick="toggleSubjWrite(this)" aria-expanded="${isSubjWriteOpen()}">
+          <svg class="ic subj-write-caret" viewBox="0 0 24 24"><use href="#ic-chevron-right"/></svg>
+          <span class="subj-write-title">답 쓰기</span>
+          <span class="subj-write-peek">${subjWritePeek(savedSubj)}</span>
+        </button>
+        <div class="subj-write-body"><div>
         <textarea class="subj-input" id="sq-subj-input" spellcheck="false" placeholder="${subjPlaceholderAttr()}" oninput="sqState.subjInputs=sqState.subjInputs||{}; sqState.subjInputs[${idx}]=this.value" onkeydown="if(event.key==='Tab'){event.preventDefault();toggleSQReveal();}">${savedSubj}</textarea>
+        </div></div>
       </div>
       <div class="subj-answer-box ${revealed ? 'show' : ''}">
         <div class="subj-answer-title"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-check-square"/></svg>모범 답안</div>
@@ -16313,6 +16392,7 @@ function renderSQ() {
         </button>
       </div>
       ${subjHintHTML()}
+      <span class="subj-type-badge foot"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-pencil"/></svg>주관식</span>
     `;
     expBox.classList.remove('show');
     document.getElementById('sq-next-btn').disabled = false;
@@ -16350,7 +16430,7 @@ function toggleSQReveal() {
   renderSQ();
   setTimeout(() => {
     const t = document.getElementById('sq-subj-input');
-    if (t) { t.focus(); if (cursorPos !== null) t.setSelectionRange(cursorPos, cursorPos); }
+    if (t && isSubjWriteOpen()) { t.focus(); if (cursorPos !== null) t.setSelectionRange(cursorPos, cursorPos); }
   }, 0);
 }
 
@@ -16777,9 +16857,15 @@ function renderFQ() {
     const revealed = fqState.revealed ? fqState.revealed[idx] : false;
     const judged = answered[idx];
     optEl.innerHTML = `
-      <span class="subj-type-badge"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-pencil"/></svg>주관식</span>
-      <div class="subj-input-wrap">
+      <div class="subj-write${isSubjWriteOpen() ? ' open' : ''}${savedSubj ? ' has' : ''}">
+        <button class="subj-write-bar" onclick="toggleSubjWrite(this)" aria-expanded="${isSubjWriteOpen()}">
+          <svg class="ic subj-write-caret" viewBox="0 0 24 24"><use href="#ic-chevron-right"/></svg>
+          <span class="subj-write-title">답 쓰기</span>
+          <span class="subj-write-peek">${subjWritePeek(savedSubj)}</span>
+        </button>
+        <div class="subj-write-body"><div>
         <textarea class="subj-input" id="fq-subj-input" spellcheck="false" placeholder="${subjPlaceholderAttr()}" oninput="fqState.subjInputs=fqState.subjInputs||{}; fqState.subjInputs[${idx}]=this.value" onkeydown="if(event.key==='Tab'){event.preventDefault();toggleFQReveal();}">${savedSubj}</textarea>
+        </div></div>
       </div>
       <div class="subj-answer-box ${revealed ? 'show' : ''}">
         <div class="subj-answer-title"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-check-square"/></svg>모범 답안</div>
@@ -16798,6 +16884,7 @@ function renderFQ() {
         </button>
       </div>
       ${subjHintHTML()}
+      <span class="subj-type-badge foot"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-pencil"/></svg>주관식</span>
     `;
     expBox.classList.remove('show');
     document.getElementById('fq-next-btn').disabled = false;
@@ -16835,7 +16922,7 @@ function toggleFQReveal() {
   renderFQ();
   setTimeout(() => {
     const t = document.getElementById('fq-subj-input');
-    if (t) { t.focus(); if (cursorPos !== null) t.setSelectionRange(cursorPos, cursorPos); }
+    if (t && isSubjWriteOpen()) { t.focus(); if (cursorPos !== null) t.setSelectionRange(cursorPos, cursorPos); }
   }, 0);
 }
 
@@ -17205,9 +17292,15 @@ function renderCQ() {
     const revealed = cqState.revealed ? cqState.revealed[idx] : false;
     const judged = answered[idx];
     optEl.innerHTML = `
-      <span class="subj-type-badge"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-pencil"/></svg>주관식</span>
-      <div class="subj-input-wrap">
+      <div class="subj-write${isSubjWriteOpen() ? ' open' : ''}${savedSubj ? ' has' : ''}">
+        <button class="subj-write-bar" onclick="toggleSubjWrite(this)" aria-expanded="${isSubjWriteOpen()}">
+          <svg class="ic subj-write-caret" viewBox="0 0 24 24"><use href="#ic-chevron-right"/></svg>
+          <span class="subj-write-title">답 쓰기</span>
+          <span class="subj-write-peek">${subjWritePeek(savedSubj)}</span>
+        </button>
+        <div class="subj-write-body"><div>
         <textarea class="subj-input" id="cq-subj-input" spellcheck="false" placeholder="${subjPlaceholderAttr()}" oninput="cqState.subjInputs=cqState.subjInputs||{}; cqState.subjInputs[${idx}]=this.value" onkeydown="if(event.key==='Tab'){event.preventDefault();toggleCQReveal();}">${savedSubj}</textarea>
+        </div></div>
       </div>
       <div class="subj-answer-box ${revealed ? 'show' : ''}">
         <div class="subj-answer-title"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-check-square"/></svg>모범 답안</div>
@@ -17226,6 +17319,7 @@ function renderCQ() {
         </button>
       </div>
       ${subjHintHTML()}
+      <span class="subj-type-badge foot"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-pencil"/></svg>주관식</span>
     `;
     expBox.classList.remove('show');
     document.getElementById('cq-next-btn').disabled = false;
@@ -17263,7 +17357,7 @@ function toggleCQReveal() {
   renderCQ();
   setTimeout(() => {
     const t = document.getElementById('cq-subj-input');
-    if (t) { t.focus(); if (cursorPos !== null) t.setSelectionRange(cursorPos, cursorPos); }
+    if (t && isSubjWriteOpen()) { t.focus(); if (cursorPos !== null) t.setSelectionRange(cursorPos, cursorPos); }
   }, 0);
 }
 
@@ -17999,9 +18093,15 @@ function renderMQ() {
     const revealed = mqState.revealed ? mqState.revealed[idx] : false;
     const judged = answered[idx];
     optEl.innerHTML = `
-      <span class="subj-type-badge"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-pencil"/></svg>주관식</span>
-      <div class="subj-input-wrap">
+      <div class="subj-write${isSubjWriteOpen() ? ' open' : ''}${savedSubj ? ' has' : ''}">
+        <button class="subj-write-bar" onclick="toggleSubjWrite(this)" aria-expanded="${isSubjWriteOpen()}">
+          <svg class="ic subj-write-caret" viewBox="0 0 24 24"><use href="#ic-chevron-right"/></svg>
+          <span class="subj-write-title">답 쓰기</span>
+          <span class="subj-write-peek">${subjWritePeek(savedSubj)}</span>
+        </button>
+        <div class="subj-write-body"><div>
         <textarea class="subj-input" id="mq-subj-input" spellcheck="false" placeholder="${subjPlaceholderAttr()}" oninput="mqState.subjInputs=mqState.subjInputs||{}; mqState.subjInputs[${idx}]=this.value" onkeydown="if(event.key==='Tab'){event.preventDefault();toggleMQReveal();}">${savedSubj}</textarea>
+        </div></div>
       </div>
       <div class="subj-answer-box ${revealed ? 'show' : ''}">
         <div class="subj-answer-title"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-check-square"/></svg>모범 답안</div>
@@ -18020,6 +18120,7 @@ function renderMQ() {
         </button>
       </div>
       ${subjHintHTML()}
+      <span class="subj-type-badge foot"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-pencil"/></svg>주관식</span>
     `;
     expBox.classList.remove('show');
     document.getElementById('mq-next-btn').disabled = false;   // 판정 없이도 진행 가능
@@ -18064,7 +18165,7 @@ function toggleMQReveal() {
   renderMQ();
   setTimeout(() => {
     const t = document.getElementById('mq-subj-input');
-    if (t) { t.focus(); if (cursorPos !== null) t.setSelectionRange(cursorPos, cursorPos); }
+    if (t && isSubjWriteOpen()) { t.focus(); if (cursorPos !== null) t.setSelectionRange(cursorPos, cursorPos); }
   }, 0);
 }
 
@@ -18580,9 +18681,15 @@ function renderMWQ() {
     const revealed = mwqState.revealed ? mwqState.revealed[idx] : false;
     const judged = answered[idx];
     optEl.innerHTML = `
-      <span class="subj-type-badge"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-pencil"/></svg>주관식</span>
-      <div class="subj-input-wrap">
+      <div class="subj-write${isSubjWriteOpen() ? ' open' : ''}${savedSubj ? ' has' : ''}">
+        <button class="subj-write-bar" onclick="toggleSubjWrite(this)" aria-expanded="${isSubjWriteOpen()}">
+          <svg class="ic subj-write-caret" viewBox="0 0 24 24"><use href="#ic-chevron-right"/></svg>
+          <span class="subj-write-title">답 쓰기</span>
+          <span class="subj-write-peek">${subjWritePeek(savedSubj)}</span>
+        </button>
+        <div class="subj-write-body"><div>
         <textarea class="subj-input" id="mwq-subj-input" spellcheck="false" placeholder="${subjPlaceholderAttr()}" oninput="mwqState.subjInputs=mwqState.subjInputs||{}; mwqState.subjInputs[${idx}]=this.value" onkeydown="if(event.key==='Tab'){event.preventDefault();toggleMWQReveal();}">${savedSubj}</textarea>
+        </div></div>
       </div>
       <div class="subj-answer-box ${revealed ? 'show' : ''}">
         <div class="subj-answer-title"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-check-square"/></svg>모범 답안</div>
@@ -18601,6 +18708,7 @@ function renderMWQ() {
         </button>
       </div>
       ${subjHintHTML()}
+      <span class="subj-type-badge foot"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-pencil"/></svg>주관식</span>
     `;
     expBox.classList.remove('show');
     document.getElementById('mwq-next-btn').disabled = false;
@@ -18638,7 +18746,7 @@ function toggleMWQReveal() {
   renderMWQ();
   setTimeout(() => {
     const t = document.getElementById('mwq-subj-input');
-    if (t) { t.focus(); if (cursorPos !== null) t.setSelectionRange(cursorPos, cursorPos); }
+    if (t && isSubjWriteOpen()) { t.focus(); if (cursorPos !== null) t.setSelectionRange(cursorPos, cursorPos); }
   }, 0);
 }
 
@@ -22124,6 +22232,11 @@ applyRenderFlags();
 //   k: 'new'(새 기능) · 'fix'(고침) · 'chg'(바뀜)
 // ══════════════════════════════════════════════════════════════════════
 const PATCH_NOTES = [
+  { v: '260901-2236', at: '2026-09-01', items: [
+    { k: 'chg', t: '주관식을 풀 때 <b>답 쓰는 칸이 접힌 채로</b> 시작합니다. <b>답 쓰기</b> 줄을 누르면 펴져요 · 한 번 펴 두면 그대로 유지되니 문항마다 다시 누르지 않아도 됩니다' },
+    { k: 'chg', t: '초록색 <b>주관식</b> 딱지를 <b>맨 아래로</b> 내렸습니다. 이제 문제 지문 바로 아래에 <b>답 칸</b>이 옵니다' },
+    { k: 'new', t: '접혀 있어도 <b>쓴 내용의 앞부분이 줄에 보입니다</b> — 뭘 썼는지 펴 보지 않아도 알 수 있어요' },
+  ]},
   { v: '260901-2200', at: '2026-09-01', items: [
     { k: 'new', t: '<b>체크한 문제</b>에도 <b>자격증 · 회차 분류</b>가 생겼습니다. 오답노트 · 별표와 똑같은 방식이에요 — 자격증을 고르면 그 안에서 회차로 더 좁힐 수 있고, 회차가 많으면 <b>회차 선택</b> 창으로 여러 개를 골라요' },
     { k: 'fix', t: '<b>체크한 것만 풀기</b>가 이제 <b>화면에 보이는 것만</b> 냅니다. 예전에는 자격증을 골라 놔도 체크한 문제를 전부 냈어요' },
@@ -22712,7 +22825,7 @@ function closePatchNotes() {
 // ── 앱 버전 ──
 // 폰이 옛 파일을 캐시해 두고 있는지 바로 확인할 수 있도록 화면에 표시한다.
 // (설정 맨 아래 · 개발자 도구 콘솔에도 찍힘)
-const APP_VERSION = '260901-2200';
+const APP_VERSION = '260901-2236';
 console.log('%c양진웅 Note 버전 ' + APP_VERSION, 'font-weight:bold');
 
 // PWA 서비스워커 등록
