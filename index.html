@@ -7015,6 +7015,18 @@
   .judge-dot.judge-no:active { background-color: var(--danger);  border-color: var(--danger); }
   .judge-dot.judge-ok:active { background-color: var(--success); border-color: var(--success); }
   .judge-dot:active::before { background: #fff; }
+  /* [추가] 지금 이 판정으로 되어 있으면 꽉 채우고 ○ / ✕ 를 넣는다.
+     예전에는 눌러도 아무 변화가 없어서 무엇으로 판정해 뒀는지 알 수 없었다. */
+  .judge-dot.on { transform: scale(1.08); }
+  .judge-dot.judge-no.on { background-color: var(--danger);  border-color: var(--danger); }
+  .judge-dot.judge-ok.on { background-color: var(--success); border-color: var(--success); }
+  .judge-dot.on::before {
+    width: auto; height: auto; border-radius: 0; background: none;
+    color: #fff; font-size: 14px; font-weight: 900; line-height: 1;
+  }
+  .judge-dot.judge-ok.on::before { content: "○"; }
+  .judge-dot.judge-no.on::before { content: "✕"; font-size: 13px; }
+  body.reduce-motion .judge-dot.on { transform: none; }
   .judge-dot[hidden] { display: none; }
 
   /* ═══════════════════════════════════════════════════════════
@@ -12071,7 +12083,11 @@ function subjHintHTML() {
     seen = parseInt(localStorage.getItem('subjHintSeen') || '0', 10) || 0;
     if (seen < 5) localStorage.setItem('subjHintSeen', String(seen + 1));
   } catch (_) {}
-  return seen >= 5 ? '' : '<div class="subj-hint">판정 없이 다음으로 넘어가도 돼요</div>';
+  if (seen >= 5) return '';
+  // [수정] 키보드가 있으면 판정 단축키도 함께 알려 준다 (다섯 번만 보이고 사라진다)
+  return HAS_KBD
+    ? '<div class="subj-hint">판정 없이 다음으로 넘어가도 돼요 · <b>O</b> 맞았어요 · <b>X</b> 틀렸어요 · <b>Tab</b> 정답 보기</div>'
+    : '<div class="subj-hint">판정 없이 다음으로 넘어가도 돼요</div>';
 }
 
 function renderQuestion() {
@@ -12132,7 +12148,7 @@ function renderQuestion() {
   document.getElementById('explanation-box').classList.remove('show');
 
   const isSubj = q.type === 'subj';
-  _paintJudgeDots('quiz', isSubj);   // [추가] 진행바 양옆 판정 버튼 (필답형에서만 보인다)
+  _paintJudgeDots('quiz', isSubj, answered[idx]);   // [추가] 진행바 양옆 판정 버튼 (필답형에서만 보인다)
 
   if (isSubj) {
     // ── 주관식 ──
@@ -18126,7 +18142,7 @@ function renderMQ() {
   const optEl = document.getElementById('mq-options');
   const expBox = document.getElementById('mq-explanation-box');
   const isSubj = q.type === 'subj';
-  _paintJudgeDots('mq', isSubj);
+  _paintJudgeDots('mq', isSubj, answered[idx]);
   const nextLabel = idx === questions.length - 1 ? '제출<svg class="ic" viewBox="0 0 24 24"><use href="#ic-arrow-right"/></svg>' : '다음<svg class="ic" viewBox="0 0 24 24"><use href="#ic-arrow-right"/></svg>';
 
   if (isSubj) {
@@ -18695,7 +18711,7 @@ function renderMWQ() {
   const src = source[idx];
   const circleNums = ['①','②','③','④','⑤','⑥'];
   const isSubj = q.type === 'subj';
-  _paintJudgeDots('mwq', isSubj);
+  _paintJudgeDots('mwq', isSubj, answered[idx]);
 
   document.getElementById('mwq-q-num').textContent = `Q${q.num || idx + 1}`;
   document.getElementById('mwq-num').textContent = `${idx + 1} / ${questions.length}`;
@@ -18845,11 +18861,23 @@ function mwqNext() {
 // 판정 원은 필답형에서만 쓴다.
 // [주의] 객관식은 정답이 '보기 번호(숫자)'라, 판정값('correct' 문자열)을 넣으면
 //        채점에서 번호와 비교되어 무조건 틀린 것으로 집계된다 → 아예 숨긴다.
-function _paintJudgeDots(prefix, isSubj) {
+// [수정] 예전에는 보이기/감추기만 해서, 눌러도 아무것도 안 바뀌어 지금 무엇으로
+//        판정해 뒀는지 알 수 없었다 → 판정한 쪽을 꽉 채우고 표시를 넣는다.
+function _paintJudgeDots(prefix, isSubj, judged) {
   const no = document.getElementById(prefix + '-judge-no');
   const ok = document.getElementById(prefix + '-judge-ok');
-  if (no) no.hidden = !isSubj;
-  if (ok) ok.hidden = !isSubj;
+  if (no) {
+    no.hidden = !isSubj;
+    no.classList.toggle('on', judged === 'wrong');
+    no.setAttribute('aria-pressed', String(judged === 'wrong'));
+    no.title = judged === 'wrong' ? '틀렸어요 (지금 이 판정)' : '틀렸어요';
+  }
+  if (ok) {
+    ok.hidden = !isSubj;
+    ok.classList.toggle('on', judged === 'correct');
+    ok.setAttribute('aria-pressed', String(judged === 'correct'));
+    ok.title = judged === 'correct' ? '맞았어요 (지금 이 판정)' : '맞았어요';
+  }
 }
 
 // 모의고사 — 판정하고 다음으로. 마지막 문제에서는 넘기지 않는다(거기서 다음은 '제출'이라 실수로 끝난다).
@@ -20752,6 +20780,46 @@ document.addEventListener('keydown', function(e) {
   (isNext ? fns[0] : fns[1])();
 });
 
+// ══════════════════════════════════════════════════════════════════════
+// 필답형 판정 단축키 — O 맞았어요 · X 틀렸어요 · Tab 정답 보기
+//   [추가] 판정을 누르려고 매번 마우스로 아래 단추까지 내려가야 했다.
+//   · e.code 로 본다 — 한글 입력 상태에서도(ㅐ/ㅌ 로 들어와도) 그대로 먹는다.
+//   · 답을 쓰는 중(글자 칸에 포커스)에는 동작하지 않는다. 그 안에서는 Tab 이
+//     예전부터 '정답 보기'였고, 그건 그대로 둔다.
+//   · 판정은 필답형에만 있다 — 객관식 답은 '고른 보기 번호'라 판정값을 넣으면
+//     채점에서 번호와 비교돼 무조건 틀린 것이 된다.
+// ══════════════════════════════════════════════════════════════════════
+const JUDGE_KEYS = {
+  'quiz':            { st: () => currentQuiz, judge: (r) => quizJudgeGo(r),  reveal: toggleSubjReveal },
+  'wrong-quiz':      { st: () => wqState,     judge: (r) => wqJudge(r),      reveal: toggleWQReveal },
+  'star-quiz':       { st: () => sqState,     judge: (r) => sqJudge(r),      reveal: toggleSQReveal },
+  'flag-quiz':       { st: () => fqState,     judge: (r) => fqJudge(r),      reveal: toggleFQReveal },
+  'calc-quiz':       { st: () => cqState,     judge: (r) => cqJudge(r),      reveal: toggleCQReveal },
+  'mock-quiz':       { st: () => mqState,     judge: (r) => mqJudgeGo(r),    reveal: toggleMQReveal },
+  'mock-wrong-quiz': { st: () => mwqState,    judge: (r) => mwqJudgeGo(r),   reveal: toggleMWQReveal }
+};
+// 지금 화면의 문제가 필답형인가 (모의고사는 문항이 { q, cat, round } 로 싸여 있다)
+function _judgeReady() {
+  const h = JUDGE_KEYS[currentPage];
+  if (!h) return null;
+  let st; try { st = h.st(); } catch (_) { return null; }
+  if (!st || !st.questions || !st.questions.length) return null;
+  const item = st.questions[st.idx];
+  const q = (item && item.q) ? item.q : item;
+  return (q && q.type === 'subj') ? h : null;
+}
+document.addEventListener('keydown', function (e) {
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
+  const el = document.activeElement;
+  if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)) return;
+  if (e.code !== 'KeyO' && e.code !== 'KeyX' && e.code !== 'Tab') return;
+  const h = _judgeReady();
+  if (!h) return;
+  e.preventDefault();
+  if (e.code === 'Tab') h.reveal();
+  else h.judge(e.code === 'KeyO' ? 'correct' : 'wrong');
+});
+
 // [디테일] 방향키(← →)로도 문항 이동 — 글자 입력 중일 땐 동작하지 않음
 document.addEventListener('keydown', function(e) {
   if (e.ctrlKey || e.metaKey || e.altKey) return;
@@ -22275,6 +22343,11 @@ applyRenderFlags();
 //   k: 'new'(새 기능) · 'fix'(고침) · 'chg'(바뀜)
 // ══════════════════════════════════════════════════════════════════════
 const PATCH_NOTES = [
+  { v: '260902-0248', at: '2026-09-02', items: [
+    { k: 'new', t: '필답형 판정에 <b>단축키</b>가 생겼습니다 — <b>O</b> 맞았어요 · <b>X</b> 틀렸어요 · <b>Tab</b> 정답 보기. <b>한글 입력 상태에서도</b> 그대로 먹고, 답을 쓰는 중에는 동작하지 않아요' },
+    { k: 'new', t: '문제풀이 · 오답 · 별표 · 체크 · 계산문제 · 모의고사 · 모의고사 오답 <b>일곱 화면 모두</b>에서 됩니다' },
+    { k: 'fix', t: '문항 막대 양옆의 <b>빨강 · 초록 판정 단추</b>가 이제 <b>지금 어떤 판정인지 보여 줍니다.</b> 판정한 쪽이 꽉 차면서 <b>○ · ✕</b> 가 들어와요 — 예전에는 눌러도 아무것도 안 바뀌어 상태를 알 수 없었습니다' },
+  ]},
   { v: '260902-0240', at: '2026-09-01', items: [
     { k: 'new', t: '<b>모의고사를 푸는 중에도 숨기기</b>가 됩니다. 다 외운 문제가 시험마다 또 나오는 걸 막아요 — 위쪽 <b>숨기기</b> 단추를 누르세요 · <b>모의고사 오답</b>에도 같이 생겼습니다' },
     { k: 'chg', t: '숨겨도 <b>이번 시험에서는 그대로 둡니다.</b> 시험 도중에 문항이 사라지면 문항 수와 채점이 어긋나기 때문이에요 — <b>다음 시험부터</b> 안 나옵니다' },
@@ -22873,7 +22946,7 @@ function closePatchNotes() {
 // ── 앱 버전 ──
 // 폰이 옛 파일을 캐시해 두고 있는지 바로 확인할 수 있도록 화면에 표시한다.
 // (설정 맨 아래 · 개발자 도구 콘솔에도 찍힘)
-const APP_VERSION = '260902-0240';
+const APP_VERSION = '260902-0248';
 console.log('%c양진웅 Note 버전 ' + APP_VERSION, 'font-weight:bold');
 
 // PWA 서비스워커 등록
