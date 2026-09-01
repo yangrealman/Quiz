@@ -8245,6 +8245,11 @@
         <button class="flag-btn" id="mq-flag-btn" onclick="toggleFlagMQ()" title="체크 표시">
           <svg class="ic" viewBox="0 0 24 24"><use href="#ic-square"/></svg>
         </button>
+        <!-- [추가] 시험 중에도 숨기기 — 다 외운 문제가 시험마다 또 나오는 걸 막는다.
+             이번 시험에서는 빼지 않는다(문항 수·채점이 어긋나므로) · 다음 시험부터 안 나온다 -->
+        <button class="quiz-act" id="mq-hide-btn" onclick="toggleHideMQ()" title="이 문제 숨기기 (다음 시험부터)" aria-label="이 문제 숨기기">
+          <svg class="ic" viewBox="0 0 24 24"><use href="#ic-eye-off"/></svg><span>숨기기</span>
+        </button>
         <span class="quiz-where-t" id="mq-progress-txt"></span>
         <span class="quiz-num" id="mq-num"></span>
       </div>
@@ -8326,6 +8331,9 @@
         </span>
         <button class="flag-btn" id="mwq-flag-btn" onclick="toggleFlagMWQ()" title="체크 표시">
           <svg class="ic" viewBox="0 0 24 24"><use href="#ic-square"/></svg>
+        </button>
+        <button class="quiz-act" id="mwq-hide-btn" onclick="toggleHideMWQ()" title="이 문제 숨기기" aria-label="이 문제 숨기기">
+          <svg class="ic" viewBox="0 0 24 24"><use href="#ic-eye-off"/></svg><span>숨기기</span>
         </button>
         <span class="quiz-num" id="mwq-num"></span>
       </div>
@@ -15546,6 +15554,39 @@ function toggleFlagMQ() {
   paintFlagBtn(document.getElementById('mq-flag-btn'), on);
 }
 
+// [추가] 시험 중에 이 문제를 숨긴다 — 다 외운 문제가 시험마다 또 나오는 게 반복이라서.
+//   [주의] 이번 시험에서는 빼지 않는다. 시험 도중에 문항이 사라지면 문항 수·번호·채점이
+//     한꺼번에 어긋난다(답안은 몇 번째인지로 저장된다). 표시만 해 두고, 문제를 내는 쪽
+//     (buildMockQuestions → visibleRound / _mockWrongPool)이 이미 숨긴 것을 빼므로
+//     다음 시험부터 자연히 안 나온다.
+function toggleHideMQ() {
+  const item = mqState && mqState.questions && mqState.questions[mqState.idx];
+  if (!item) return;
+  const on = toggleHiddenEntry(item.cat, item.round, item.q);
+  paintHideBtn(document.getElementById('mq-hide-btn'), on);
+  showToast(on ? '숨겼어요 · 이번 시험은 그대로 두고 다음 시험부터 빠져요'
+                : '다시 나오게 했어요');
+}
+// 지금 문제가 숨김 상태인지 단추에 칠한다
+function paintHideBtn(btn, on) {
+  if (!btn) return;
+  btn.classList.toggle('on', !!on);
+  const use = btn.querySelector('use');
+  if (use) use.setAttribute('href', on ? '#ic-eye' : '#ic-eye-off');
+  btn.title = on ? '다시 나오게 하기' : '이 문제 숨기기 (다음 시험부터)';
+}
+
+// 모의고사 오답에서도 같은 방식으로 숨긴다
+// (여기는 cat/round 가 source 쪽에 있다 — 체크 단추와 같은 모양)
+function toggleHideMWQ() {
+  const src = mwqState && mwqState.source && mwqState.source[mwqState.idx];
+  const q = mwqState && mwqState.questions && mwqState.questions[mwqState.idx];
+  if (!src || !q) return;
+  const on = toggleHiddenEntry(src.cat, src.round, q);
+  paintHideBtn(document.getElementById('mwq-hide-btn'), on);
+  showToast(on ? '숨겼어요 · 다음부터 안 나와요' : '다시 나오게 했어요');
+}
+
 // 풀다가 이 문제를 숨긴다 — 목록에서 빼고 바로 다음 문제로 넘어간다.
 // 지운 게 아니라서 '복습 > 숨긴 문제'에서 언제든 되살릴 수 있다.
 // 문항 격자에서 숨긴 문항을 눌러 되살린다 — 그 자리에서 목록에 다시 들어간다
@@ -18078,6 +18119,7 @@ function renderMQ() {
   document.getElementById('mq-source').innerHTML = `<span class="mock-source-badge"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-pencil"/></svg> ${item.cat} ${item.round}회차 Q${q.num}</span>`;
   // 모의고사 중에도 문제를 체크해 둘 수 있다 — 복습 > 체크 목록으로 그대로 들어간다
   paintFlagBtn(document.getElementById('mq-flag-btn'), !!getFlagged()[_flagKeyOf(item.cat, item.round, q)]);
+  paintHideBtn(document.getElementById('mq-hide-btn'), isHiddenQ(item.cat, item.round, q));
   document.getElementById('mq-question').textContent = q.question;
   renderQImage('mq-img-wrap', q);   // [추가] 문제 그림
 
@@ -18668,6 +18710,7 @@ function renderMWQ() {
     const starKey = getStarKey(src.cat, src.round, q.id || q.num || idx);
     paintStarWidget(document.getElementById('mwq-star-widget'), starLevelOf(getStarred()[starKey]));
     _paintFlagInQuiz(mwqState, 'mwq-flag-btn');
+    paintHideBtn(document.getElementById('mwq-hide-btn'), isHiddenQ(src.cat, src.round, q));
   }
   document.getElementById('mwq-question').textContent = q.question;
   renderQImage('mwq-img-wrap', q);   // [추가] 문제 그림
@@ -22232,6 +22275,11 @@ applyRenderFlags();
 //   k: 'new'(새 기능) · 'fix'(고침) · 'chg'(바뀜)
 // ══════════════════════════════════════════════════════════════════════
 const PATCH_NOTES = [
+  { v: '260902-0240', at: '2026-09-01', items: [
+    { k: 'new', t: '<b>모의고사를 푸는 중에도 숨기기</b>가 됩니다. 다 외운 문제가 시험마다 또 나오는 걸 막아요 — 위쪽 <b>숨기기</b> 단추를 누르세요 · <b>모의고사 오답</b>에도 같이 생겼습니다' },
+    { k: 'chg', t: '숨겨도 <b>이번 시험에서는 그대로 둡니다.</b> 시험 도중에 문항이 사라지면 문항 수와 채점이 어긋나기 때문이에요 — <b>다음 시험부터</b> 안 나옵니다' },
+    { k: 'chg', t: '숨긴 문제는 눈 모양이 <b>뜬 눈</b>으로 바뀌고, 다시 누르면 되살아납니다 (복습 &gt; 숨긴 문제에서도 언제든 되살릴 수 있어요)' },
+  ]},
   { v: '260901-2236', at: '2026-09-01', items: [
     { k: 'chg', t: '주관식을 풀 때 <b>답 쓰는 칸이 접힌 채로</b> 시작합니다. <b>답 쓰기</b> 줄을 누르면 펴져요 · 한 번 펴 두면 그대로 유지되니 문항마다 다시 누르지 않아도 됩니다' },
     { k: 'chg', t: '초록색 <b>주관식</b> 딱지를 <b>맨 아래로</b> 내렸습니다. 이제 문제 지문 바로 아래에 <b>답 칸</b>이 옵니다' },
@@ -22825,7 +22873,7 @@ function closePatchNotes() {
 // ── 앱 버전 ──
 // 폰이 옛 파일을 캐시해 두고 있는지 바로 확인할 수 있도록 화면에 표시한다.
 // (설정 맨 아래 · 개발자 도구 콘솔에도 찍힘)
-const APP_VERSION = '260901-2236';
+const APP_VERSION = '260902-0240';
 console.log('%c양진웅 Note 버전 ' + APP_VERSION, 'font-weight:bold');
 
 // PWA 서비스워커 등록
