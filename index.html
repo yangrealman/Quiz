@@ -12239,8 +12239,6 @@ function revealSubjAnswer() {
 
   // 화면 다시 렌더 (정답 공개 + 입력 가능 + 다음 버튼 활성화)
   renderQuestion();
-  // 포커스 복원
-  setTimeout(() => { const t = document.getElementById('subj-my-answer'); if (t && isSubjWriteOpen()) t.focus(); }, 0);
 }
 
 function toggleSubjReveal() {
@@ -12254,13 +12252,11 @@ function toggleSubjReveal() {
   currentQuiz.revealed[currentQuiz.idx] = !currentQuiz.revealed[currentQuiz.idx];
 
   renderQuestion();
-  // 포커스 및 커서 위치 복원
+  // 커서 자리만 기억해 둔다 (포커스는 주지 않는다)
   setTimeout(() => {
     const t = document.getElementById('subj-my-answer');
-    if (t && isSubjWriteOpen()) {
-      t.focus();
-      if (cursorPos !== null) t.setSelectionRange(cursorPos, cursorPos);
-    }
+    // [수정] 포커스는 주지 않는다 — 정답을 보려고 눌렀을 뿐인데 답 칸으로 커서가 튀었다
+    if (t && cursorPos !== null) t.setSelectionRange(cursorPos, cursorPos);
   }, 0);
 }
 
@@ -14525,7 +14521,9 @@ function toggleWQReveal() {
   renderWQ();
   setTimeout(() => {
     const t = document.getElementById('wq-subj-input');
-    if (t && isSubjWriteOpen()) { t.focus(); if (cursorPos !== null) t.setSelectionRange(cursorPos, cursorPos); }
+    // [수정] 정답을 보려고 눌렀을 뿐인데 답 칸으로 커서가 튀었다 (폰에서는 자판까지
+    //        올라와 정답을 가렸다) → 포커스는 주지 않고 커서 자리만 기억해 둔다.
+    if (t && cursorPos !== null) t.setSelectionRange(cursorPos, cursorPos);
   }, 0);
 }
 
@@ -16487,7 +16485,9 @@ function toggleSQReveal() {
   renderSQ();
   setTimeout(() => {
     const t = document.getElementById('sq-subj-input');
-    if (t && isSubjWriteOpen()) { t.focus(); if (cursorPos !== null) t.setSelectionRange(cursorPos, cursorPos); }
+    // [수정] 정답을 보려고 눌렀을 뿐인데 답 칸으로 커서가 튀었다 (폰에서는 자판까지
+    //        올라와 정답을 가렸다) → 포커스는 주지 않고 커서 자리만 기억해 둔다.
+    if (t && cursorPos !== null) t.setSelectionRange(cursorPos, cursorPos);
   }, 0);
 }
 
@@ -16979,7 +16979,9 @@ function toggleFQReveal() {
   renderFQ();
   setTimeout(() => {
     const t = document.getElementById('fq-subj-input');
-    if (t && isSubjWriteOpen()) { t.focus(); if (cursorPos !== null) t.setSelectionRange(cursorPos, cursorPos); }
+    // [수정] 정답을 보려고 눌렀을 뿐인데 답 칸으로 커서가 튀었다 (폰에서는 자판까지
+    //        올라와 정답을 가렸다) → 포커스는 주지 않고 커서 자리만 기억해 둔다.
+    if (t && cursorPos !== null) t.setSelectionRange(cursorPos, cursorPos);
   }, 0);
 }
 
@@ -17414,7 +17416,9 @@ function toggleCQReveal() {
   renderCQ();
   setTimeout(() => {
     const t = document.getElementById('cq-subj-input');
-    if (t && isSubjWriteOpen()) { t.focus(); if (cursorPos !== null) t.setSelectionRange(cursorPos, cursorPos); }
+    // [수정] 정답을 보려고 눌렀을 뿐인데 답 칸으로 커서가 튀었다 (폰에서는 자판까지
+    //        올라와 정답을 가렸다) → 포커스는 주지 않고 커서 자리만 기억해 둔다.
+    if (t && cursorPos !== null) t.setSelectionRange(cursorPos, cursorPos);
   }, 0);
 }
 
@@ -18223,7 +18227,9 @@ function toggleMQReveal() {
   renderMQ();
   setTimeout(() => {
     const t = document.getElementById('mq-subj-input');
-    if (t && isSubjWriteOpen()) { t.focus(); if (cursorPos !== null) t.setSelectionRange(cursorPos, cursorPos); }
+    // [수정] 정답을 보려고 눌렀을 뿐인데 답 칸으로 커서가 튀었다 (폰에서는 자판까지
+    //        올라와 정답을 가렸다) → 포커스는 주지 않고 커서 자리만 기억해 둔다.
+    if (t && cursorPos !== null) t.setSelectionRange(cursorPos, cursorPos);
   }, 0);
 }
 
@@ -18805,7 +18811,9 @@ function toggleMWQReveal() {
   renderMWQ();
   setTimeout(() => {
     const t = document.getElementById('mwq-subj-input');
-    if (t && isSubjWriteOpen()) { t.focus(); if (cursorPos !== null) t.setSelectionRange(cursorPos, cursorPos); }
+    // [수정] 정답을 보려고 눌렀을 뿐인데 답 칸으로 커서가 튀었다 (폰에서는 자판까지
+    //        올라와 정답을 가렸다) → 포커스는 주지 않고 커서 자리만 기억해 둔다.
+    if (t && cursorPos !== null) t.setSelectionRange(cursorPos, cursorPos);
   }, 0);
 }
 
@@ -22345,6 +22353,9 @@ applyRenderFlags();
 //   k: 'new'(새 기능) · 'fix'(고침) · 'chg'(바뀜)
 // ══════════════════════════════════════════════════════════════════════
 const PATCH_NOTES = [
+  { v: '260902-0319', at: '2026-09-02', items: [
+    { k: 'fix', t: '<b>정답 보기</b>를 눌렀을 때 답 쓰는 칸으로 <b>커서가 튀지 않습니다.</b> 정답만 보려던 건데 커서가 옮겨 가고, 폰에서는 자판까지 올라와 정답을 가렸어요 · 쓰던 커서 자리는 그대로 기억해 둡니다' },
+  ]},
   { v: '260902-0248', at: '2026-09-02', items: [
     { k: 'new', t: '필답형 판정에 <b>단축키</b>가 생겼습니다 — <b>Q</b> 틀렸어요 · <b>W</b> 맞았어요 · <b>Tab</b> 정답 보기. 나란히 붙어 있어 <b>한 손으로</b> 누를 수 있고, 화면의 빨강(왼쪽)·초록(오른쪽) 자리와 순서도 같아요. <b>한글 입력 상태에서도</b> 그대로 먹고, 답을 쓰는 중에는 동작하지 않습니다' },
     { k: 'new', t: '문제풀이 · 오답 · 별표 · 체크 · 계산문제 · 모의고사 · 모의고사 오답 <b>일곱 화면 모두</b>에서 됩니다' },
@@ -22948,7 +22959,7 @@ function closePatchNotes() {
 // ── 앱 버전 ──
 // 폰이 옛 파일을 캐시해 두고 있는지 바로 확인할 수 있도록 화면에 표시한다.
 // (설정 맨 아래 · 개발자 도구 콘솔에도 찍힘)
-const APP_VERSION = '260902-0252';
+const APP_VERSION = '260902-0319';
 console.log('%c양진웅 Note 버전 ' + APP_VERSION, 'font-weight:bold');
 
 // PWA 서비스워커 등록
