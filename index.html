@@ -1109,6 +1109,22 @@
   /* [수정] 틀린문제 목록에서 "주관식" 뱃지가 문제 번호보다 위로 떠 보이던 문제
      — 뱃지 자체의 margin-bottom(10px)이 flex 줄 안에서 높이를 어긋나게 했음 */
   .wrong-note-meta .subj-type-badge { margin-bottom: 0; }
+  /* [추가] 숨긴 문제 ↔ 보관함 두 칸 — 자격증 칩과 섞이지 않게 한 덩어리로 묶는다 */
+  /* 줄바꿈용 껍데기 — 이게 없으면 묶음이 줄 전체로 늘어나 뒷배경이 길게 깔린다 */
+  .hid-tabs-row { flex-basis: 100%; margin-bottom: 2px; }
+  .hid-tabs {
+    display: inline-flex; gap: 2px; padding: 2px;
+    background: var(--gray-100); border-radius: var(--r-md);
+  }
+  body.dark .hid-tabs { background: #18213C; }
+  .hid-tab {
+    border: 0; background: transparent; cursor: pointer;
+    font-size: 13px; font-weight: 600; color: var(--gray-500);
+    padding: 6px 14px; border-radius: calc(var(--r-md) - 3px);
+    white-space: nowrap; transition: background .16s, color .16s;
+  }
+  .hid-tab.on { background: #fff; color: var(--primary); box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+  body.dark .hid-tab.on { background: #223057; color: #93B4FF; }
   .wrong-note-q {
     font-size: 15px;
     font-weight: 600;
@@ -9396,7 +9412,28 @@ function toggleHiddenEntry(cat, round, q) {
   return on;
 }
 
+// ── 보관 (숨김의 두 번째 단계) ────────────────────────────────────────
+// 숨긴 문제가 쌓이면 목록이 길어져서, 이미 마음을 굳힌 것들이 아직 고민 중인 것들을
+// 덮어 버린다. 그래서 '숨긴 문제 목록에서도 빼는' 한 단계를 더 뒀다.
+// 새 저장소를 만들지 않고 숨김 항목에 boxed 만 붙인다 —
+//  · 보관해도 '숨김'인 것은 그대로다 (문제 꺼내는 곳은 손댈 필요가 없다)
+//  · 예전 항목에는 boxed 가 없어서 그냥 숨김으로 읽힌다 (백업·동기화 그대로)
+function isBoxedEntry(h) { return !!(h && h.boxed); }
+
+// 보관하기 ↔ 꺼내기 (숨김 자체는 건드리지 않는다)
+function toggleBoxOne(key) {
+  const hidden = getHidden();
+  const h = hidden[key];
+  if (!h) return;
+  const on = !h.boxed;
+  if (on) h.boxed = Date.now(); else delete h.boxed;
+  saveHidden(hidden);
+  renderHiddenNote();
+  showToast(on ? '보관함으로 옮겼어요' : '숨긴 문제로 꺼냈어요');
+}
+
 // 이 회차에서 숨긴 문제 수 (회차 타일·완료 판정에 쓴다)
+// 보관한 것도 여전히 '안 나오는 문제'라 여기서는 함께 센다
 function hiddenCountIn(cat, round) {
   const hidden = getHidden();
   let n = 0;
@@ -10704,9 +10741,11 @@ function renderQGrid() {
 
   // [추가] 숨긴 문항도 흐리게 남겨 둔다 — 누르면 그 자리에서 되살아난다.
   //        아예 안 보이면 숨겼다는 사실 자체를 잊어버려서 되돌릴 방법이 없다.
+  //        [수정] 보관한 문제는 여기에도 안 남긴다 — 보관은 '눈앞에서 아주 치우기'라서,
+  //               되살리려면 복습 > 숨긴 문제 > 보관함으로 간다
   const hidden = getHidden();
   const hiddenCells = getRound(cat, round)
-    .filter(q => hidden[_flagKeyOf(cat, round, q)])
+    .filter(q => hidden[_flagKeyOf(cat, round, q)] && !isBoxedEntry(hidden[_flagKeyOf(cat, round, q)]))
     .map(q => `<button class="qg-cell hid" onclick="unhideFromGrid('${escArg(cat)}','${escArg(round)}','${escArg(String((q.id || q.num) || 0))}')"
                  title="숨긴 문제 · 눌러서 되살리기">${escHtml(q.num ?? '?')}</button>`).join('');
 
@@ -16078,27 +16117,48 @@ function _starFiltered() {
 // ══════════════════════════════════════════════════════════════════════
 // 숨긴 문제 목록
 // ══════════════════════════════════════════════════════════════════════
-let hiddenFilter = { cat: null };
+// [추가] box — 보관함을 보고 있는지. 두 칸은 서로 겹치지 않는다
+//        (보관한 것은 숨김 목록에서 빠지고, 보관함에만 있다)
+let hiddenFilter = { cat: null, box: false };
 function setHiddenFilter(cat) { hiddenFilter.cat = cat; renderHiddenNote(); }
+function setHiddenBox(on) { hiddenFilter.box = !!on; renderHiddenNote(); }
 
 function renderHiddenNote() {
-  const items = Object.values(getHidden());
+  const all = Object.values(getHidden());
+  const items = all.filter(w => isBoxedEntry(w) === hiddenFilter.box);   // 지금 칸에 해당하는 것만
+  const nLive = all.length - all.filter(isBoxedEntry).length;
+  const nBox = all.length - nLive;
   const circleNums = ['①','②','③','④','⑤','⑥'];
 
   const clearBtn = document.getElementById('hidden-clear-btn');
-  if (clearBtn) clearBtn.style.display = items.length ? 'inline-flex' : 'none';
+  if (clearBtn) {
+    clearBtn.style.display = items.length ? 'inline-flex' : 'none';
+    clearBtn.title = hiddenFilter.box
+      ? '보관함 전체 되살리기 · 두 번 누르면 되살아납니다'
+      : '숨긴 문제 전체 되살리기 · 두 번 누르면 되살아납니다 (보관함은 그대로 둡니다)';
+  }
 
   const cats = [...new Set(items.map(w => w.cat))];
+  // 칸을 옮기면 저쪽에만 있던 자격증이 골라진 채로 남아 빈 목록이 나온다 → 전체로 되돌린다
+  if (hiddenFilter.cat && !cats.includes(hiddenFilter.cat)) hiddenFilter.cat = null;
   const filterEl = document.getElementById('hidden-filter');
-  filterEl.innerHTML = (cats.length > 1) ? `
+  // 보관함이 비어 있고 지금 숨김 칸이면 굳이 두 칸을 보여주지 않는다 (처음 쓰는 사람에게 안 보임)
+  const tabs = (nBox || hiddenFilter.box) ? `
+    <div class="hid-tabs-row"><div class="hid-tabs">
+      <button class="hid-tab ${hiddenFilter.box ? '' : 'on'}" onclick="setHiddenBox(false)">숨긴 문제 ${nLive}</button>
+      <button class="hid-tab ${hiddenFilter.box ? 'on' : ''}" onclick="setHiddenBox(true)">📦 보관함 ${nBox}</button>
+    </div></div>` : '';
+  filterEl.innerHTML = tabs + ((cats.length > 1) ? `
     <button class="btn ${hiddenFilter.cat === null ? 'btn-primary' : 'btn-secondary'}" onclick="setHiddenFilter(null)" style="font-size:13px; padding:6px 14px">전체 (${items.length})</button>
     ${cats.map(c => {
       const cnt = items.filter(w => w.cat === c).length;
       return `<button class="btn ${hiddenFilter.cat === c ? 'btn-primary' : 'btn-secondary'}" onclick="setHiddenFilter('${escArg(c)}')" style="font-size:13px; padding:6px 14px">${escHtml(c)} (${cnt})</button>`;
-    }).join('')}` : '';
+    }).join('')}` : '');
 
   if (!items.length) {
-    document.getElementById('hidden-list').innerHTML = `<div class="empty-state"><div class="emoji"><svg class="ic ic-empty" viewBox="0 0 24 24"><use href="#ic-eye-off"/></svg></div><p>숨긴 문제가 없어요.<br>문제를 풀다가 <b>숨기기</b>를 누르면 여기에 모입니다.</p></div>`;
+    document.getElementById('hidden-list').innerHTML = hiddenFilter.box
+      ? `<div class="empty-state"><div class="emoji">📦</div><p>보관함이 비어 있어요.<br>숨긴 문제에서 <b>보관</b>을 누르면 목록에서도 빠져 여기로 옵니다.</p></div>`
+      : `<div class="empty-state"><div class="emoji"><svg class="ic ic-empty" viewBox="0 0 24 24"><use href="#ic-eye-off"/></svg></div><p>숨긴 문제가 없어요.<br>문제를 풀다가 <b>숨기기</b>를 누르면 여기에 모입니다.</p></div>`;
     return;
   }
 
@@ -16135,6 +16195,10 @@ function renderHiddenNote() {
               <span>Q${escHtml(q.num || w.qId || '')}</span>
               <button class="btn btn-secondary" style="margin-left:auto; font-size:12px; padding:4px 12px"
                       onclick="unhideOne('${escArg(getStarKey(w.cat, w.round, w.qId))}')">다시 보기</button>
+              <!-- [추가] 한 번 더 치우기 — 마음을 굳힌 문제는 숨김 목록에서도 뺀다 -->
+              <button class="btn btn-secondary" style="font-size:12px; padding:4px 12px"
+                      onclick="toggleBoxOne('${escArg(getStarKey(w.cat, w.round, w.qId))}')"
+                      title="${hiddenFilter.box ? '숨긴 문제 목록으로 되돌립니다 (문제는 계속 안 나옵니다)' : '숨긴 문제 목록에서도 빼서 보관함으로 옮깁니다'}">${hiddenFilter.box ? '꺼내기' : '📦 보관'}</button>
             </div>
             <div class="wrong-note-q">${q.question || '(문제를 찾을 수 없어요)'}</div>
             <button class="wn-toggle" onclick="toggleAnswerCollapse(this)">
@@ -16163,15 +16227,20 @@ function unhideOne(key) {
 }
 
 // 전체 되살리기 — 실수 방지로 두 번 눌러야 한다 (별표·체크 전체 해제와 같은 방식)
+// [수정] 보관함이 생긴 뒤로는 '지금 보고 있는 칸'만 되살린다 —
+//        숨긴 문제를 정리하려다 보관해 둔 것까지 한꺼번에 쏟아지면 안 된다
 let _unhideAllTimer = null;
 function askUnhideAll(btn) {
-  const n = Object.keys(getHidden()).length;
+  const hidden = getHidden();
+  const keys = Object.keys(hidden).filter(k => isBoxedEntry(hidden[k]) === hiddenFilter.box);
+  const n = keys.length;
   if (!n) return;
   if (btn.dataset.arm === '1') {
     _disarmClearBtn(btn, _unhideAllTimer);
-    saveHidden({});
+    keys.forEach(k => delete hidden[k]);
+    saveHidden(hidden);
     renderHiddenNote();
-    showToast(`숨긴 문제 ${n}개를 모두 되살렸습니다`);
+    showToast(`${hiddenFilter.box ? '보관함' : '숨긴 문제'} ${n}개를 모두 되살렸습니다`);
     return;
   }
   btn.dataset.arm = '1';
@@ -22624,6 +22693,11 @@ applyRenderFlags();
 //   k: 'new'(새 기능) · 'fix'(고침) · 'chg'(바뀜)
 // ══════════════════════════════════════════════════════════════════════
 const PATCH_NOTES = [
+  { v: '260903-0337', at: '2026-09-03', items: [
+    { k: 'new', t: '<b>복습 &gt; 숨긴 문제</b>에 <b>📦 보관함</b>이 생겼습니다. 숨긴 문제가 쌓여 목록이 길어지면, 이미 마음을 굳힌 것은 <b>보관</b>을 눌러 <b>숨긴 문제 목록에서도 빼세요</b> — 아직 고민 중인 것만 남습니다' },
+    { k: 'new', t: '보관해도 <b>지워지는 게 아닙니다</b>. 위쪽 <b>숨긴 문제 · 📦 보관함</b> 두 칸으로 오가며, <b>꺼내기</b>로 숨김 목록에 되돌리거나 <b>다시 보기</b>로 곧바로 되살릴 수 있어요' },
+    { k: 'chg', t: '보관한 문제는 문제풀이의 <b>문항 번호판</b>에서도 흐리게 남지 않습니다 (숨기기만 한 문제는 예전처럼 남아 있어요). <b>전체 되살리기</b>는 <b>지금 보고 있는 칸만</b> 되살립니다 — 숨긴 문제를 정리해도 보관함은 그대로예요' },
+  ]},
   { v: '260903-0312', at: '2026-09-03', items: [
     { k: 'new', t: '<b>별표 · 오답 · 체크 · 계산문제</b>를 풀다가 <b>문제 수정</b>을 바로 누를 수 있습니다. 별표 문제를 풀던 중에 지문이나 정답이 잘못된 걸 봐도, 이제 홈 &gt; 회차로 <b>돌아가지 않고 그 자리에서</b> 고쳐요' },
     { k: 'chg', t: '고친 내용은 <b>원래 회차에 그대로 저장</b>되고, 고치자마자 보고 있던 화면이 새로 그려집니다 — 문제풀이 · 모의고사에서 고치는 것과 똑같아요' },
@@ -23256,7 +23330,7 @@ function closePatchNotes() {
 // ── 앱 버전 ──
 // 폰이 옛 파일을 캐시해 두고 있는지 바로 확인할 수 있도록 화면에 표시한다.
 // (설정 맨 아래 · 개발자 도구 콘솔에도 찍힘)
-const APP_VERSION = '260903-0312';
+const APP_VERSION = '260903-0337';
 console.log('%c양진웅 Note 버전 ' + APP_VERSION, 'font-weight:bold');
 
 // PWA 서비스워커 등록
