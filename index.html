@@ -5046,6 +5046,12 @@
   }
   @keyframes mgPulse { 50% { opacity: 0.72; } }
   body.reduce-motion .mg-btn.arm { animation: none; }
+  /* [추가] 모의고사 '시험 제출'도 같은 방식 — W 를 한 번 눌러 물어본 상태 */
+  .mq-submit.arm {
+    background: var(--danger) !important; border-color: var(--danger) !important;
+    color: #fff !important; animation: mgPulse 1s ease-in-out infinite;
+  }
+  body.reduce-motion .mq-submit.arm { animation: none; }
 
   /* 옆의 "체크한 것만 풀기" 버튼과 높이를 맞춘다 */
   #flag-clear-btn, #star-clear-btn, #hidden-clear-btn {
@@ -8398,7 +8404,7 @@
       <button class="btn btn-primary" id="mq-next-btn" onclick="mqNext()">다음<svg class="ic" viewBox="0 0 24 24"><use href="#ic-arrow-right"/></svg></button>
     </div>
     <div style="text-align:center; margin-top:12px">
-      <button class="btn" onclick="submitMockEarly()" style="background:var(--danger-light); color:var(--danger); border:1px solid var(--danger-border); font-size:13px">시험 제출</button>
+      <button class="btn mq-submit" id="mq-submit-btn" onclick="submitMockEarly()" style="background:var(--danger-light); color:var(--danger); border:1px solid var(--danger-border); font-size:13px">시험 제출</button>
     </div>
   </div>
 </div>
@@ -10386,6 +10392,7 @@ function _syncTabActive(name) {
 
 function goPage(name) {
   try { flushPendingWrites(); } catch (_) {}   // [추가] 화면을 옮기기 전에 모아둔 저장을 보낸다
+  try { disarmMockSubmit(); } catch (_) {}     // [추가] 화면을 떠나면 물어본 제출은 무른다
   _syncTabActive(name);
   document.body.dataset.nav = _navBusy ? 'back' : 'fwd';
   _goPageNow(name);
@@ -18452,6 +18459,8 @@ function startMockExamAgain() {
 }
 
 function renderMQ() {
+  // [추가] 문항이 바뀌면 물어본 제출은 무르고, 제출 단추 얼굴도 다시 칠한다
+  try { disarmMockSubmit(); _paintMockSubmit(); } catch (_) {}
   const { questions, idx, answered } = mqState;
   const item = questions[idx];
   const q = item.q;
@@ -21179,6 +21188,45 @@ function _judgeReady() {
   const q = (item && item.q) ? item.q : item;
   return (q && q.type === 'subj') ? h : null;
 }
+// ── [추가] 모의고사에서 W 로 제출 ────────────────────────────────────
+// 제출 단추가 화면 맨 아래에 있어서, 마지막 문제를 풀고도 스크롤을 내려 눌러야 했다.
+// 다 푼 뒤에만 W 가 '제출'이 된다 — 아직 남았으면 W 는 그대로 '맞았어요'다.
+// 실수로 내는 일이 없게 두 번 누르게 한다 (숨긴 문제 전체 되살리기와 같은 방식).
+let _mockArmed = false, _mockArmTimer = null;
+
+function _mockDoneNow() {
+  return !!(typeof mqState !== 'undefined' && mqState.questions && mqState.questions.length
+         && firstUnansweredIdx(mqState) < 0);
+}
+function _mockAllAnswered() { return currentPage === 'mock-quiz' && _mockDoneNow(); }
+
+// 제출 단추의 얼굴 — 다 풀었을 때만 W 가 제출이 되므로 그때만 알려 준다
+function _paintMockSubmit() {
+  const b = document.getElementById('mq-submit-btn');
+  if (!b) return;
+  if (_mockArmed) { b.classList.add('arm'); b.textContent = '한 번 더 누르면 제출'; b.title = ''; return; }
+  b.classList.remove('arm');
+  const tell = _mockDoneNow() && HAS_KBD;
+  b.textContent = tell ? '시험 제출 (W)' : '시험 제출';
+  b.title = tell ? 'W 를 두 번 누르면 제출됩니다' : '';
+}
+
+function disarmMockSubmit() {
+  if (!_mockArmed) return;
+  _mockArmed = false;
+  clearTimeout(_mockArmTimer);
+  _paintMockSubmit();
+}
+
+function mockSubmitByKey() {
+  if (_mockArmed) { _mockArmed = false; clearTimeout(_mockArmTimer); submitMockEarly(); return; }
+  _mockArmed = true;
+  _paintMockSubmit();
+  showToast('제출할까요? W 를 한 번 더 누르면 제출돼요 (Esc 로 취소)');
+  clearTimeout(_mockArmTimer);
+  _mockArmTimer = setTimeout(disarmMockSubmit, 5000);
+}
+
 // [추가] 정답 시트 닫기 — 시트가 떠 있다는 건 '지금 문제가 공개 상태'라는 뜻이라,
 //        닫기는 곧 '정답 숨기기'다. 화면을 다시 그리면서 CSS 가 알아서 내려간다.
 function ansSheetOpen() {
@@ -21197,7 +21245,12 @@ document.addEventListener('keydown', function (e) {
   if (e.ctrlKey || e.metaKey || e.altKey) return;
   const el = document.activeElement;
   if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)) return;
+  if (e.code === 'Escape') { disarmMockSubmit(); return; }
   if (e.code !== 'KeyQ' && e.code !== 'KeyW' && e.code !== 'Tab') return;
+  // [추가] 모의고사를 다 풀었으면 W 는 '제출' — 판정보다 먼저 본다.
+  //        아직 안 푼 문항이 있으면 여기 안 걸리고 예전처럼 '맞았어요'로 간다.
+  if (e.code === 'KeyW' && _mockAllAnswered()) { e.preventDefault(); mockSubmitByKey(); return; }
+  disarmMockSubmit();                 // 다른 걸 눌렀으면 물어본 것을 무른다
   const h = _judgeReady();
   if (!h) return;
   e.preventDefault();
@@ -22735,6 +22788,11 @@ applyRenderFlags();
 //   k: 'new'(새 기능) · 'fix'(고침) · 'chg'(바뀜)
 // ══════════════════════════════════════════════════════════════════════
 const PATCH_NOTES = [
+  { v: '260903-0636', at: '2026-09-03', items: [
+    { k: 'new', t: '모의고사에서 <b>문항을 다 풀었으면 W 로 제출</b>할 수 있습니다. 한 번 누르면 <b>물어보고</b>, 한 번 더 누르면 제출돼요 — 마지막 문제를 풀고 <b>제출 단추까지 스크롤을 내릴 필요가 없습니다</b>' },
+    { k: 'chg', t: '아직 안 푼 문항이 남아 있으면 <b>W 는 예전처럼 ‘맞았어요’</b>입니다. 다 풀고 나면 제출 단추가 <b>시험 제출 (W)</b> 로 바뀌어 알려줘요' },
+    { k: 'chg', t: '물어본 뒤 <b>Esc</b> · <b>Q</b> · 다른 문항으로 옮기기 · <b>5초</b> 가 지나면 저절로 취소됩니다 — 실수로 내는 일이 없게요' },
+  ]},
   { v: '260903-0353', at: '2026-09-03', items: [
     { k: 'fix', t: '<b>숨긴 문제</b>가 많을 때 <b>보관 · 꺼내기 · 다시 보기</b>를 누르면 화면이 멈칫하던 것을 고쳤습니다. 누를 때마다 목록 전체를 다시 그리던 걸 <b>누른 칸 하나만 걷어내도록</b> 바꿨어요 (숨긴 문제 300개 기준 <b>약 170ms → 7ms</b>)' },
     { k: 'fix', t: '숨긴 문제 목록을 <b>여는 것도 빨라졌습니다</b>. 문제를 찾을 때 회차를 몇천 번씩 다시 읽던 걸 항목마다 <b>한 번만</b> 읽도록 고쳤어요' },
@@ -23376,7 +23434,7 @@ function closePatchNotes() {
 // ── 앱 버전 ──
 // 폰이 옛 파일을 캐시해 두고 있는지 바로 확인할 수 있도록 화면에 표시한다.
 // (설정 맨 아래 · 개발자 도구 콘솔에도 찍힘)
-const APP_VERSION = '260903-0353';
+const APP_VERSION = '260903-0636';
 console.log('%c양진웅 Note 버전 ' + APP_VERSION, 'font-weight:bold');
 
 // PWA 서비스워커 등록
