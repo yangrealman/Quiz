@@ -7460,6 +7460,10 @@
         <button class="flag-btn" id="wq-flag-btn" onclick="toggleFlagWQ()" title="체크 표시">
           <svg class="ic" viewBox="0 0 24 24"><use href="#ic-square"/></svg>
         </button>
+        <!-- [추가] 여기서 바로 고치기 — 잘못된 문제를 만나면 홈 > 회차로 돌아갔다 와야 했다 -->
+        <button class="quiz-act" onclick="openEditPopup('wq')" title="문제 수정" aria-label="문제 수정">
+          <svg class="ic" viewBox="0 0 24 24"><use href="#ic-pencil"/></svg><span>수정</span>
+        </button>
         <span class="quiz-num" id="wq-num"></span>
       </div>
     </div>
@@ -7520,6 +7524,10 @@
         </span>
         <button class="flag-btn" id="sq-flag-btn" onclick="toggleFlagSQ()" title="체크 표시">
           <svg class="ic" viewBox="0 0 24 24"><use href="#ic-square"/></svg>
+        </button>
+        <!-- [추가] 여기서 바로 고치기 — 잘못된 문제를 만나면 홈 > 회차로 돌아갔다 와야 했다 -->
+        <button class="quiz-act" onclick="openEditPopup('sq')" title="문제 수정" aria-label="문제 수정">
+          <svg class="ic" viewBox="0 0 24 24"><use href="#ic-pencil"/></svg><span>수정</span>
         </button>
         <span class="quiz-num" id="sq-num"></span>
       </div>
@@ -7590,6 +7598,10 @@
         </span>
         <button class="flag-btn on" id="fq-flag-btn" onclick="toggleFlagFQ()" title="체크 해제">
           <svg class="ic" viewBox="0 0 24 24"><use href="#ic-check-square"/></svg>
+        </button>
+        <!-- [추가] 여기서 바로 고치기 — 잘못된 문제를 만나면 홈 > 회차로 돌아갔다 와야 했다 -->
+        <button class="quiz-act" onclick="openEditPopup('fq')" title="문제 수정" aria-label="문제 수정">
+          <svg class="ic" viewBox="0 0 24 24"><use href="#ic-pencil"/></svg><span>수정</span>
         </button>
         <span class="quiz-num" id="fq-num"></span>
       </div>
@@ -7673,6 +7685,10 @@
         </span>
         <button class="flag-btn" id="cq-flag-btn" onclick="toggleFlagCQ()" title="체크 표시">
           <svg class="ic" viewBox="0 0 24 24"><use href="#ic-square"/></svg>
+        </button>
+        <!-- [추가] 여기서 바로 고치기 — 잘못된 문제를 만나면 홈 > 회차로 돌아갔다 와야 했다 -->
+        <button class="quiz-act" onclick="openEditPopup('cq')" title="문제 수정" aria-label="문제 수정">
+          <svg class="ic" viewBox="0 0 24 24"><use href="#ic-pencil"/></svg><span>수정</span>
         </button>
         <span class="quiz-num" id="cq-num"></span>
       </div>
@@ -15505,6 +15521,19 @@ function _resolveEditTarget(where) {
     const src = (typeof mwqState !== 'undefined' && mwqState.source) ? mwqState.source[mwqState.idx] : null;
     return (q && src) ? { q, cat: src.cat, round: src.round, after: renderMWQ } : null;
   }
+  // [추가] 오답·별표·체크·계산 네 화면 — 문항은 questions[idx], 어느 회차에서 왔는지는
+  //        source[idx] 에 들어 있다(네 화면이 모양이 같아 한 줄로 처리한다).
+  //        별표만 풀다가 잘못된 문제를 보면 홈으로 돌아가지 않고 그 자리에서 고친다.
+  const REV = {
+    wq: [() => wqState, renderWQ], sq: [() => sqState, renderSQ],
+    fq: [() => fqState, renderFQ], cq: [() => cqState, renderCQ]
+  };
+  if (REV[where]) {
+    const st = REV[where][0]();
+    const q = st && st.questions && st.questions[st.idx];
+    const src = st && st.source && st.source[st.idx];
+    return (q && src) ? { q, cat: src.cat, round: src.round, after: REV[where][1] } : null;
+  }
   const st = (typeof currentQuiz !== 'undefined') ? currentQuiz : null;
   if (!st || !st.questions || !st.questions[st.idx]) return null;
   return { q: st.questions[st.idx], cat: st.cat, round: st.round, after: renderQuestion };
@@ -22595,6 +22624,10 @@ applyRenderFlags();
 //   k: 'new'(새 기능) · 'fix'(고침) · 'chg'(바뀜)
 // ══════════════════════════════════════════════════════════════════════
 const PATCH_NOTES = [
+  { v: '260903-0312', at: '2026-09-03', items: [
+    { k: 'new', t: '<b>별표 · 오답 · 체크 · 계산문제</b>를 풀다가 <b>문제 수정</b>을 바로 누를 수 있습니다. 별표 문제를 풀던 중에 지문이나 정답이 잘못된 걸 봐도, 이제 홈 &gt; 회차로 <b>돌아가지 않고 그 자리에서</b> 고쳐요' },
+    { k: 'chg', t: '고친 내용은 <b>원래 회차에 그대로 저장</b>되고, 고치자마자 보고 있던 화면이 새로 그려집니다 — 문제풀이 · 모의고사에서 고치는 것과 똑같아요' },
+  ]},
   { v: '260903-0218', at: '2026-09-02', items: [
     { k: 'fix', t: '<b>별표 · 체크 · 계산문제 · 오답</b>에서 판정해도 <b>다음 문제로 안 넘어가던</b> 것을 고쳤습니다. 이제 문제풀이 · 모의고사와 똑같이 판정하면 넘어가요 (마지막 문제에서는 그대로 있습니다)' },
     { k: 'new', t: '<b>별표 · 체크 · 계산문제</b>에도 문항 막대 양옆에 <b>빨강 · 초록 판정 점</b>이 생겼습니다. 판정한 쪽이 <b>○ · ✕</b> 로 채워져서 지금 어떤 상태인지 보여요 — 체크에서 <b>Q</b>·<b>W</b> 를 눌러도 아무 표시가 없던 게 이 때문이었습니다' },
@@ -23223,7 +23256,7 @@ function closePatchNotes() {
 // ── 앱 버전 ──
 // 폰이 옛 파일을 캐시해 두고 있는지 바로 확인할 수 있도록 화면에 표시한다.
 // (설정 맨 아래 · 개발자 도구 콘솔에도 찍힘)
-const APP_VERSION = '260903-0218';
+const APP_VERSION = '260903-0312';
 console.log('%c양진웅 Note 버전 ' + APP_VERSION, 'font-weight:bold');
 
 // PWA 서비스워커 등록
