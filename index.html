@@ -8220,8 +8220,10 @@
     <div class="mock-config-card">
       <div class="section-label" style="margin-bottom:14px">새 모의고사 시작</div>
       <div class="form-group">
-        <label class="form-label">자격증 선택</label>
-        <select class="form-select" id="mock-cat-select"></select>
+        <!-- [수정] 하나만 고르는 드롭다운이었다. 같은 내용을 '작업형1·2·3' 처럼 나눠 둔
+             경우 셋을 한 번에 내려면 시험을 따로 봐야 했다 → 여러 개를 골라 섞는다. -->
+        <label class="form-label">자격증 선택 <span style="font-weight:400; color:var(--gray-400); font-size:12px">· 여러 개를 골라 섞을 수 있어요</span></label>
+        <div id="mock-cat-chips" class="sch-cats"></div>
       </div>
       <div class="form-group">
         <label class="form-label">출제 방식</label>
@@ -17718,13 +17720,7 @@ function resetAllData() {
 // ── 모의고사 홈 렌더 ──
 function renderMockHome() {
   // 자격증 선택 옵션 갱신
-  const cats = getCategories();
-  const sel = document.getElementById('mock-cat-select');
-  sel.innerHTML = cats.length
-    ? cats.map(c => `<option value="${c}">${c}</option>`).join('')
-    : '<option value="">등록된 자격증 없음</option>';
-  // [추가] 고른 자격증에 문제가 몇 개나 있는지 알려 준다 (문항 수 상한이 곧 이 값)
-  sel.onchange = paintMockCountHint;
+  renderMockCatChips();     // [수정] 드롭다운 → 여러 개 고르는 칩
   const countEl = document.getElementById('mock-count-input');
   if (countEl) countEl.value = getLastMockCount();   // 지난번에 쓴 문항 수로 시작
   paintMockModeRow();                                // 지난번에 쓴 출제 방식도 그대로
@@ -17762,7 +17758,7 @@ function renderMockHome() {
           <input type="checkbox" ${picked ? 'checked' : ''} onclick="event.stopPropagation(); toggleMockRecSel(${r.id})">
         </label>` : ''}
         <div class="mock-record-left">
-          <div class="mock-record-title">${r.cat} · 모의고사 ${records.length - i}회${modeTag}</div>
+          <div class="mock-record-title">${escHtml(mockCatLabel(r.cats || r.cat))} · 모의고사 ${records.length - i}회${modeTag}</div>
           <div class="mock-record-sub">${date} · ${r.total}문제 · 오답 ${nWrong}개</div>
         </div>
         <div class="mock-score-badge ${pass ? '' : 'fail'}">${pct}점</div>
@@ -17828,13 +17824,16 @@ function deleteSelectedMockRecords() {
   const deck = getMockDeck();
   const plan = {};   // 자격증별로 덱에서 빼낼 키들
   let restore = 0;
-  new Set(del.map(r => r.cat)).forEach(cat => {
+  // [수정] 한 기록에 자격증이 여러 개일 수 있다 → 기록이 건드린 자격증을 모두 본다
+  new Set(del.flatMap(r => _asCats(r.cats || r.cat))).forEach(cat => {
     if (!Array.isArray(deck[cat])) return;
     // [주의] 키가 '회차||번호'라 자격증이 다르면 겹칠 수 있다 → 반드시 자격증별로 따로 센다
     // 진도를 먹은 건 '눈 돌리기'로 낸 시험뿐이라, 되돌릴지 판단할 때도 그것만 본다
-    const isDeck = r => r.cat === cat && (r.mode || 'deck') === 'deck';
-    const inDel  = new Set(del .filter(isDeck).flatMap(r => (r.questionLog || []).map(keyOf)));
-    const inKeep = new Set(keep.filter(isDeck).flatMap(r => (r.questionLog || []).map(keyOf)));
+    const isDeck = r => _asCats(r.cats || r.cat).includes(cat) && (r.mode || 'deck') === 'deck';
+    // 항목에 자격증이 없는 예전 기록은 그 기록의 자격증 것으로 본다
+    const logOf = r => (r.questionLog || []).filter(x => !x.cat || x.cat === cat).map(keyOf);
+    const inDel  = new Set(del .filter(isDeck).flatMap(logOf));
+    const inKeep = new Set(keep.filter(isDeck).flatMap(logOf));
     const back = deck[cat].filter(k => inDel.has(k) && !inKeep.has(k));
     if (back.length) { plan[cat] = new Set(back); restore += back.length; }
   });
@@ -17887,6 +17886,51 @@ let mqState = {
 };
 
 // 고른 자격증에 문제가 총 몇 개인지 = 낼 수 있는 최대 문항 수
+// ── 모의고사에 낼 자격증 고르기 (여러 개) ────────────────────────────
+// [추가] 같은 내용을 분류하려고 '작업형1·2·3' 처럼 나눠 둔 경우, 셋을 한 시험에
+//        섞어 내고 싶다. 고른 목록은 이 기기에 기억한다(보는 방식이라 서버 X).
+//        진도(눈 돌리기)는 예전처럼 자격증마다 따로 센다 — 저장 모양을 안 바꾼다.
+let _mockCats = null;
+function getMockCats() {
+  const all = getCategories();
+  if (_mockCats === null) {
+    try { _mockCats = JSON.parse(localStorage.getItem('mock_cats') || 'null'); } catch (_) { _mockCats = null; }
+  }
+  let list = Array.isArray(_mockCats) ? _mockCats.filter(c => all.includes(c)) : [];
+  if (!list.length) list = all.length ? [all[0]] : [];
+  return list;
+}
+function setMockCats(list) {
+  _mockCats = list;
+  try { localStorage.setItem('mock_cats', JSON.stringify(list)); } catch (_) {}
+}
+function toggleMockCat(cat) {
+  const cur = new Set(getMockCats());
+  if (cur.has(cat)) {
+    if (cur.size <= 1) { showToast('자격증은 하나 이상 골라야 해요'); return; }
+    cur.delete(cat);
+  } else cur.add(cat);
+  setMockCats(getCategories().filter(c => cur.has(c)));   // 자격증 목록 순서를 지킨다
+  renderMockCatChips();
+  paintMockCountHint();
+}
+function renderMockCatChips() {
+  const el = document.getElementById('mock-cat-chips');
+  if (!el) return;
+  const all = getCategories(), on = new Set(getMockCats());
+  el.innerHTML = all.length
+    ? all.map(c => `<button class="sch-chip${on.has(c) ? ' on' : ''}" onclick="toggleMockCat('${escArg(c)}')">${escHtml(c)}<small>${_catQuestionTotal(c).toLocaleString()}</small></button>`).join('')
+    : '<div style="font-size:13px; color:var(--gray-400)">등록된 자격증이 없어요</div>';
+}
+// 제목·기록에 쓰는 한 줄 이름
+function mockCatLabel(cats) {
+  const list = Array.isArray(cats) ? cats.filter(Boolean) : [cats].filter(Boolean);
+  if (!list.length) return '';
+  return list.length === 1 ? list[0] : `${list[0]} 외 ${list.length - 1}개`;
+}
+// 어디서 오든 배열로 맞춘다 (예전 기록·이어하기는 자격증이 하나였다)
+function _asCats(v) { return Array.isArray(v) ? v.filter(Boolean) : (v ? [v] : []); }
+
 function _catQuestionTotal(cat) {
   // 숨긴 문제는 모의고사에 안 나오므로 전체 수에서도 뺀다 (안 그러면 '남은 개수'가 영영 안 줄어든다)
   return cat ? getRoundList(cat).reduce((n, r) => n + Math.max(0, getRoundCount(cat, r) - hiddenCountIn(cat, r)), 0) : 0;
@@ -17938,14 +17982,15 @@ function paintMockModeRow() {
 // 모의고사 오답에서 낼 문제 통.
 // 같은 문제를 여러 번 틀리면 시험마다 따로 쌓여 있어서(3번 틀리면 항목 3개) 하나로 합친다.
 // 문제 내용은 저장해 둔 사본이 아니라 지금 회차에 있는 것을 쓴다 — 그 뒤에 고치거나 그림을 붙였으면 그게 반영된다.
-function _mockWrongPool(cat) {
+function _mockWrongPool(cats) {
+  const only = _asCats(cats);                        // [수정] 자격증 여러 개를 받는다
   const seen = new Set();
   const pool = [];
   getMockWrongs().forEach(w => {
     if (!w || !w.q) return;
-    if (cat && w.cat !== cat) return;
+    if (only.length && !only.includes(w.cat)) return;
     if (isHiddenQ(w.cat, w.round, w.q)) return;      // 숨긴 문제는 빼고 낸다
-    const k = _deckKey(w.round, w.q.num);
+    const k = w.cat + '||' + _deckKey(w.round, w.q.num);   // 자격증이 섞이므로 자격증까지 넣어 구분
     if (seen.has(k)) return;
     seen.add(k);
     const live = getRound(w.cat, w.round).find(x => Number(x.num) === Number(w.q.num));
@@ -17970,9 +18015,12 @@ function getMockSeen(cat) {
   if (Array.isArray(deck[cat])) return new Set(deck[cat]);
   const seeded = new Set();
   // '눈 돌리기'로 낸 시험만 진도로 친다 (완전 무작위·오답 모의고사는 진도를 건드리지 않는다)
-  getMockRecords().filter(r => r.cat === cat && (r.mode || 'deck') === 'deck')
-    .flatMap(r => r.questionLog || [])
-    .forEach(({ round, qNum }) => seeded.add(_deckKey(round, qNum)));
+  // [수정] 여러 자격증을 섞은 시험이 생겼다 → 그 기록에서는 이 자격증 몫만 골라 온다
+  //        (예전 기록은 자격증이 하나뿐이라 항목에 cat 이 없다 — 그때는 전부 이 자격증 것)
+  getMockRecords().filter(r => _asCats(r.cats || r.cat).includes(cat) && (r.mode || 'deck') === 'deck')
+    .forEach(r => (r.questionLog || []).forEach(({ round, qNum, cat: qc }) => {
+      if (!qc || qc === cat) seeded.add(_deckKey(round, qNum));
+    }));
   deck[cat] = [...seeded];
   saveMockDeck(deck);
   return seeded;
@@ -18002,35 +18050,47 @@ function resetMockDeck(cat) {
   paintMockCountHint();
   showToast('처음부터 다시 돌립니다');
 }
+// [추가] 여러 자격증을 골라 둔 상태에서는 고른 것들을 함께 되돌린다
+function resetMockDeckAll() {
+  const cats = getMockCats();
+  if (!cats.length) return;
+  const what = cats.length === 1 ? '' : `\n(${cats.map(c => '· ' + c).join('\n')})`;
+  if (!confirm(`이번 바퀴 기록을 지우고 처음부터 다시 돌릴까요?${what}\n(모의고사 기록과 오답은 그대로 있습니다)`)) return;
+  const deck = getMockDeck();
+  cats.forEach(c => { deck[c] = []; });
+  saveMockDeck(deck);
+  paintMockCountHint();
+  showToast('처음부터 다시 돌립니다');
+}
 
 function paintMockCountHint() {
   const el = document.getElementById('mock-count-hint');
   if (!el) return;
-  const sel = document.getElementById('mock-cat-select');
-  const cat = sel ? sel.value : '';
+  const cats = getMockCats();                       // [수정] 고른 자격증들을 합쳐서 센다
   const mode = getMockMode();
+  const many = cats.length > 1 ? `<span style="opacity:.7">(${cats.length}개 자격증 합쳐서)</span> ` : '';
 
   // 오답에서만 — 낼 수 있는 건 오답 통의 크기다 (전체 문제 수와 상관없다)
   if (mode === 'wrong') {
-    const n = _mockWrongPool(cat).length;
+    const n = _mockWrongPool(cats).length;
     el.innerHTML = n
-      ? `모의고사 오답 <b>${n.toLocaleString()}개</b>에서 뽑아요 <span style="opacity:.7">(같은 문제는 하나로 셈)</span>`
-      : (cat ? '이 자격증은 모의고사 오답이 아직 없어요' : '');
+      ? `${many}모의고사 오답 <b>${n.toLocaleString()}개</b>에서 뽑아요 <span style="opacity:.7">(같은 문제는 하나로 셈)</span>`
+      : (cats.length ? '고른 자격증에는 모의고사 오답이 아직 없어요' : '');
     return;
   }
 
-  const total = _catQuestionTotal(cat);
+  const total = cats.reduce((s2, c) => s2 + _catQuestionTotal(c), 0);
   if (!total) { el.innerHTML = ''; return; }
 
   if (mode === 'random') {
-    el.innerHTML = `전체 <b>${total.toLocaleString()}문제</b>에서 매번 새로 뽑아요 · 이미 본 문제도 다시 나옵니다`;
+    el.innerHTML = `${many}전체 <b>${total.toLocaleString()}문제</b>에서 매번 새로 뽑아요 · 이미 본 문제도 다시 나옵니다`;
     return;
   }
 
-  const seen = getMockSeen(cat).size;
+  const seen = cats.reduce((s2, c) => s2 + getMockSeen(c).size, 0);
   const left = Math.max(0, total - seen);
-  el.innerHTML = `전체 ${total.toLocaleString()}문제 중 <b>${seen.toLocaleString()}개</b>를 봤어요 · 남은 ${left.toLocaleString()}개에서 겹치지 않게 냅니다`
-    + (seen ? ` <button class="mock-deck-reset" onclick="resetMockDeck('${escArg(cat)}')">처음부터</button>` : '');
+  el.innerHTML = `${many}전체 ${total.toLocaleString()}문제 중 <b>${seen.toLocaleString()}개</b>를 봤어요 · 남은 ${left.toLocaleString()}개에서 겹치지 않게 냅니다`
+    + (seen ? ` <button class="mock-deck-reset" onclick="resetMockDeckAll()">처음부터</button>` : '');
 }
 
 // 제대로 된 무작위 섞기 (Fisher-Yates)
@@ -18049,17 +18109,21 @@ function _shuffle(arr) {
 //        → 이제 이 자격증의 모든 문제를 한 통에 넣고 그 안에서 무작위로 뽑는다.
 //          객관식·필답형 구분은 하지 않는다.
 //        [추가] 출제 방식(mode)을 고를 수 있다 — 통을 만들고 걸러내는 부분만 갈린다.
-function buildMockQuestions(cat, count, mode) {
+function buildMockQuestions(cats, count, mode) {
   mode = mode || 'deck';
+  const catList = _asCats(cats);                      // [수정] 자격증 여러 개를 섞어 낸다
+  if (!catList.length) return null;
 
   // ① 낼 문제를 담을 통 — 방식마다 다르다
   let pool;
   if (mode === 'wrong') {
-    pool = _mockWrongPool(cat);                       // 모의고사에서 틀렸던 문제만
+    pool = _mockWrongPool(catList);                   // 모의고사에서 틀렸던 문제만
   } else {
-    pool = [];                                        // 이 자격증의 모든 회차 · 모든 문제 (숨긴 건 뺀다)
-    for (const round of getRoundList(cat)) {
-      for (const q of visibleRound(cat, round)) pool.push({ q, round, cat });
+    pool = [];                                        // 고른 자격증들의 모든 회차 · 모든 문제 (숨긴 건 뺀다)
+    for (const cat of catList) {
+      for (const round of getRoundList(cat)) {
+        for (const q of visibleRound(cat, round)) pool.push({ q, round, cat });
+      }
     }
   }
   if (!pool.length) return null;
@@ -18074,17 +18138,22 @@ function buildMockQuestions(cat, count, mode) {
   // ③ 이번 바퀴에 아직 안 나온 문제에서 뽑는다
   //    [수정] 예전엔 '뽑는 순간' 봤다고 쳐서, 시작만 하고 제출 안 한 시험도 문제를 까먹었고
   //          기록을 지워도 그건 되돌아오지 않았다 → 이제 제출할 때(submitMock)만 기록한다.
-  const seen = getMockSeen(cat);
+  // 진도는 자격증마다 따로 센다 (저장 모양을 바꾸지 않으려고 — deck[자격증] = [회차||번호])
+  const seenBy = {};
+  catList.forEach(c => { seenBy[c] = getMockSeen(c); });
+  const isSeen = (it) => (seenBy[it.cat] || new Set()).has(_deckKey(it.round, it.q.num));
   // 아직 제출하지 않고 풀던 시험이 있으면 그 문제는 빼 둔다 (새 시험에 겹쳐 나오지 않게)
+  //   자격증이 섞이므로 여기서는 자격증까지 넣은 열쇠로 본다
+  const fullKey = (c, round, num) => c + '||' + _deckKey(round, num);
   const busy = new Set();
   try {
     const r = getMockQuizResume();
-    if (r && r.cat === cat) (r.picks || []).forEach(pk => busy.add(_deckKey(pk.round, pk.qNum)));
+    const rCats = _asCats(r && (r.cats || r.cat));
+    if (r && rCats.some(c => catList.includes(c))) {
+      (r.picks || []).forEach(pk => busy.add(fullKey(pk.cat || rCats[0], pk.round, pk.qNum)));
+    }
   } catch (_) {}
-  const left = _shuffle(pool.filter(it => {
-    const k = _deckKey(it.round, it.q.num);
-    return !seen.has(k) && !busy.has(k);
-  }));
+  const left = _shuffle(pool.filter(it => !isSeen(it) && !busy.has(fullKey(it.cat, it.round, it.q.num))));
 
   let result;
   if (left.length >= count) {
@@ -18092,10 +18161,10 @@ function buildMockQuestions(cat, count, mode) {
   } else {
     // 남은 걸 다 쓰고도 모자라면 한 바퀴를 마친 것 — 새로 섞어 이어서 채운다
     result = left.slice();
-    const usedNow = new Set(result.map(it => _deckKey(it.round, it.q.num)));
-    const reshuffled = _shuffle(pool.filter(it => !usedNow.has(_deckKey(it.round, it.q.num))));
+    const usedNow = new Set(result.map(it => fullKey(it.cat, it.round, it.q.num)));
+    const reshuffled = _shuffle(pool.filter(it => !usedNow.has(fullKey(it.cat, it.round, it.q.num))));
     result = result.concat(reshuffled.slice(0, count - result.length));
-    setMockSeen(cat, new Set());     // 새 바퀴 시작 (이번 시험 몫은 제출할 때 쌓인다)
+    catList.forEach(c => setMockSeen(c, new Set()));   // 새 바퀴 시작 (이번 시험 몫은 제출할 때 쌓인다)
     showToast('전체 문제를 한 바퀴 다 봤어요 · 새로 섞어서 다시 시작합니다');
   }
 
@@ -18105,21 +18174,22 @@ function buildMockQuestions(cat, count, mode) {
 
 function startMockExam() {
   if (_askResumeFirst(getMockQuizResume, resumeMockQuiz, '모의고사')) return;
-  const cat = document.getElementById('mock-cat-select').value;
-  if (!cat) { showToast('자격증을 선택하세요'); return; }
+  const cats = getMockCats();
+  if (!cats.length) { showToast('자격증을 선택하세요'); return; }
   const count = parseInt(document.getElementById('mock-count-input').value) || 60;
   saveLastMockCount(count);        // 다음에도 같은 문항 수로 시작하도록 기억
   const mode = getMockMode();
 
-  const built = buildMockQuestions(cat, count, mode);
+  const built = buildMockQuestions(cats, count, mode);
   if (!built) {
-    showToast(mode === 'wrong' ? '이 자격증은 모의고사 오답이 아직 없어요' : '문제가 부족해요. 회차를 더 등록해주세요.');
+    showToast(mode === 'wrong' ? '고른 자격증에는 모의고사 오답이 아직 없어요' : '문제가 부족해요. 회차를 더 등록해주세요.');
     return;
   }
   if (built.length < count) showToast(`문제가 부족해서 ${built.length}문제로 만들었어요`);
 
   mqState = {
-    cat,
+    cat: cats[0],                  // 예전 코드가 보는 자리 (대표 하나)
+    cats,                          // [추가] 실제로 고른 것들
     mode,
     questions: built,
     idx: 0,
@@ -18127,27 +18197,28 @@ function startMockExam() {
     startTime: Date.now()
   };
 
-  document.getElementById('mq-title').textContent = _mqTitleFor(cat, mode);
+  document.getElementById('mq-title').textContent = _mqTitleFor(cats, mode);
   paintMockCountHint();
   goPage('mock-quiz');
   renderMQ();
 }
 
 // 오답 모의고사는 제목에서 바로 구분되게 (기록에도 같은 이름으로 남는다)
-function _mqTitleFor(cat, mode) {
-  return mode === 'wrong' ? `${cat} 오답 모의고사` : `${cat} 모의고사`;
+function _mqTitleFor(cats, mode) {
+  const name = mockCatLabel(cats);
+  return mode === 'wrong' ? `${name} 오답 모의고사` : `${name} 모의고사`;
 }
 
 function startMockExamAgain() {
-  const cat = mqState.cat;
-  if (!cat) { goPage('mock'); return; }
+  const cats = _asCats(mqState.cats || mqState.cat);
+  if (!cats.length) { goPage('mock'); return; }
   const count = mqState.questions.length;
   const mode = mqState.mode || 'deck';      // 방금 푼 것과 같은 방식으로 한 번 더
-  const built = buildMockQuestions(cat, count, mode);
+  const built = buildMockQuestions(cats, count, mode);
   if (!built) { showToast('문제가 부족해요. 회차를 더 등록해주세요.'); goPage('mock'); return; }
-  mqState = { cat, mode, questions: built, idx: 0, answered: {}, startTime: Date.now() };
+  mqState = { cat: cats[0], cats, mode, questions: built, idx: 0, answered: {}, startTime: Date.now() };
 
-  document.getElementById('mq-title').textContent = _mqTitleFor(cat, mode);
+  document.getElementById('mq-title').textContent = _mqTitleFor(cats, mode);
   goPage('mock-quiz');
   renderMQ();
 }
@@ -18341,8 +18412,10 @@ function _saveMQCheckpoint() {
   if (!mqState || !mqState.questions || !mqState.questions.length) return;
   saveMockQuizResume({
     cat: mqState.cat,
+    cats: _asCats(mqState.cats || mqState.cat),        // [추가] 여러 자격증을 섞은 시험
     mode: mqState.mode || 'deck',
-    picks: mqState.questions.map(it => ({ round: it.round, qNum: Number(it.q.num) })),
+    // [수정] 자격증이 섞이므로 문항마다 어느 자격증인지 함께 적는다
+    picks: mqState.questions.map(it => ({ cat: it.cat, round: it.round, qNum: Number(it.q.num) })),
     idx: mqState.idx,
     answered: mqState.answered,
     subjInputs: mqState.subjInputs || {},
@@ -18360,11 +18433,13 @@ function resumeMockQuiz() {
   const answered = {};
   const subjInputs = {};
   let idx = 0;
+  const rCats = _asCats(r.cats || r.cat);
   r.picks.forEach((pk, oldI) => {
-    const q = getRound(r.cat, pk.round).find(x => Number(x.num) === pk.qNum);
+    const pc = pk.cat || rCats[0];                     // 예전 이어하기에는 문항에 자격증이 없다
+    const q = getRound(pc, pk.round).find(x => Number(x.num) === pk.qNum);
     if (!q) return;
     const newI = questions.length;
-    questions.push({ q, round: pk.round, cat: r.cat });
+    questions.push({ q, round: pk.round, cat: pc });
     if (r.answered && r.answered[oldI] !== undefined) answered[newI] = r.answered[oldI];
     if (r.subjInputs && r.subjInputs[oldI] !== undefined) subjInputs[newI] = r.subjInputs[oldI];
     if (oldI <= r.idx) idx = newI;
@@ -18372,13 +18447,13 @@ function resumeMockQuiz() {
   if (!questions.length) { clearMockQuizResume(); renderMockHome(); showToast('이어서 풀 모의고사가 없어요'); return; }
 
   mqState = {
-    cat: r.cat, mode: r.mode || 'deck',
+    cat: rCats[0], cats: rCats, mode: r.mode || 'deck',
     questions, idx: Math.min(idx, questions.length - 1), answered, subjInputs,
     revealed: {},
     startTime: Date.now() - (r.elapsedSec || 0) * 1000   // 이미 쓴 시간을 이어받는다
   };
 
-  document.getElementById('mq-title').textContent = _mqTitleFor(r.cat, r.mode || 'deck');
+  document.getElementById('mq-title').textContent = _mqTitleFor(rCats, r.mode || 'deck');
   goPage('mock-quiz');
   renderMQ();
 }
@@ -18393,7 +18468,7 @@ function renderMockResumeCard() {
         <div class="rc-emoji"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-pin"/></svg></div>
         <div>
           <div class="rc-title">이어서 풀기</div>
-          <div class="rc-sub">${escHtml(r.cat)} · ${r.idx + 1} / ${r.picks.length}번째부터</div>
+          <div class="rc-sub">${escHtml(mockCatLabel(r.cats || r.cat))} · ${r.idx + 1} / ${r.picks.length}번째부터</div>
         </div>
       </div>
       <button class="rc-close" onclick="event.stopPropagation(); clearMockQuizResume(); renderMockHome();" aria-label="지우기"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-x"/></svg></button>
@@ -18442,6 +18517,7 @@ function submitMock() {
 
   // 이번 모의고사에서 나온 (round, qNum) 로그 — 다음 회차 중복 방지에 사용
   const questionLog = questions.map(item => ({
+    cat: item.cat,                                    // [추가] 자격증이 섞이므로 함께 남긴다
     round: item.round,
     qNum: Number(item.q.num)
   }));
@@ -18449,16 +18525,21 @@ function submitMock() {
   // 기록 저장
   const records = getMockRecords();
   const recordId = Date.now();
-  records.push({ id: recordId, cat, mode, date: Date.now(), correct, total, pct, timeUsed, wrongCount: wrongItems.length, questionLog });
+  const _cats = _asCats(mqState.cats || cat);
+  records.push({ id: recordId, cat, cats: _cats, mode, date: Date.now(), correct, total, pct, timeUsed, wrongCount: wrongItems.length, questionLog });
   saveMockRecords(records);
 
   // 눈 돌리기 — 실제로 풀어서 제출한 문제만 '봤다'로 친다.
   // 완전 무작위·오답 모의고사는 진도를 건드리지 않는다 (안 본 문제를 미리 까먹지 않게).
   if (mode === 'deck') {
     try {
-      const seenSet = getMockSeen(cat);
-      questions.forEach(item => seenSet.add(_deckKey(item.round, item.q.num)));
-      setMockSeen(cat, seenSet);
+      // [수정] 자격증이 섞이므로 문항마다 그 자격증의 진도에 쌓는다
+      const bags = {};
+      questions.forEach(item => {
+        if (!bags[item.cat]) bags[item.cat] = getMockSeen(item.cat);
+        bags[item.cat].add(_deckKey(item.round, item.q.num));
+      });
+      Object.keys(bags).forEach(c => setMockSeen(c, bags[c]));
     } catch (_) {}
   }
 
@@ -18482,7 +18563,7 @@ function showMockResult(correct, total, pct, timeUsed, questions, answered) {
   // [수정] 문제 풀이 결과와 같은 어법으로 — 큰 숫자 하나 + 아래 한 줄
   //        (합격 여부는 모의고사에서만 뜻이 있으므로 그것만 남긴다)
   document.getElementById('mock-result-score').innerHTML = `
-    <div class="res-where">${escHtml(mqState.cat)} 모의고사${pass ? ' · 합격' : ' · 불합격'}</div>
+    <div class="res-where">${escHtml(mockCatLabel(mqState.cats || mqState.cat))} 모의고사${pass ? ' · 합격' : ' · 불합격'}</div>
     <div class="res-big" style="color:${pass ? 'var(--primary)' : 'var(--danger)'}">${pct}<small>점</small></div>
     <div class="res-line">${total}문항 중 <b>${correct}개</b> 정답 · 틀림 ${total - correct}개 · ${timeUsed}</div>
   `;
@@ -22384,6 +22465,11 @@ applyRenderFlags();
 //   k: 'new'(새 기능) · 'fix'(고침) · 'chg'(바뀜)
 // ══════════════════════════════════════════════════════════════════════
 const PATCH_NOTES = [
+  { v: '260902-2141', at: '2026-09-02', items: [
+    { k: 'new', t: '모의고사에서 <b>자격증을 여러 개 골라 섞어</b> 낼 수 있습니다. 같은 내용을 <b>작업형1 · 2 · 3</b> 처럼 나눠 뒀다면 셋을 한 시험에 한꺼번에 내세요 — 드롭다운이 <b>눌러서 고르는 칩</b>으로 바뀌었어요 (하나만 골라도 예전과 똑같습니다)' },
+    { k: 'chg', t: '문항 수 안내가 <b>고른 자격증들을 합쳐서</b> 나옵니다. <b>눈 돌리기</b> 진도는 예전처럼 <b>자격증마다 따로</b> 세고, <b>처음부터</b>를 누르면 고른 자격증들을 함께 되돌려요' },
+    { k: 'chg', t: '기록·이어하기·결과 화면에는 <b>‘가스산업기사 외 2개’</b> 처럼 표시됩니다. <b>예전 기록과 이어하기는 그대로</b> 열립니다' },
+  ]},
   { v: '260902-0341', at: '2026-09-02', items: [
     { k: 'new', t: '<b>모의고사를 푸는 중에도 문제를 고칠 수 있습니다.</b> 위쪽 <b>수정</b> 단추를 누르세요 — 지문 · 보기 · 정답 · 해설 · 그림 전부 문제풀이 화면과 똑같이 고쳐집니다 · <b>모의고사 오답</b>에도 같이 생겼어요' },
     { k: 'chg', t: '<b>제출하기 전에 정답을 고치면 채점에도 반영됩니다.</b> 시험 중에 답이 틀린 걸 발견해도 그 자리에서 바로잡을 수 있어요' },
@@ -22994,7 +23080,7 @@ function closePatchNotes() {
 // ── 앱 버전 ──
 // 폰이 옛 파일을 캐시해 두고 있는지 바로 확인할 수 있도록 화면에 표시한다.
 // (설정 맨 아래 · 개발자 도구 콘솔에도 찍힘)
-const APP_VERSION = '260902-0341';
+const APP_VERSION = '260902-2141';
 console.log('%c양진웅 Note 버전 ' + APP_VERSION, 'font-weight:bold');
 
 // PWA 서비스워커 등록
