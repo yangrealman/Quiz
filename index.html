@@ -1608,6 +1608,9 @@
   .mock-record-left { display: flex; flex-direction: column; gap: 3px; }
   .mock-record-title { font-size: 14px; font-weight: 700; color: var(--gray-800); }
   .mock-record-sub { font-size: 12px; color: var(--gray-400); }
+  /* [추가] 푸는 데 걸린 시간 — 날짜에 묻히지 않게 한 톤 진하게 */
+  .mock-took { color: var(--gray-600); font-weight: 700; }
+  body.dark .mock-took { color: var(--gray-700); }
   .mock-score-badge {
     font-size: 18px;
     font-weight: 800;
@@ -17808,6 +17811,7 @@ function renderMockHome() {
     const pass = pct >= 60;
     const date = new Date(r.date).toLocaleDateString('ko-KR', {month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit'});
     const nWrong = liveWrong[r.id] || 0;
+    const took = _mockTookLabel(r);          // [추가] 푸는 데 걸린 시간
     const picked = _mockRecSel.has(r.id);
     // 눈 돌리기(기본)로 낸 건 꼬리표 없이, 다른 방식으로 낸 것만 표시한다
     const rMode = r.mode || 'deck';
@@ -17820,7 +17824,7 @@ function renderMockHome() {
         </label>` : ''}
         <div class="mock-record-left">
           <div class="mock-record-title">${escHtml(mockCatLabel(r.cats || r.cat))} · 모의고사 ${records.length - i}회${modeTag}</div>
-          <div class="mock-record-sub">${date} · ${r.total}문제 · 오답 ${nWrong}개</div>
+          <div class="mock-record-sub">${date}${took ? ` <b class="mock-took">(${took})</b>` : ''} · ${r.total}문제 · 오답 ${nWrong}개</div>
         </div>
         <div class="mock-score-badge ${pass ? '' : 'fail'}">${pct}점</div>
       </div>
@@ -18026,6 +18030,20 @@ function setMockMode(m) {
   paintMockModeRow();
   paintMockCountHint();
 }
+// [추가] 이 시험을 푸는 데 걸린 시간 — 목록에 날짜 옆에 붙인다.
+//   기록에는 '3분 12초' 같은 글로만 남아 있어서(예전 기록 포함) 거기서 초를 뽑아 쓴다.
+//   새 기록에는 elapsedSec 도 함께 남긴다.
+function _mockTookLabel(r) {
+  let sec = null;
+  if (r && typeof r.elapsedSec === 'number') sec = r.elapsedSec;
+  else if (r && typeof r.timeUsed === 'string') {
+    const m = /(\d+)\s*분/.exec(r.timeUsed), q = /(\d+)\s*초/.exec(r.timeUsed);
+    if (m || q) sec = (m ? +m[1] : 0) * 60 + (q ? +q[1] : 0);
+  }
+  if (sec == null || sec < 0) return '';
+  return sec < 60 ? `${sec}초` : `${Math.max(1, Math.round(sec / 60))}분`;
+}
+
 function _mockModeLabel(m) {
   const f = MOCK_MODES.find(x => x.id === m);
   return f ? f.label : '';
@@ -18587,7 +18605,7 @@ function submitMock() {
   const records = getMockRecords();
   const recordId = Date.now();
   const _cats = _asCats(mqState.cats || cat);
-  records.push({ id: recordId, cat, cats: _cats, mode, date: Date.now(), correct, total, pct, timeUsed, wrongCount: wrongItems.length, questionLog });
+  records.push({ id: recordId, cat, cats: _cats, mode, date: Date.now(), correct, total, pct, timeUsed, elapsedSec: elapsed, wrongCount: wrongItems.length, questionLog });
   saveMockRecords(records);
 
   // 눈 돌리기 — 실제로 풀어서 제출한 문제만 '봤다'로 친다.
@@ -22547,6 +22565,10 @@ applyRenderFlags();
 //   k: 'new'(새 기능) · 'fix'(고침) · 'chg'(바뀜)
 // ══════════════════════════════════════════════════════════════════════
 const PATCH_NOTES = [
+  { v: '260902-2312', at: '2026-09-02', items: [
+    { k: 'new', t: '모의고사 기록 목록에 <b>푸는 데 걸린 시간</b>이 날짜 옆에 붙습니다 — <b>09. 02. 오후 11:05 (23분)</b> 처럼요 · 1분이 안 걸렸으면 초로 보여줍니다' },
+    { k: 'chg', t: '<b>예전 기록에도 그대로 나옵니다</b> — 이미 저장돼 있던 시간을 읽어 쓰거든요' },
+  ]},
   { v: '260902-2242', at: '2026-09-02', items: [
     { k: 'new', t: '설정 &gt; 기능에 <b>정답을 팝업으로 보기</b>가 생겼습니다. 켜면 필답형에서 <b>정답 보기</b>를 눌렀을 때 정답·해설이 <b>화면 아래에서 시트로 올라옵니다</b> — 스크롤을 내렸다 올렸다 하지 않아도 돼요 (기본은 꺼짐 = 예전 그대로)' },
     { k: 'new', t: '시트가 떠 있는 동안에도 <b>맞았어요 · 틀렸어요</b>를 바로 누를 수 있습니다 (단축키 <b>Q</b>·<b>W</b> 도 그대로). 닫기는 <b>정답 숨기기</b> · <b>Tab</b> · <b>Esc</b> · 바깥 어두운 곳 누르기' },
@@ -23167,7 +23189,7 @@ function closePatchNotes() {
 // ── 앱 버전 ──
 // 폰이 옛 파일을 캐시해 두고 있는지 바로 확인할 수 있도록 화면에 표시한다.
 // (설정 맨 아래 · 개발자 도구 콘솔에도 찍힘)
-const APP_VERSION = '260902-2242';
+const APP_VERSION = '260902-2312';
 console.log('%c양진웅 Note 버전 ' + APP_VERSION, 'font-weight:bold');
 
 // PWA 서비스워커 등록
