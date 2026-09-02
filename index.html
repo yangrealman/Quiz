@@ -9420,6 +9420,19 @@ function toggleHiddenEntry(cat, round, q) {
 //  · 예전 항목에는 boxed 가 없어서 그냥 숨김으로 읽힌다 (백업·동기화 그대로)
 function isBoxedEntry(h) { return !!(h && h.boxed); }
 
+// [추가] 목록에서 그 칸 하나만 걷어낸다 — 숨긴 문제가 300개쯤 되면 목록 전체를 다시
+//        만드는 데(750KB 짜리 HTML) 100ms 넘게 걸려서, 누를 때마다 눈에 띄게 멈칫했다.
+//        비었거나 자격증 칩이 달라졌을 때만 전부 다시 그린다.
+function _dropHiddenCard(key) {
+  const list = document.getElementById('hidden-list');
+  if (!list) return;
+  const card = [...list.querySelectorAll('.wrong-note-item')].find(el => el.dataset.hkey === key);
+  if (!card) { renderHiddenNote(); return; }
+  card.remove();
+  const left = list.querySelectorAll('.wrong-note-item').length;
+  if (!left || !renderHiddenChrome()) renderHiddenNote();
+}
+
 // 보관하기 ↔ 꺼내기 (숨김 자체는 건드리지 않는다)
 function toggleBoxOne(key) {
   const hidden = getHidden();
@@ -9428,7 +9441,7 @@ function toggleBoxOne(key) {
   const on = !h.boxed;
   if (on) h.boxed = Date.now(); else delete h.boxed;
   saveHidden(hidden);
-  renderHiddenNote();
+  _dropHiddenCard(key);
   showToast(on ? '보관함으로 옮겼어요' : '숨긴 문제로 꺼냈어요');
 }
 
@@ -16123,12 +16136,14 @@ let hiddenFilter = { cat: null, box: false };
 function setHiddenFilter(cat) { hiddenFilter.cat = cat; renderHiddenNote(); }
 function setHiddenBox(on) { hiddenFilter.box = !!on; renderHiddenNote(); }
 
-function renderHiddenNote() {
+// [추가] 머리 부분(두 칸·자격증 칩·X 단추)만 다시 그린다 — 목록 본문은 건드리지 않는다.
+//        보관/꺼내기 한 번에 목록 전체를 다시 만들면 숨긴 문제가 많을 때 눈에 띄게 멈칫한다.
+//        고른 자격증이 사라져 목록까지 다시 그려야 하면 false 를 돌려준다.
+function renderHiddenChrome() {
   const all = Object.values(getHidden());
-  const items = all.filter(w => isBoxedEntry(w) === hiddenFilter.box);   // 지금 칸에 해당하는 것만
-  const nLive = all.length - all.filter(isBoxedEntry).length;
-  const nBox = all.length - nLive;
-  const circleNums = ['①','②','③','④','⑤','⑥'];
+  const items = all.filter(w => isBoxedEntry(w) === hiddenFilter.box);
+  const nBox = all.filter(isBoxedEntry).length;
+  const nLive = all.length - nBox;
 
   const clearBtn = document.getElementById('hidden-clear-btn');
   if (clearBtn) {
@@ -16140,8 +16155,10 @@ function renderHiddenNote() {
 
   const cats = [...new Set(items.map(w => w.cat))];
   // 칸을 옮기면 저쪽에만 있던 자격증이 골라진 채로 남아 빈 목록이 나온다 → 전체로 되돌린다
-  if (hiddenFilter.cat && !cats.includes(hiddenFilter.cat)) hiddenFilter.cat = null;
+  let keep = true;
+  if (hiddenFilter.cat && !cats.includes(hiddenFilter.cat)) { hiddenFilter.cat = null; keep = false; }
   const filterEl = document.getElementById('hidden-filter');
+  if (!filterEl) return keep;
   // 보관함이 비어 있고 지금 숨김 칸이면 굳이 두 칸을 보여주지 않는다 (처음 쓰는 사람에게 안 보임)
   const tabs = (nBox || hiddenFilter.box) ? `
     <div class="hid-tabs-row"><div class="hid-tabs">
@@ -16154,6 +16171,15 @@ function renderHiddenNote() {
       const cnt = items.filter(w => w.cat === c).length;
       return `<button class="btn ${hiddenFilter.cat === c ? 'btn-primary' : 'btn-secondary'}" onclick="setHiddenFilter('${escArg(c)}')" style="font-size:13px; padding:6px 14px">${escHtml(c)} (${cnt})</button>`;
     }).join('')}` : '');
+  return keep;
+}
+
+function renderHiddenNote() {
+  const all = Object.values(getHidden());
+  const items = all.filter(w => isBoxedEntry(w) === hiddenFilter.box);   // 지금 칸에 해당하는 것만
+  const circleNums = ['①','②','③','④','⑤','⑥'];
+
+  renderHiddenChrome();
 
   if (!items.length) {
     document.getElementById('hidden-list').innerHTML = hiddenFilter.box
@@ -16164,16 +16190,32 @@ function renderHiddenNote() {
 
   const filtered = hiddenFilter.cat ? items.filter(w => w.cat === hiddenFilter.cat) : items;
   // qId 는 '1_10' 같은 문자열일 수 있어 숫자로 못 센다 → 실제 문항 번호로 정렬한다
-  const numOf = w => { const q = resolveEntryQ(w); return Number(q && q.num) || 0; };
-  const sorted = filtered.slice().sort((a, b) =>
-    String(a.cat).localeCompare(String(b.cat), 'ko') ||
-    String(a.round).localeCompare(String(b.round), 'ko', { numeric: true }) ||
-    numOf(a) - numOf(b));
+  // [수정] 예전엔 정렬 비교마다 resolveEntryQ 를 불렀다 — 항목이 300개면 회차 원본을
+  //        수천 번 다시 읽어(그때마다 JSON 해석) 눌렀을 때 눈에 띄게 멈칫했다.
+  //        항목당 딱 한 번만 찾아 두고, 회차도 이 판 안에서는 한 번만 읽는다.
+  const roundMemo = {};
+  const getRoundOnce = (c, r) => {
+    const k = c + '||' + r;
+    if (!(k in roundMemo)) roundMemo[k] = getRound(c, r);
+    return roundMemo[k];
+  };
+  const rows = filtered.map(w => {
+    const qId = _entryQId(w);
+    let q = null;
+    if (qId != null) q = getRoundOnce(w.cat, w.round)
+      .find(x => String(x.id) === String(qId) || String(x.num) === String(qId)) || null;
+    if (!q) q = w.q || null;
+    return { w, q: q || {}, num: Number(q && q.num) || 0 };
+  });
+  rows.sort((a, b) =>
+    String(a.w.cat).localeCompare(String(b.w.cat), 'ko') ||
+    String(a.w.round).localeCompare(String(b.w.round), 'ko', { numeric: true }) ||
+    a.num - b.num);
 
   document.getElementById('hidden-list').innerHTML = `
     <div class="wrong-note-list">
-      ${sorted.map(w => {
-        const q = resolveEntryQ(w) || {};
+      ${rows.map(({ w, q }) => {
+        const hKey = getStarKey(w.cat, w.round, w.qId);
         const opts = Array.isArray(q.options) ? q.options : [];
         const isSubj = q.type === 'subj' || opts.length === 0;
         const body = isSubj
@@ -16188,16 +16230,16 @@ function renderHiddenNote() {
                  </div>`).join('')}
              </div>`;
         return `
-          <div class="wrong-note-item">
+          <div class="wrong-note-item" data-hkey="${escHtml(hKey)}">
             <div class="wrong-note-meta">
               <span style="font-weight:600">${escHtml(w.cat)}</span>
               <span>${escHtml(w.round)}회차</span>
               <span>Q${escHtml(q.num || w.qId || '')}</span>
               <button class="btn btn-secondary" style="margin-left:auto; font-size:12px; padding:4px 12px"
-                      onclick="unhideOne('${escArg(getStarKey(w.cat, w.round, w.qId))}')">다시 보기</button>
+                      onclick="unhideOne('${escArg(hKey)}')">다시 보기</button>
               <!-- [추가] 한 번 더 치우기 — 마음을 굳힌 문제는 숨김 목록에서도 뺀다 -->
               <button class="btn btn-secondary" style="font-size:12px; padding:4px 12px"
-                      onclick="toggleBoxOne('${escArg(getStarKey(w.cat, w.round, w.qId))}')"
+                      onclick="toggleBoxOne('${escArg(hKey)}')"
                       title="${hiddenFilter.box ? '숨긴 문제 목록으로 되돌립니다 (문제는 계속 안 나옵니다)' : '숨긴 문제 목록에서도 빼서 보관함으로 옮깁니다'}">${hiddenFilter.box ? '꺼내기' : '📦 보관'}</button>
             </div>
             <div class="wrong-note-q">${q.question || '(문제를 찾을 수 없어요)'}</div>
@@ -16222,7 +16264,7 @@ function unhideOne(key) {
   if (!(key in hidden)) return;
   delete hidden[key];
   saveHidden(hidden);
-  renderHiddenNote();
+  _dropHiddenCard(key);          // [수정] 목록 전체를 다시 만들지 않는다 (보관 단추와 같은 이유)
   showToast('다시 나오게 했어요');
 }
 
@@ -22693,6 +22735,10 @@ applyRenderFlags();
 //   k: 'new'(새 기능) · 'fix'(고침) · 'chg'(바뀜)
 // ══════════════════════════════════════════════════════════════════════
 const PATCH_NOTES = [
+  { v: '260903-0353', at: '2026-09-03', items: [
+    { k: 'fix', t: '<b>숨긴 문제</b>가 많을 때 <b>보관 · 꺼내기 · 다시 보기</b>를 누르면 화면이 멈칫하던 것을 고쳤습니다. 누를 때마다 목록 전체를 다시 그리던 걸 <b>누른 칸 하나만 걷어내도록</b> 바꿨어요 (숨긴 문제 300개 기준 <b>약 170ms → 7ms</b>)' },
+    { k: 'fix', t: '숨긴 문제 목록을 <b>여는 것도 빨라졌습니다</b>. 문제를 찾을 때 회차를 몇천 번씩 다시 읽던 걸 항목마다 <b>한 번만</b> 읽도록 고쳤어요' },
+  ]},
   { v: '260903-0337', at: '2026-09-03', items: [
     { k: 'new', t: '<b>복습 &gt; 숨긴 문제</b>에 <b>📦 보관함</b>이 생겼습니다. 숨긴 문제가 쌓여 목록이 길어지면, 이미 마음을 굳힌 것은 <b>보관</b>을 눌러 <b>숨긴 문제 목록에서도 빼세요</b> — 아직 고민 중인 것만 남습니다' },
     { k: 'new', t: '보관해도 <b>지워지는 게 아닙니다</b>. 위쪽 <b>숨긴 문제 · 📦 보관함</b> 두 칸으로 오가며, <b>꺼내기</b>로 숨김 목록에 되돌리거나 <b>다시 보기</b>로 곧바로 되살릴 수 있어요' },
@@ -23330,7 +23376,7 @@ function closePatchNotes() {
 // ── 앱 버전 ──
 // 폰이 옛 파일을 캐시해 두고 있는지 바로 확인할 수 있도록 화면에 표시한다.
 // (설정 맨 아래 · 개발자 도구 콘솔에도 찍힘)
-const APP_VERSION = '260903-0337';
+const APP_VERSION = '260903-0353';
 console.log('%c양진웅 Note 버전 ' + APP_VERSION, 'font-weight:bold');
 
 // PWA 서비스워커 등록
