@@ -16428,6 +16428,7 @@ function renderStarNote() {
               <button onclick="deleteStarred('${escArg(key)}')" style="background:none; border:none; font-size:12px; color:var(--gray-400); cursor:pointer">별표 해제</button>
             </div>
             <div class="wrong-note-q"${hlAttr(w.cat, w.round, q, 'q')}>${q.question || ''}</div>
+            ${fnMemoHTML(w, q, '왜 별표했는지 적어두기')}
             <button class="wn-toggle" onclick="toggleAnswerCollapse(this)">
               <span class="wn-toggle-txt-closed">정답·해설 보기</span>
               <span class="wn-toggle-txt-open">접기</span>
@@ -16895,14 +16896,16 @@ function clearFlagRounds() {
 // (백업·동기화 키도 이미 들어 있어서 따로 손댈 게 없다)
 const FN_MEMO_HINT = '왜 체크했는지 적어두기';
 
-function fnMemoHTML(w, q) {
+// hint — 목록마다 말이 다르다(체크/별표). 저장되는 곳은 같다.
+function fnMemoHTML(w, q, hint) {
   const key = qMemoKey(w.cat, w.round, q, 0);
   const v = getQMemos()[key] || '';
+  const h = hint || FN_MEMO_HINT;
   return `
-    <div class="fn-memo${v ? ' has' : ''}" data-mkey="${escHtml(key)}">
+    <div class="fn-memo${v ? ' has' : ''}" data-mkey="${escHtml(key)}" data-hint="${escHtml(h)}">
       <button class="fn-memo-bar" onclick="fnMemoOpen(this)" title="주석 쓰기">
         <svg class="ic" viewBox="0 0 24 24"><use href="#ic-pencil"/></svg>
-        <span class="fn-memo-txt">${v ? escHtml(v) : FN_MEMO_HINT}</span>
+        <span class="fn-memo-txt">${v ? escHtml(v) : h}</span>
       </button>
       <div class="fn-memo-edit">
         <textarea class="fn-memo-in" rows="2" oninput="fnMemoGrow(this)"
@@ -16924,7 +16927,7 @@ function fnMemoOpen(btn) {
   const box = btn.closest('.fn-memo');
   if (!box) return;
   // 다른 카드에서 쓰던 칸은 닫는다 (여러 개가 동시에 열려 있으면 어디 쓰는지 헷갈린다)
-  document.querySelectorAll('#flag-list .fn-memo.open').forEach(o => { if (o !== box) o.classList.remove('open'); });
+  document.querySelectorAll('.fn-memo.open').forEach(o => { if (o !== box) o.classList.remove('open'); });
   const ta = box.querySelector('.fn-memo-in');
   ta.value = getQMemos()[box.dataset.mkey] || '';
   box.classList.add('open');
@@ -16949,7 +16952,7 @@ function fnMemoSave(el) {
   // 목록 전체를 다시 그리지 않는다 — 이 카드만 고쳐 준다
   box.classList.remove('open');
   box.classList.toggle('has', !!v);
-  box.querySelector('.fn-memo-txt').textContent = v || FN_MEMO_HINT;
+  box.querySelector('.fn-memo-txt').textContent = v || box.dataset.hint || FN_MEMO_HINT;
   showToast(v ? '주석을 저장했어요' : '주석을 지웠어요');
 }
 
@@ -22880,6 +22883,10 @@ applyRenderFlags();
 //   k: 'new'(새 기능) · 'fix'(고침) · 'chg'(바뀜)
 // ══════════════════════════════════════════════════════════════════════
 const PATCH_NOTES = [
+  { v: '260904-0358', at: '2026-09-04', items: [
+    { k: 'new', t: '<b>별표 문제</b> 목록에서도 주석을 보고 쓸 수 있습니다 — 지문 아래 <b>왜 별표했는지 적어두기</b>' },
+    { k: 'chg', t: '<b>체크 · 별표 · 문제풀이 세 곳이 같은 주석</b>입니다. 어디서 쓰든 나머지 두 곳에도 그대로 나와요 — 한 문제에 이유는 하나면 되니까요' },
+  ]},
   { v: '260904-0354', at: '2026-09-04', items: [
     { k: 'new', t: '<b>체크한 문제</b> 목록에서 문제마다 <b>주석</b>을 달 수 있습니다. 지문 아래 <b>왜 체크했는지 적어두기</b>를 눌러 <b>왜 틀렸는지 · 헷갈린 이유</b>를 적어 두세요 — 적어 두면 목록을 훑을 때 파란 글씨로 먼저 보입니다' },
     { k: 'chg', t: '<b>문제를 풀 때 쓰는 주석과 같은 것</b>입니다. 여기서 쓴 글이 그 문제를 풀 때도 그대로 나오고, 거기서 고치면 여기에도 바로 반영돼요 (백업·다른 기기 동기화도 예전 그대로)' },
@@ -23530,7 +23537,7 @@ function closePatchNotes() {
 // ── 앱 버전 ──
 // 폰이 옛 파일을 캐시해 두고 있는지 바로 확인할 수 있도록 화면에 표시한다.
 // (설정 맨 아래 · 개발자 도구 콘솔에도 찍힘)
-const APP_VERSION = '260904-0354';
+const APP_VERSION = '260904-0358';
 console.log('%c양진웅 Note 버전 ' + APP_VERSION, 'font-weight:bold');
 
 // PWA 서비스워커 등록
