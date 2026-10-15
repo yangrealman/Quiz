@@ -1144,7 +1144,7 @@
     border-radius: var(--r-sm); background: var(--card); color: var(--text);
   }
   .pe-search:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-light); }
-  .pe-sorts { display: flex; gap: 6px; flex-wrap: wrap; }
+  .pe-sorts { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
   .pe-sort {
     border: 1px solid var(--card-border); background: var(--card); color: var(--gray-500);
     font-size: 12.5px; font-weight: 600; padding: 6px 13px;
@@ -1210,29 +1210,63 @@
   .pe-mini:disabled { opacity: .35; cursor: default; }
   .pe-fs { display: inline-flex; gap: 2px; }
 
-  /* 답을 번호 단위로 접기 — 긴 답도 처음엔 뼈대가 한 화면에 들어온다 */
-  .pe-sec { border-top: 1px solid var(--card-border); }
-  .pe-sec:first-child { border-top: 0; }
-  .pe-sec-h {
-    display: flex; align-items: center; gap: 8px; width: 100%; text-align: left;
-    background: none; border: 0; padding: 11px 0; cursor: pointer;
-    font: inherit; font-size: calc(var(--pe-fs, 18.5px) - 1px); font-weight: 700; color: var(--text);
-    -webkit-tap-highlight-color: transparent;
+  /* 풀기 — 답 쓰는 칸 */
+  .pe-wrap.solo { grid-template-columns: minmax(0,1fr); }
+  .pe-write {
+    width: 100%; box-sizing: border-box; min-height: 42vh; resize: vertical;
+    font: inherit; font-size: var(--pe-fs, 18.5px); line-height: 1.95;
+    padding: 14px 16px; border: 1px solid var(--card-border); border-radius: var(--r-sm);
+    background: var(--card); color: var(--text);
   }
-  .pe-sec-h:hover { color: var(--primary); }
-  .pe-sec-caret { width: 15px; height: 15px; flex-shrink: 0; color: var(--gray-400); transition: transform .18s; }
-  .pe-sec.open .pe-sec-caret { transform: rotate(90deg); }
-  .pe-sec-n {
-    flex-shrink: 0; min-width: 22px; height: 22px; display: inline-flex; align-items: center; justify-content: center;
-    font-size: 11.5px; font-weight: 800; color: var(--primary);
-    background: var(--primary-light); border-radius: 50%;
+  .pe-write:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-light); }
+  .pe-show { width: 100%; margin-top: 12px; display: flex; align-items: center; justify-content: center; gap: 8px; }
+  .pe-key {
+    font-size: 11px; font-weight: 800; padding: 2px 7px; border-radius: var(--r-sm);
+    background: rgba(255,255,255,.22); letter-spacing: .04em;
   }
-  .pe-sec-t { min-width: 0; line-height: 1.6; }
-  .pe-sec-b { display: grid; grid-template-rows: 0fr; transition: grid-template-rows .22s ease; }
-  .pe-sec.open .pe-sec-b { grid-template-rows: 1fr; }
-  .pe-sec-b > * { overflow: hidden; min-height: 0; }
-  .pe-sec-b .pe-ans { padding: 0 0 12px 30px; }
-  body.reduce-motion .pe-sec-b, body.reduce-motion .pe-sec-caret { transition: none; }
+
+  /* 정답 팝업 — 위아래로 끝없이 내리는 대신 양옆으로 한 쪽씩 넘긴다 */
+  .peq-box {
+    position: absolute; inset: 24px; max-width: 1100px; margin: 0 auto;
+    display: flex; flex-direction: column;
+    background: var(--card); border-radius: var(--r-card); overflow: hidden;
+    box-shadow: var(--sh-3);
+  }
+  .peq-head {
+    display: flex; align-items: center; gap: 10px; flex-shrink: 0;
+    padding: 14px 18px; border-bottom: 1px solid var(--card-border);
+  }
+  .peq-ttl { flex: 1; min-width: 0; font-size: 15px; font-weight: 800; color: var(--text);
+             overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .peq-x { background: none; border: 0; cursor: pointer; color: var(--gray-400); padding: 4px; }
+  .peq-x:hover { color: var(--text); }
+  /* 여기서 쪽이 갈린다 — 단 너비를 보이는 너비에 맞춰 JS 가 잡아 준다 */
+  .peq-pages {
+    flex: 1; min-height: 0; padding: 18px;
+    overflow-x: auto; overflow-y: hidden;
+    scroll-behavior: smooth;
+  }
+  .peq-pages::-webkit-scrollbar { height: 0; }
+  .peq-ans { break-inside: auto; }
+  .peq-ex { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--card-border); break-inside: avoid; }
+  .peq-foot {
+    display: flex; align-items: center; justify-content: center; gap: 16px; flex-shrink: 0;
+    padding: 10px 18px; border-top: 1px solid var(--card-border);
+  }
+  .peq-nav {
+    width: 44px; height: 40px; display: flex; align-items: center; justify-content: center;
+    border: 1px solid var(--card-border); background: var(--card); color: var(--text);
+    border-radius: var(--r-sm); cursor: pointer;
+  }
+  .peq-nav:hover:not(:disabled) { border-color: var(--primary); color: var(--primary); }
+  .peq-nav:disabled { opacity: .3; cursor: default; }
+  .peq-n { font-size: 13px; font-weight: 800; color: var(--gray-500); min-width: 54px; text-align: center;
+           font-variant-numeric: tabular-nums; }
+  @media (max-width: 560px) {
+    .peq-box { inset: 10px; }
+    .peq-pages { padding: 14px; }
+  }
+  body.reduce-motion .peq-pages { scroll-behavior: auto; }
   /* 답은 기본으로 가린다 — 보고 외우는 화면이라 먼저 떠올려 보는 게 핵심 */
   .pe-reveal {
     width: 100%; border: 1px dashed var(--card-border); background: none;
@@ -7879,6 +7913,27 @@
   <div class="container">
     <button class="back-btn" onclick="goPage('pe')"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-arrow-left"/></svg>목록으로</button>
     <div id="pe-view"></div>
+  </div>
+</div>
+
+<!-- 기술사 — 정답 팝업 (양옆으로 한 쪽씩 넘긴다) -->
+<div id="pe-ans-popup" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:300;"
+     onclick="if(event.target===this) closePeAns()">
+  <div class="peq-box">
+    <div class="peq-head">
+      <div class="peq-ttl" id="peq-ttl"></div>
+      <button class="peq-x" onclick="closePeAns()" title="닫기 (Esc)" aria-label="닫기">
+        <svg class="ic" viewBox="0 0 24 24"><use href="#ic-x"/></svg>
+      </button>
+    </div>
+    <div class="peq-pages" id="peq-pages" onscroll="_peqPaint()"></div>
+    <div class="peq-foot">
+      <button class="peq-nav" onclick="peAnsPage(-1)" title="앞 쪽 (←)" aria-label="앞 쪽">
+        <svg class="ic" viewBox="0 0 24 24"><use href="#ic-arrow-left"/></svg></button>
+      <span class="peq-n" id="peq-n">1 / 1</span>
+      <button class="peq-nav" onclick="peAnsPage(1)" title="다음 쪽 (→)" aria-label="다음 쪽">
+        <svg class="ic" viewBox="0 0 24 24"><use href="#ic-arrow-right"/></svg></button>
+    </div>
   </div>
 </div>
 
@@ -22901,7 +22956,8 @@ function renderPeList() {
 
   const sortEl = document.getElementById('pe-sorts');
   // [수정] '빈출순'을 뺐다 — 300제는 서로 다른 문제 300개라 기출 수로 줄 세울 일이 없다
-  if (sortEl) sortEl.innerHTML = [['no','번호순'],['todo','덜 본 것']]
+  // [추가] 앞에 읽기/풀기 고르는 칸 — 어느 쪽으로 열릴지 여기서 정한다
+  if (sortEl) sortEl.innerHTML = peModeTabs() + [['no','번호순'],['todo','덜 본 것']]
     .map(([k, label]) => `<button class="pe-sort${peSort === k ? ' on' : ''}" onclick="setPeSort('${k}')">${label}</button>`).join('');
 
   const listEl = document.getElementById('pe-list');
@@ -22953,26 +23009,11 @@ function renderPeList() {
 }
 
 // ── 보기 ──────────────────────────────────────────────────────────────
-// [추가] 답이 길면 한 화면을 훌쩍 넘어간다. 그런데 답은 이미 '1. 2. 3.' 으로
-//        나뉘어 있으므로, 그 번호를 뼈대로 삼아 접었다 폈다 한다.
-//        → 아무리 긴 답도 처음엔 뼈대가 한 화면에 들어오고,
-//          외울 때도 "목차 먼저, 살은 나중" 순서가 그대로 된다.
-const PE_SEC = /^\s*(\d{1,2})\s*[.)]\s+(.+)$/;
-function peSections(text) {
-  const lines = String(text || '').replace(/\r/g, '').split('\n');
-  const secs = [];
-  let cur = { n: '', head: '', body: [] };          // 번호 앞 머리글
-  lines.forEach(l => {
-    const m = l.match(PE_SEC);
-    if (m) {
-      if (cur.head || cur.body.join('').trim()) secs.push(cur);
-      cur = { n: m[1], head: m[2].trim(), body: [] };
-    } else cur.body.push(l);
-  });
-  if (cur.head || cur.body.join('').trim()) secs.push(cur);
-  secs.forEach(s => { s.body = s.body.join('\n').replace(/^\n+|\s+$/g, ''); });
-  return secs;
-}
+// 두 가지로 나눠 쓴다.
+//   읽기 — 답을 통째로 쭉 보여준다 (접지 않는다. 어차피 전부 외워야 한다)
+//   풀기 — 문제만 주고 답을 직접 써 본다. 정답은 팝업으로 본다.
+// 풀기의 정답 팝업은 위아래로 긴 글을 훑는 대신 양옆으로 한 쪽씩 넘긴다
+// (시험지처럼 한 면씩 보게 되어, 어디까지 봤는지 놓치지 않는다).
 
 // 글자 크기 — 답이 길어 오래 들여다보므로 기본을 큼직하게 둔다
 const PE_FS = [16, 18.5, 21.5];
@@ -22980,25 +23021,45 @@ function getPeFs() { const v = parseInt(localStorage.getItem('peFs') || '1', 10)
 function setPeFs(v) {
   localStorage.setItem('peFs', String(Math.max(0, Math.min(PE_FS.length - 1, v))));
   renderPeView();
+  if (_peAnsOpen) setTimeout(_peqLayout, 30);      // 팝업이 떠 있으면 쪽 나눔도 다시 잰다
 }
 
-let peView = { id: null, open: false, secs: new Set() };   // open = 답을 펼쳐 둔 상태
+function getPeMode() { return localStorage.getItem('peMode') === 'solve' ? 'solve' : 'read'; }
+function setPeMode(m) {
+  localStorage.setItem('peMode', m === 'solve' ? 'solve' : 'read');
+  closePeAns();
+  renderPeList();
+  if (currentPage === 'pe-view') renderPeView();
+}
+function peModeTabs() {
+  const m = getPeMode();
+  return `<div class="hid-tabs-row"><div class="hid-tabs">
+    <button class="hid-tab${m === 'read' ? ' on' : ''}" onclick="setPeMode('read')">읽기</button>
+    <button class="hid-tab${m === 'solve' ? ' on' : ''}" onclick="setPeMode('solve')">풀기</button>
+  </div></div>`;
+}
+
+// 풀기에서 쓴 답 — 이 기기에만 둔다.
+// (연습 답안은 길어질 수 있어 서버 문서 한도를 건드릴 수 있고, 다른 기기로 옮길 이유도 없다)
+function getPeDrafts() { try { return JSON.parse(localStorage.getItem('pe_draft') || '{}'); } catch (_) { return {}; } }
+function savePeDraft(id, v) {
+  try {
+    const d = getPeDrafts();
+    if (v && v.trim()) d[id] = v; else delete d[id];
+    localStorage.setItem('pe_draft', JSON.stringify(d));
+  } catch (_) {}
+}
+function peDraftInput(ta) { savePeDraft(peView.id, ta.value); }
+
+let peView = { id: null, open: false };    // open = 읽기에서 답을 펼쳐 둔 상태
 
 function openPe(id) {
-  peView = { id, open: false, secs: new Set() };   // 들어올 때마다 답은 다시 가린다 — 먼저 떠올려 보라고
+  peView = { id, open: false };            // 들어올 때마다 답은 다시 가린다 — 먼저 떠올려 보라고
+  closePeAns();
   goPage('pe-view');
   renderPeView();
 }
 function togglePeAnswer() { peView.open = !peView.open; renderPeView(); }
-function togglePeSec(i) {
-  if (peView.secs.has(i)) peView.secs.delete(i); else peView.secs.add(i);
-  renderPeView();
-}
-function peAllSecs(on) {
-  const t = getPeTopic(peView.id);
-  peView.secs = on ? new Set(peSections(t && t.answer).map((_, i) => i)) : new Set();
-  renderPeView();
-}
 
 // 지금 보는 것이 정렬된 목록의 몇 번째인지 (이전·다음에 쓴다)
 function _peOrder() {
@@ -23019,6 +23080,14 @@ function setPeLevelHere(lv) {
   renderPeView();
 }
 
+function _peExamsHTML(exams) {
+  return exams.map(e => `
+    <div class="pe-exam">
+      ${e.round ? `<span class="pe-exam-r">${escHtml(e.round)}</span>` : ''}
+      <span class="pe-exam-t">${escHtml(e.text || '')}</span>
+    </div>`).join('');
+}
+
 function renderPeView() {
   const el = document.getElementById('pe-view');
   if (!el) return;
@@ -23030,64 +23099,57 @@ function renderPeView() {
   const lv = peLevelOf(peView.id);
   const prog = getPeProg()[peView.id] || {};
   const exams = t.exams || [];
-
-  const secs = peSections(t.answer || '');
-  const folded = secs.length > 1;                  // 번호가 둘 이상일 때만 접는다
-  const nOpen = secs.filter((_, i) => peView.secs.has(i)).length;
   const fs = getPeFs();
+  const mode = getPeMode();
 
-  const ansInner = !peView.open
-    ? `<button class="pe-reveal" onclick="togglePeAnswer()">먼저 떠올려 보고 — 눌러서 답 보기</button>`
-    : folded
-      ? `<div class="pe-secs">
-           ${secs.map((s, i) => `
-             <div class="pe-sec${peView.secs.has(i) ? ' open' : ''}">
-               <button class="pe-sec-h" onclick="togglePeSec(${i})">
-                 <svg class="ic pe-sec-caret" viewBox="0 0 24 24"><use href="#ic-chevron-right"/></svg>
-                 ${s.n ? `<span class="pe-sec-n">${escHtml(s.n)}</span>` : ''}
-                 <span class="pe-sec-t">${escHtml(s.head || '머리말')}</span>
-               </button>
-               <div class="pe-sec-b"><div><div class="pe-ans">${renderExp(s.body || '')}</div></div></div>
-             </div>`).join('')}
-         </div>`
-      : `<div class="pe-ans">${renderExp(t.answer || '')}</div>`;
+  const fsBtns = `
+    <span class="pe-fs">
+      <button class="pe-mini" onclick="setPeFs(${fs - 1})" ${fs <= 0 ? 'disabled' : ''} title="글자 작게">가−</button>
+      <button class="pe-mini" onclick="setPeFs(${fs + 1})" ${fs >= PE_FS.length - 1 ? 'disabled' : ''} title="글자 크게">가＋</button>
+    </span>`;
+
+  const body = mode === 'solve'
+    ? `<div class="pe-main">
+         <div class="pe-card">
+           <div class="pe-card-ttl">
+             <svg class="ic" viewBox="0 0 24 24"><use href="#ic-pencil"/></svg>답 쓰기
+             <span class="pe-card-acts">${fsBtns}</span>
+           </div>
+           <textarea class="pe-write" id="pe-write" oninput="peDraftInput(this)"
+                     placeholder="여기에 답을 써 보세요 · 다 쓰면 Tab 을 누르면 정답이 뜹니다"></textarea>
+           <button class="btn btn-primary pe-show" onclick="openPeAns()">정답 보기 <span class="pe-key">Tab</span></button>
+         </div>
+       </div>`
+    : `<div class="pe-main">
+         <div class="pe-card">
+           <div class="pe-card-ttl">
+             <svg class="ic" viewBox="0 0 24 24"><use href="#ic-bulb"/></svg>답
+             <span class="pe-card-acts">
+               ${peView.open ? `<button class="pe-mini" onclick="togglePeAnswer()">답 가리기</button>` : ''}
+               ${fsBtns}
+             </span>
+           </div>
+           ${peView.open
+             ? `<div class="pe-ans">${renderExp(t.answer || '')}</div>`
+             : `<button class="pe-reveal" onclick="togglePeAnswer()">먼저 떠올려 보고 — 눌러서 답 보기</button>`}
+         </div>
+       </div>
+       ${exams.length ? `
+         <div class="pe-side">
+           <div class="pe-card pe-card-exam">
+             <div class="pe-card-ttl"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-file"/></svg>기출 ${exams.length}개</div>
+             ${_peExamsHTML(exams)}
+           </div>
+         </div>` : ''}`;
 
   el.innerHTML = `
+    ${peModeTabs()}
     <div class="pe-head">
       <div class="pe-head-no">${escHtml(String(t.no ?? ''))}번${at >= 0 ? ` · ${at + 1} / ${order.length}` : ''}${prog.cnt ? ` · ${prog.cnt}회독` : ''}</div>
       <div class="pe-head-ttl">${escHtml(t.title || '')}</div>
     </div>
 
-    <div class="pe-wrap" style="--pe-fs:${PE_FS[fs]}px">
-      <div class="pe-main">
-        <div class="pe-card">
-          <div class="pe-card-ttl">
-            <svg class="ic" viewBox="0 0 24 24"><use href="#ic-bulb"/></svg>답
-            <span class="pe-card-acts">
-              ${peView.open && folded ? `<button class="pe-mini" onclick="peAllSecs(${nOpen < secs.length})">${nOpen < secs.length ? '모두 펼치기' : '모두 접기'}</button>` : ''}
-              ${peView.open ? `<button class="pe-mini" onclick="togglePeAnswer()">답 가리기</button>` : ''}
-              <span class="pe-fs">
-                <button class="pe-mini" onclick="setPeFs(${fs - 1})" ${fs <= 0 ? 'disabled' : ''} title="글자 작게">가−</button>
-                <button class="pe-mini" onclick="setPeFs(${fs + 1})" ${fs >= PE_FS.length - 1 ? 'disabled' : ''} title="글자 크게">가＋</button>
-              </span>
-            </span>
-          </div>
-          ${ansInner}
-        </div>
-      </div>
-
-      ${exams.length ? `
-        <div class="pe-side">
-          <div class="pe-card pe-card-exam">
-            <div class="pe-card-ttl"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-file"/></svg>기출 ${exams.length}개</div>
-            ${exams.map(e => `
-              <div class="pe-exam">
-                ${e.round ? `<span class="pe-exam-r">${escHtml(e.round)}</span>` : ''}
-                <span class="pe-exam-t">${escHtml(e.text || '')}</span>
-              </div>`).join('')}
-          </div>
-        </div>` : ''}
-    </div>
+    <div class="pe-wrap${mode === 'solve' ? ' solo' : ''}" style="--pe-fs:${PE_FS[fs]}px">${body}</div>
 
     <div class="pe-foot">
       <button class="pe-step" onclick="peStep(-1)" ${at <= 0 ? 'disabled' : ''} title="이전" aria-label="이전">
@@ -23103,8 +23165,138 @@ function renderPeView() {
     <div style="text-align:center; margin-top:18px">
       <button class="btn btn-secondary" style="font-size:12px" onclick="askDeletePe(this)">이 덩어리 지우기</button>
     </div>`;
+
+  if (mode === 'solve') {
+    const ta = document.getElementById('pe-write');
+    if (ta) { ta.value = getPeDrafts()[peView.id] || ''; }
+  }
 }
 
+// ── 정답 팝업 — 양옆으로 한 쪽씩 넘기기 ──────────────────────────────
+// 긴 글을 위아래로 끝없이 내리는 대신, 화면 크기만큼 쪽을 갈라 좌우로 넘긴다.
+// CSS 단(column)으로 갈라 두고 가로로 밀어 준다 — 쪽 나눔을 브라우저가 알아서 한다.
+let _peAnsOpen = false;
+
+function openPeAns() {
+  const t = peView.id ? getPeTopic(peView.id) : null;
+  if (!t) return;
+  const exams = t.exams || [];
+  const box = document.getElementById('pe-ans-popup');
+  if (!box) return;
+  document.getElementById('peq-ttl').textContent = (t.no != null ? t.no + '. ' : '') + (t.title || '');
+  document.getElementById('peq-pages').innerHTML = `
+    <div class="peq-ans" style="--pe-fs:${PE_FS[getPeFs()]}px"><div class="pe-ans">${renderExp(t.answer || '')}</div></div>
+    ${exams.length ? `<div class="peq-ex"><div class="pe-card-ttl"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-file"/></svg>기출 ${exams.length}개</div>${_peExamsHTML(exams)}</div>` : ''}`;
+  box.style.display = 'block';
+  document.body.style.overflow = 'hidden';
+  _peAnsOpen = true;
+  const pg = document.getElementById('peq-pages');
+  pg.scrollLeft = 0;
+  _peqAt = 0; _peqLock = 0;
+  setTimeout(_peqLayout, 20);
+}
+
+function closePeAns() {
+  const box = document.getElementById('pe-ans-popup');
+  if (!box || box.style.display === 'none') { _peAnsOpen = false; return; }
+  box.style.display = 'none';
+  document.body.style.overflow = '';
+  const pg = document.getElementById('peq-pages');
+  if (pg) { pg.style.height = ''; pg.style.flex = ''; }   // 다음에 열 때 다시 잰다
+  _peAnsOpen = false;
+}
+
+function _peqLayout() {
+  const el = document.getElementById('peq-pages');
+  const box = el && el.closest('.peq-box');
+  if (!el || !box) return;
+  // [중요] 글이 단(column)으로 갈려 옆으로 넘치려면 높이가 '정해진 값'이어야 한다.
+  //        flex:1 로는 안 되고(세로로 늘어나 버린다) 픽셀로 못박아야 한다.
+  const head = box.querySelector('.peq-head'), foot = box.querySelector('.peq-foot');
+  let h = box.clientHeight - (head ? head.offsetHeight : 0) - (foot ? foot.offsetHeight : 0);
+  if (h > 0) {
+    // [추가] 높이를 줄 높이의 배수로 깎는다 — 안 그러면 쪽마다 마지막 줄이 반쯤 잘려 보인다
+    const cs0 = getComputedStyle(el);
+    const padY = (parseFloat(cs0.paddingTop) || 0) + (parseFloat(cs0.paddingBottom) || 0);
+    const ansEl = el.querySelector('.pe-ans');
+    let lh = ansEl ? parseFloat(getComputedStyle(ansEl).lineHeight) : 0;
+    if (!lh || isNaN(lh)) lh = PE_FS[getPeFs()] * 1.95;
+    const rows = Math.max(1, Math.floor((h - padY) / lh));
+    h = Math.round(rows * lh + padY);
+    el.style.flex = 'none';
+    el.style.height = h + 'px';
+  }
+  // 한 단의 너비 = 안쪽 너비. 단 사이 틈을 좌우 여백 합과 같게 두면
+  // 한 쪽 넘김 = 보이는 너비 그대로가 되어, 다음 쪽이 지금 쪽 자리에 딱 들어온다.
+  // (여백은 화면 크기에 따라 달라지므로 상수로 두지 않고 그때그때 잰다)
+  const cs = getComputedStyle(el);
+  const padX = (parseFloat(cs.paddingLeft) || 0) + (parseFloat(cs.paddingRight) || 0);
+  const w = el.clientWidth - padX;
+  if (w > 0) { el.style.columnWidth = w + 'px'; el.style.columnGap = padX + 'px'; }
+  _peqPaint();
+}
+function _peqStep() { const el = document.getElementById('peq-pages'); return el && el.clientWidth ? el.clientWidth : 1; }
+function _peqCount() {
+  const el = document.getElementById('peq-pages');
+  if (!el) return 1;
+  return Math.max(1, Math.round(el.scrollWidth / _peqStep()));
+}
+// [수정] 쪽 번호를 그때그때 scrollLeft 로 되읽으면, 부드럽게 미는 중에 읽혀
+//        빨리 여러 번 누를 때 중간 쪽을 잃어버렸다 → 가려는 쪽을 따로 기억한다.
+let _peqAt = 0, _peqLock = 0;
+function _peqPaintAt(cur, n) {
+  n = n || _peqCount();
+  const lab = document.getElementById('peq-n');
+  if (lab) lab.textContent = `${Math.min(cur + 1, n)} / ${n}`;
+  const navs = document.querySelectorAll('#pe-ans-popup .peq-nav');
+  if (navs[0]) navs[0].disabled = cur <= 0;
+  if (navs[1]) navs[1].disabled = cur >= n - 1;
+}
+function _peqPaint() {
+  const el = document.getElementById('peq-pages');
+  if (!el) return;
+  const n = _peqCount();
+  if (Date.now() < _peqLock) { _peqPaintAt(Math.min(_peqAt, n - 1), n); return; }  // 미는 중 — 되읽지 않는다
+  _peqAt = Math.max(0, Math.min(n - 1, Math.round(el.scrollLeft / _peqStep())));   // 손으로 쓸어 넘긴 경우
+  _peqPaintAt(_peqAt, n);
+}
+function peAnsPage(d) {
+  const el = document.getElementById('peq-pages');
+  if (!el) return;
+  const n = _peqCount();
+  _peqAt = Math.max(0, Math.min(n - 1, _peqAt + d));
+  _peqLock = Date.now() + 420;
+  el.scrollTo({ left: _peqAt * _peqStep(), behavior: 'smooth' });
+  _peqPaintAt(_peqAt, n);
+}
+
+// 단축키 — 기술사 보기 화면에서만 듣는다
+//  Tab  : 정답 팝업 열기 (답을 쓰다가 그대로 눌러도 되게, 글자 칸 안에서도 듣는다)
+//  ← →  : 팝업이 떠 있으면 쪽 넘기기 · 아니면 이전/다음 덩어리
+//  Esc  : 팝업 닫기
+document.addEventListener('keydown', function (e) {
+  if (currentPage !== 'pe-view') return;
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
+  const el = document.activeElement;
+  const inText = !!(el && (el.tagName === 'TEXTAREA' || el.tagName === 'INPUT' || el.isContentEditable));
+
+  if (e.key === 'Escape') { if (_peAnsOpen) { e.preventDefault(); closePeAns(); } return; }
+  if (e.key === 'Tab') {
+    if (_peAnsOpen) { e.preventDefault(); closePeAns(); return; }
+    if (getPeMode() !== 'solve') return;
+    e.preventDefault();                 // 답 쓰던 중에도 그대로 정답이 뜨게
+    openPeAns();
+    return;
+  }
+  if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+    const d = e.key === 'ArrowRight' ? 1 : -1;
+    if (_peAnsOpen) { e.preventDefault(); peAnsPage(d); return; }
+    if (inText) return;                 // 글자 칸에서는 글자 사이를 옮겨야 한다
+    e.preventDefault();
+    peStep(d);
+  }
+});
+window.addEventListener('resize', () => { if (_peAnsOpen) _peqLayout(); });
 let _peDelTimer = null;
 function askDeletePe(btn) {
   if (btn.dataset.arm === '1') {
@@ -23620,6 +23812,13 @@ applyRenderFlags();
 //   k: 'new'(새 기능) · 'fix'(고침) · 'chg'(바뀜)
 // ══════════════════════════════════════════════════════════════════════
 const PATCH_NOTES = [
+  { v: '261015-1503', at: '2026-10-15', items: [
+    { k: 'new', t: '기술사가 <b>읽기 · 풀기</b> 두 가지로 나뉩니다. <b>읽기</b>는 답을 <b>통째로 쭉</b> 보여주고(접지 않습니다), <b>풀기</b>는 문제만 주고 <b>답을 직접 써 본 뒤</b> 정답을 확인해요' },
+    { k: 'new', t: '풀기에서 <b>정답 보기</b>(또는 <b>Tab</b>)를 누르면 정답이 <b>팝업</b>으로 뜹니다. 글이 길어도 <b>위아래로 내리지 않고 양옆으로 한 쪽씩</b> 넘겨 봐요 — <b>← →</b> 단추와 <b>방향키</b>로 넘기고, 아래에 <b>3 / 7</b> 처럼 몇 쪽인지 나옵니다' },
+    { k: 'new', t: '쪽마다 <b>줄이 반쯤 잘리지 않게</b> 높이를 줄 단위로 맞춥니다 · 닫기는 <b>Esc</b> · <b>Tab</b> · 바깥 어두운 곳 누르기' },
+    { k: 'chg', t: '팝업이 닫혀 있을 때 <b>방향키</b>는 <b>이전/다음 덩어리</b>로 넘어갑니다 (답 쓰는 칸 안에서는 글자 사이를 옮겨요)' },
+    { k: 'chg', t: '답을 번호 단위로 접던 것은 <b>없앴습니다</b> — 어차피 통으로 외우는 것이라서요' },
+  ]},
   { v: '261015-1448', at: '2026-10-15', items: [
     { k: 'new', t: '기술사 — <b>긴 답을 번호 단위로 접습니다</b>. 답을 펼치면 <b>1. 2. 3. … 뼈대만</b> 먼저 보이고, 누르면 그 안이 열려요. 답이 아무리 길어도 처음엔 한 화면에 들어오고, 외울 때도 <b>목차 먼저 → 살은 나중</b> 순서가 그대로 됩니다 (<b>모두 펼치기</b> 도 있어요)' },
     { k: 'new', t: '<b>글자 크기</b>를 <b>가− 가＋</b> 로 3단계 조절합니다 (기본을 전보다 크게 했습니다)' },
@@ -24287,7 +24486,7 @@ function closePatchNotes() {
 // ── 앱 버전 ──
 // 폰이 옛 파일을 캐시해 두고 있는지 바로 확인할 수 있도록 화면에 표시한다.
 // (설정 맨 아래 · 개발자 도구 콘솔에도 찍힘)
-const APP_VERSION = '261015-1448';
+const APP_VERSION = '261015-1503';
 console.log('%c양진웅 Note 버전 ' + APP_VERSION, 'font-weight:bold');
 
 // PWA 서비스워커 등록
