@@ -1225,6 +1225,23 @@
     background: rgba(255,255,255,.22); letter-spacing: .04em;
   }
 
+  /* 작은 단추 안의 키 표시 (답 보기/가리기 옆) */
+  .pe-key2 {
+    font-size: 10px; font-weight: 800; padding: 1px 5px; margin-left: 3px;
+    border-radius: 4px; background: var(--gray-100); color: var(--gray-400);
+  }
+
+  /* 문제 수정 */
+  .pe-ed-row { margin-bottom: 12px; }
+  .pe-ed-lab { display: block; font-size: 12.5px; font-weight: 700; color: var(--gray-500); margin-bottom: 5px; }
+  .pe-ed-lab small { font-weight: 500; color: var(--gray-400); margin-left: 4px; }
+  .pe-ed-in {
+    width: 100%; box-sizing: border-box; font: inherit; font-size: 14px; line-height: 1.8;
+    padding: 10px 12px; border: 1px solid var(--card-border); border-radius: var(--r-sm);
+    background: var(--card); color: var(--text); resize: vertical;
+  }
+  .pe-ed-in:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-light); }
+
   /* 정답 팝업 — 위아래로 끝없이 내리는 대신 양옆으로 한 쪽씩 넘긴다 */
   .peq-box {
     position: absolute; inset: 24px; max-width: 1100px; margin: 0 auto;
@@ -7897,7 +7914,12 @@
         <div class="page-title">📘 기술사 서브노트</div>
         <div class="page-sub" id="pe-sub">문제 · 답 · 기출</div>
       </div>
-      <button class="btn btn-primary" onclick="openPePaste()" style="white-space:nowrap">+ 넣기</button>
+      <span style="display:flex; gap:6px; flex-shrink:0;">
+        <!-- [추가] 이미 만들어 둔 JSON 을 통째로 넣는다 -->
+        <button class="btn btn-secondary" onclick="document.getElementById('pe-json-file').click()" style="white-space:nowrap">JSON</button>
+        <input type="file" id="pe-json-file" accept=".json,application/json" style="display:none" onchange="pePickJson(this)">
+        <button class="btn btn-primary" onclick="openPePaste()" style="white-space:nowrap">+ 넣기</button>
+      </span>
     </div>
     <div class="pe-tools" id="pe-tools">
       <input type="search" class="pe-search" id="pe-q" placeholder="제목 · 답 · 기출에서 찾기"
@@ -7913,6 +7935,38 @@
   <div class="container">
     <button class="back-btn" onclick="goPage('pe')"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-arrow-left"/></svg>목록으로</button>
     <div id="pe-view"></div>
+  </div>
+</div>
+
+<!-- 기술사 — 문제 수정 (풀다가 그 자리에서 고친다) -->
+<div id="pe-edit-popup" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:301; overflow-y:auto;">
+  <div style="background:var(--card); margin:20px auto; max-width:820px; width:calc(100% - 24px); border-radius:var(--radius); padding:20px; box-sizing:border-box;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+      <div style="font-size:16px; font-weight:800; color:var(--text);">문제 수정</div>
+      <button aria-label="닫기" title="닫기" onclick="closePeEdit()" style="background:none; border:none; cursor:pointer; color:var(--gray-400);"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-x"/></svg></button>
+    </div>
+    <div class="pe-ed-row">
+      <label class="pe-ed-lab">번호</label>
+      <input type="number" class="pe-ed-in" id="pe-ed-no" style="max-width:120px">
+    </div>
+    <div class="pe-ed-row">
+      <label class="pe-ed-lab">문제</label>
+      <input type="text" class="pe-ed-in" id="pe-ed-title">
+    </div>
+    <div class="pe-ed-row">
+      <label class="pe-ed-lab">답</label>
+      <textarea class="pe-ed-in" id="pe-ed-answer" rows="14"></textarea>
+    </div>
+    <div class="pe-ed-row">
+      <label class="pe-ed-lab">기출 <small>한 줄에 하나씩 · 회차는 앞에 <b>131회 1교시 4번</b> 또는 끝에 <b>(122)</b></small></label>
+      <textarea class="pe-ed-in" id="pe-ed-exams" rows="4"></textarea>
+    </div>
+    <div style="display:flex; gap:8px; align-items:center; margin-top:14px;">
+      <button class="btn btn-secondary" id="pe-ed-del" style="font-size:12px; color:var(--danger); border-color:var(--danger-border)" onclick="askDeletePe(this)">이 덩어리 지우기</button>
+      <span style="flex:1"></span>
+      <button class="btn btn-secondary" onclick="closePeEdit()">취소</button>
+      <button class="btn btn-primary" onclick="savePeEdit()">저장</button>
+    </div>
   </div>
 </div>
 
@@ -7941,10 +7995,11 @@
 <div id="pe-paste-popup" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:300; overflow-y:auto;">
   <div style="background:var(--card); margin:20px auto; max-width:720px; width:calc(100% - 24px); border-radius:var(--radius); padding:20px; box-sizing:border-box;">
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
-      <div style="font-size:16px; font-weight:800; color:var(--text);">글 붙여넣기</div>
+      <div style="font-size:16px; font-weight:800; color:var(--text);" id="pe-paste-ttl">글 붙여넣기</div>
       <button aria-label="닫기" title="닫기" onclick="closePePaste()" style="background:none; border:none; cursor:pointer; color:var(--gray-400);"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-x"/></svg></button>
     </div>
     <div>
+      <div id="pe-paste-src">
       <div class="pe-fmt">
         OCR 한 글을 그대로 붙여넣고 <b>표시만 맞춰</b> 주세요 · 여러 덩어리를 한꺼번에 넣어도 됩니다
         <pre>문제) 5. 고압가스안전관리법상 위험물질
@@ -7957,6 +8012,7 @@
       </div>
       <textarea id="pe-paste-in" class="pe-paste-in" rows="12" oninput="pePastePreview()"
                 placeholder="여기에 붙여넣기"></textarea>
+      </div>
       <div id="pe-paste-preview"></div>
     </div>
     <div style="display:flex; gap:8px; justify-content:flex-end; margin-top:14px;">
@@ -23027,6 +23083,7 @@ function setPeFs(v) {
 function getPeMode() { return localStorage.getItem('peMode') === 'solve' ? 'solve' : 'read'; }
 function setPeMode(m) {
   localStorage.setItem('peMode', m === 'solve' ? 'solve' : 'read');
+  peView.open = (m !== 'solve');
   closePeAns();
   renderPeList();
   if (currentPage === 'pe-view') renderPeView();
@@ -23054,7 +23111,9 @@ function peDraftInput(ta) { savePeDraft(peView.id, ta.value); }
 let peView = { id: null, open: false };    // open = 읽기에서 답을 펼쳐 둔 상태
 
 function openPe(id) {
-  peView = { id, open: false };            // 들어올 때마다 답은 다시 가린다 — 먼저 떠올려 보라고
+  // [수정] 읽기는 보는 화면이므로 답이 처음부터 보인다 (Tab 으로 가렸다 폈다)
+  //        풀기는 먼저 써 봐야 하므로 답을 주지 않는다
+  peView = { id, open: getPeMode() === 'read' };
   closePeAns();
   goPage('pe-view');
   renderPeView();
@@ -23125,7 +23184,7 @@ function renderPeView() {
            <div class="pe-card-ttl">
              <svg class="ic" viewBox="0 0 24 24"><use href="#ic-bulb"/></svg>답
              <span class="pe-card-acts">
-               ${peView.open ? `<button class="pe-mini" onclick="togglePeAnswer()">답 가리기</button>` : ''}
+               <button class="pe-mini" onclick="togglePeAnswer()">${peView.open ? '답 가리기' : '답 보기'} <span class="pe-key2">Tab</span></button>
                ${fsBtns}
              </span>
            </div>
@@ -23163,7 +23222,7 @@ function renderPeView() {
     </div>
 
     <div style="text-align:center; margin-top:18px">
-      <button class="btn btn-secondary" style="font-size:12px" onclick="askDeletePe(this)">이 덩어리 지우기</button>
+      <button class="btn btn-secondary" style="font-size:12px" onclick="openPeEdit()">문제 수정</button>
     </div>`;
 
   if (mode === 'solve') {
@@ -23277,15 +23336,19 @@ function peAnsPage(d) {
 document.addEventListener('keydown', function (e) {
   if (currentPage !== 'pe-view') return;
   if (e.ctrlKey || e.metaKey || e.altKey) return;
+  if (_peEditOpen) {                    // 수정 중에는 칸 사이를 Tab 으로 옮겨야 한다
+    if (e.key === 'Escape') { e.preventDefault(); closePeEdit(); }
+    return;
+  }
   const el = document.activeElement;
   const inText = !!(el && (el.tagName === 'TEXTAREA' || el.tagName === 'INPUT' || el.isContentEditable));
 
   if (e.key === 'Escape') { if (_peAnsOpen) { e.preventDefault(); closePeAns(); } return; }
   if (e.key === 'Tab') {
     if (_peAnsOpen) { e.preventDefault(); closePeAns(); return; }
-    if (getPeMode() !== 'solve') return;
     e.preventDefault();                 // 답 쓰던 중에도 그대로 정답이 뜨게
-    openPeAns();
+    if (getPeMode() === 'solve') openPeAns();
+    else togglePeAnswer();              // 읽기 — 가렸다 폈다
     return;
   }
   if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
@@ -23297,12 +23360,71 @@ document.addEventListener('keydown', function (e) {
   }
 });
 window.addEventListener('resize', () => { if (_peAnsOpen) _peqLayout(); });
+// ── 한 줄짜리 기출 글 → { round, text } ─────────────────────────────
+// 붙여넣기 · 수정 · JSON 세 곳이 같은 규칙을 쓴다 (회차가 앞에 오든 끝에 오든 읽는다)
+function peExamFromStr(s) {
+  s = String(s || '').replace(/\s+/g, ' ').trim();
+  if (!s) return null;
+  const rm = s.match(PE_ROUND);
+  if (rm) return { round: rm[1].replace(/\s+/g, ''), text: s.slice(rm[0].length).trim() };
+  const tm = s.match(PE_TAILNO);
+  if (tm) return { round: tm[1] + '회', text: s.replace(PE_TAILNO, '').trim() };
+  return { round: '', text: s };
+}
+function peExamToStr(e) {
+  if (!e) return '';
+  return (e.round ? e.round + ' ' : '') + (e.text || '');
+}
+
+// ── 문제 수정 — 풀다가 그 자리에서 고친다 ───────────────────────────
+let _peEditOpen = false;
+
+function openPeEdit() {
+  const t = peView.id ? getPeTopic(peView.id) : null;
+  if (!t) { showToast('지금 고칠 것이 없어요'); return; }
+  document.getElementById('pe-ed-no').value = t.no ?? '';
+  document.getElementById('pe-ed-title').value = t.title || '';
+  document.getElementById('pe-ed-answer').value = t.answer || '';
+  document.getElementById('pe-ed-exams').value = (t.exams || []).map(peExamToStr).join('\n');
+  const del = document.getElementById('pe-ed-del');
+  if (del) { del.dataset.arm = ''; del.textContent = '이 덩어리 지우기'; }
+  document.getElementById('pe-edit-popup').style.display = 'block';
+  document.body.style.overflow = 'hidden';
+  _peEditOpen = true;
+}
+
+function closePeEdit() {
+  document.getElementById('pe-edit-popup').style.display = 'none';
+  document.body.style.overflow = '';
+  _peEditOpen = false;
+}
+
+function savePeEdit() {
+  const t = peView.id ? getPeTopic(peView.id) : null;
+  if (!t) { closePeEdit(); return; }
+  const title = document.getElementById('pe-ed-title').value.trim();
+  if (!title) { showToast('문제를 적어 주세요'); return; }
+  const no = parseInt(document.getElementById('pe-ed-no').value, 10);
+  const exams = document.getElementById('pe-ed-exams').value.split('\n')
+    .map(peExamFromStr).filter(Boolean);
+  savePeTopic({
+    id: t.id || peView.id,
+    no: isNaN(no) ? t.no : no,
+    title,
+    answer: document.getElementById('pe-ed-answer').value.trim(),
+    exams
+  });
+  closePeEdit();
+  renderPeView();
+  showToast('고쳤어요');
+}
+
 let _peDelTimer = null;
 function askDeletePe(btn) {
   if (btn.dataset.arm === '1') {
     clearTimeout(_peDelTimer);
-    const id = peView.id;
-    deletePeTopic(id);
+    deletePeTopic(peView.id);
+    closePeEdit();
     goPage('pe'); renderPeList();
     showToast('지웠어요');
     return;
@@ -23311,6 +23433,66 @@ function askDeletePe(btn) {
   clearTimeout(_peDelTimer);
   _peDelTimer = setTimeout(() => { btn.dataset.arm = ''; btn.textContent = '이 덩어리 지우기'; }, 4000);
 }
+
+// ── JSON 파일로 넣기 ────────────────────────────────────────────────
+// 손으로 만든 JSON 도 받아 주려고 여러 모양을 다 읽는다.
+//   [ {...}, {...} ]            · { "topics": [ ... ] }
+//   { "<id>": {...}, ... }      ← 백업에 들어 있는 모양 그대로
+// 열쇠 이름도 영문/한글 둘 다 받는다 (no/번호 · title/제목/문제 · answer/답 · exams/기출)
+function _peNormOne(x) {
+  if (!x || typeof x !== 'object') return null;
+  const rawEx = x.exams || x.기출 || x.출제 || [];
+  const exams = (Array.isArray(rawEx) ? rawEx : [rawEx]).map(e => {
+    if (typeof e === 'string') return peExamFromStr(e);
+    if (!e || typeof e !== 'object') return null;
+    const text = String(e.text ?? e.문제 ?? e.내용 ?? '').trim();
+    const round = String(e.round ?? e.회차 ?? e.회 ?? '').trim();
+    if (!text && !round) return null;
+    return round ? { round, text } : peExamFromStr(text);
+  }).filter(e => e && (e.text || e.round));
+  const no = parseInt(x.no ?? x.번호 ?? x.number, 10);
+  return {
+    no: isNaN(no) ? null : no,
+    title: String(x.title ?? x.제목 ?? x.문제 ?? '').trim(),
+    answer: String(x.answer ?? x.답 ?? x.답안 ?? '').trim(),
+    exams
+  };
+}
+
+function peFromJson(data) {
+  let arr = [];
+  if (Array.isArray(data)) arr = data;
+  else if (data && Array.isArray(data.topics)) arr = data.topics;
+  else if (data && Array.isArray(data.pe_all)) arr = data.pe_all;
+  else if (data && data.pe_all && typeof data.pe_all === 'object') arr = Object.values(data.pe_all);
+  else if (data && data.data && data.data.pe_all) arr = Object.values(data.data.pe_all);   // 백업 파일 통째로
+  else if (data && typeof data === 'object') arr = Object.values(data);
+  const out = arr.map(_peNormOne).filter(t => t && t.title);
+  // 번호를 안 적었으면 이어서 매긴다
+  let next = peRows().reduce((m, r) => Math.max(m, r.no || 0), 0);
+  out.forEach(t => { if (!t.no) t.no = ++next; else next = Math.max(next, t.no); });
+  return out;
+}
+
+function pePickJson(input) {
+  const file = input.files && input.files[0];
+  input.value = '';
+  if (!file) return;
+  const r = new FileReader();
+  r.onload = () => {
+    let data;
+    try { data = JSON.parse(r.result); }
+    catch (e) { showToast('JSON 을 읽을 수 없어요 — 파일이 깨졌는지 확인해 주세요'); return; }
+    const got = peFromJson(data);
+    if (!got.length) { showToast('넣을 것을 못 찾았어요 — 제목(title)이 있는지 확인해 주세요'); return; }
+    _pePending = got;
+    openPePaste(true);                       // 미리보기만 띄운다
+    pePastePreview(true);
+  };
+  r.onerror = () => showToast('파일을 읽지 못했어요');
+  r.readAsText(file);
+}
+
 
 // ── OCR 글 붙여넣기 ───────────────────────────────────────────────────
 // OCR 한 글은 줄바꿈이 제멋대로라 표시(문제/답/기출)만 보고 가른다.
@@ -23347,7 +23529,8 @@ function parsePeText(raw) {
       const m = p.match(PE_TAILNO);
       tail.unshift({ round: m ? m[1] + '회' : '', text: p.replace(PE_TAILNO, '').trim() });
     }
-    cur.answer = paras.join('\n\n').trim();
+    // [수정] "끝" 이 기출보다 앞에 있으면 위에서 못 지운다 (기출을 떼어 낸 뒤 다시 본다)
+    cur.answer = paras.join('\n\n').replace(/\n?\s*["“']?\s*끝\s*["”']?\s*$/, '').trim();
     cur.exams = (cur.exams || []).concat(tail);
     cur.title = cur.title.trim();
     if (cur.title) out.push(cur);
@@ -23393,21 +23576,28 @@ function parsePeText(raw) {
 
 let _pePending = [];
 
-function openPePaste() {
+function openPePaste(jsonMode) {
   document.getElementById('pe-paste-popup').style.display = 'block';
   document.body.style.overflow = 'hidden';
+  // [추가] JSON 으로 들어올 때는 붙여넣는 칸 대신 '무엇이 들어가는지'만 보여준다
+  const src = document.getElementById('pe-paste-src');
+  const ttl = document.getElementById('pe-paste-ttl');
+  if (src) src.style.display = jsonMode ? 'none' : '';
+  if (ttl) ttl.textContent = jsonMode ? 'JSON 으로 넣기' : '글 붙여넣기';
   const ta = document.getElementById('pe-paste-in');
-  ta.value = ''; _pePending = [];
-  pePastePreview();
-  setTimeout(() => ta.focus(), 50);
+  if (!jsonMode) {
+    ta.value = ''; _pePending = [];
+    pePastePreview();
+    setTimeout(() => ta.focus(), 50);
+  }
 }
 function closePePaste() {
   document.getElementById('pe-paste-popup').style.display = 'none';
   document.body.style.overflow = '';
 }
 
-function pePastePreview() {
-  _pePending = parsePeText((document.getElementById('pe-paste-in') || {}).value || '');
+function pePastePreview(keep) {
+  if (!keep) _pePending = parsePeText((document.getElementById('pe-paste-in') || {}).value || '');
   const box = document.getElementById('pe-paste-preview');
   const ok = document.getElementById('pe-paste-ok');
   if (ok) ok.disabled = !_pePending.length;
@@ -23812,6 +24002,13 @@ applyRenderFlags();
 //   k: 'new'(새 기능) · 'fix'(고침) · 'chg'(바뀜)
 // ══════════════════════════════════════════════════════════════════════
 const PATCH_NOTES = [
+  { v: '261015-1532', at: '2026-10-15', items: [
+    { k: 'chg', t: '기술사 <b>읽기</b>에서 답이 <b>처음부터 보입니다</b>. 가리고 싶으면 <b>Tab</b> 을 누르세요 (다시 누르면 보여요) · <b>풀기</b>는 예전처럼 먼저 써 보고 정답을 봅니다' },
+    { k: 'new', t: '<b>JSON 파일</b>로 한꺼번에 넣을 수 있습니다. 목록 위 <b>JSON</b> 단추 · 넣기 전에 무엇이 들어가는지 보여줘요' },
+    { k: 'new', t: '보다가 <b>문제 수정</b>을 눌러 <b>번호 · 문제 · 답 · 기출</b>을 그 자리에서 고칩니다 — OCR 이 틀리게 읽은 것을 바로 손볼 수 있어요' },
+    { k: 'chg', t: '보는 화면의 <b>이 덩어리 지우기</b>는 없앴습니다 — <b>문제 수정</b> 안으로 옮겼어요 (실수로 눌릴 자리가 아니라서요)' },
+    { k: 'fix', t: '답 끝의 <b>“끝”</b> 표시가 기출보다 앞에 있으면 지워지지 않던 것을 고쳤습니다' },
+  ]},
   { v: '261015-1503', at: '2026-10-15', items: [
     { k: 'new', t: '기술사가 <b>읽기 · 풀기</b> 두 가지로 나뉩니다. <b>읽기</b>는 답을 <b>통째로 쭉</b> 보여주고(접지 않습니다), <b>풀기</b>는 문제만 주고 <b>답을 직접 써 본 뒤</b> 정답을 확인해요' },
     { k: 'new', t: '풀기에서 <b>정답 보기</b>(또는 <b>Tab</b>)를 누르면 정답이 <b>팝업</b>으로 뜹니다. 글이 길어도 <b>위아래로 내리지 않고 양옆으로 한 쪽씩</b> 넘겨 봐요 — <b>← →</b> 단추와 <b>방향키</b>로 넘기고, 아래에 <b>3 / 7</b> 처럼 몇 쪽인지 나옵니다' },
@@ -24486,7 +24683,7 @@ function closePatchNotes() {
 // ── 앱 버전 ──
 // 폰이 옛 파일을 캐시해 두고 있는지 바로 확인할 수 있도록 화면에 표시한다.
 // (설정 맨 아래 · 개발자 도구 콘솔에도 찍힘)
-const APP_VERSION = '261015-1503';
+const APP_VERSION = '261015-1532';
 console.log('%c양진웅 Note 버전 ' + APP_VERSION, 'font-weight:bold');
 
 // PWA 서비스워커 등록
