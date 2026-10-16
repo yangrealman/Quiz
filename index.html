@@ -1192,14 +1192,9 @@
   .pe-card-ttl .ic { width: 14px; height: 14px; }
   .pe-ans { font-size: var(--pe-fs, 18.5px); line-height: 1.95; color: var(--text); white-space: pre-wrap; word-break: break-word; }
 
-  /* [추가] PC 에서 주로 쓴다 — 넓은 화면에서는 답을 넓게 쓰고 기출을 옆에 붙여 둔다.
-     기출은 따라다니게(sticky) 해서 긴 답을 내려 읽는 동안에도 보인다. */
+  /* [수정] 기출을 답 옆에 세워 뒀더니 답이 좁아지고 시선이 갈렸다 → 답 아래로 내린다.
+     답은 통으로 읽는 것이고, 기출은 다 읽은 뒤에 보는 것이라 순서도 이게 맞다. */
   .pe-wrap { display: block; }
-  @media (min-width: 1000px) {
-    .pe-wrap { display: grid; grid-template-columns: minmax(0,1fr) 300px; gap: 18px; align-items: start; }
-    .pe-side { position: sticky; top: 76px; }
-    .pe-card-exam { max-height: calc(100vh - 160px); overflow-y: auto; }
-  }
   .pe-card-acts { margin-left: auto; display: flex; align-items: center; gap: 4px; }
   .pe-mini {
     border: 1px solid var(--card-border); background: var(--card); color: var(--gray-500);
@@ -1211,7 +1206,6 @@
   .pe-fs { display: inline-flex; gap: 2px; }
 
   /* 풀기 — 답 쓰는 칸 */
-  .pe-wrap.solo { grid-template-columns: minmax(0,1fr); }
   .pe-write {
     width: 100%; box-sizing: border-box; min-height: 42vh; resize: vertical;
     font: inherit; font-size: var(--pe-fs, 18.5px); line-height: 1.95;
@@ -24002,6 +23996,9 @@ applyRenderFlags();
 //   k: 'new'(새 기능) · 'fix'(고침) · 'chg'(바뀜)
 // ══════════════════════════════════════════════════════════════════════
 const PATCH_NOTES = [
+  { v: '261016-1036', at: '2026-10-16', items: [
+    { k: 'chg', t: '기술사 <b>읽기</b>에서 <b>기출이 답 아래로</b> 내려왔습니다. 옆에 세워 두니 답이 좁아지고 시선이 갈렸어요 — 답을 넓게 읽고, 다 읽은 뒤에 기출을 봅니다' },
+  ]},
   { v: '261015-1532', at: '2026-10-15', items: [
     { k: 'chg', t: '기술사 <b>읽기</b>에서 답이 <b>처음부터 보입니다</b>. 가리고 싶으면 <b>Tab</b> 을 누르세요 (다시 누르면 보여요) · <b>풀기</b>는 예전처럼 먼저 써 보고 정답을 봅니다' },
     { k: 'new', t: '<b>JSON 파일</b>로 한꺼번에 넣을 수 있습니다. 목록 위 <b>JSON</b> 단추 · 넣기 전에 무엇이 들어가는지 보여줘요' },
@@ -24683,7 +24680,7 @@ function closePatchNotes() {
 // ── 앱 버전 ──
 // 폰이 옛 파일을 캐시해 두고 있는지 바로 확인할 수 있도록 화면에 표시한다.
 // (설정 맨 아래 · 개발자 도구 콘솔에도 찍힘)
-const APP_VERSION = '261015-1532';
+const APP_VERSION = '261016-1036';
 console.log('%c양진웅 Note 버전 ' + APP_VERSION, 'font-weight:bold');
 
 // PWA 서비스워커 등록
