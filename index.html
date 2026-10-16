@@ -1219,6 +1219,69 @@
     background: rgba(255,255,255,.22); letter-spacing: .04em;
   }
 
+  /* ── 공부 모드 ──────────────────────────────────────────────── */
+  .mode-toggle {
+    background: rgba(255,255,255,.16); border: 1px solid rgba(255,255,255,.26);
+    color: #fff; font: inherit; font-size: 12px; font-weight: 800;
+    padding: 6px 12px; border-radius: 999px; cursor: pointer; white-space: nowrap;
+  }
+  .mode-toggle:hover { background: rgba(255,255,255,.28); }
+  /* 기술사 모드에서는 문제풀이식 탭을 감춘다 (데이터는 그대로 있다) */
+  body.mode-pe .nav-tab[data-tab="practice"],
+  body.mode-pe .nav-tab[data-tab="review"],
+  body.mode-pe .nav-mobile-tab[data-tab="practice"],
+  body.mode-pe .nav-mobile-tab[data-tab="review"] { display: none; }
+  /* 문제풀이 모드에서는 기술사 탭을 감춘다 */
+  body:not(.mode-pe) .nav-tab[data-tab="pe"],
+  body:not(.mode-pe) .nav-mobile-tab[data-tab="pe"] { display: none; }
+
+  /* ── 기술사 홈 ──────────────────────────────────────────────── */
+  .peh-card {
+    background: var(--card); border: 1px solid var(--card-border);
+    border-radius: var(--r-card); padding: 16px 18px; margin-bottom: 12px;
+  }
+  .peh-top { display: flex; align-items: baseline; gap: 10px; margin-bottom: 12px; }
+  .peh-pct { font-size: 34px; font-weight: 800; color: var(--primary); line-height: 1; }
+  .peh-pct small { font-size: 16px; margin-left: 1px; }
+  .peh-cap { font-size: 13px; color: var(--gray-500); font-weight: 600; }
+  .peh-bar {
+    display: flex; height: 10px; border-radius: 999px; overflow: hidden;
+    background: var(--gray-100);
+  }
+  .peh-seg { display: block; height: 100%; }
+  .peh-seg.l2 { background: #17A34A; }
+  .peh-seg.l1 { background: #F5A524; }
+  .peh-seg.l0 { background: var(--gray-300); }
+  .peh-legend { display: flex; gap: 14px; margin-top: 10px; font-size: 12px; color: var(--gray-500); }
+  .peh-legend i { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 5px; }
+  .peh-legend i.l2 { background: #17A34A; }
+  .peh-legend i.l1 { background: #F5A524; }
+  .peh-legend i.l0 { background: var(--gray-300); }
+
+  .peh-nums { display: flex; gap: 10px; margin-bottom: 12px; }
+  .peh-num {
+    flex: 1; background: var(--card); border: 1px solid var(--card-border);
+    border-radius: var(--r-card); padding: 13px 10px; text-align: center;
+  }
+  .peh-num b { display: block; font-size: 21px; font-weight: 800; color: var(--text); }
+  .peh-num span { display: block; font-size: 11.5px; color: var(--gray-400); margin-top: 3px; }
+
+  .peh-last {
+    display: block; width: 100%; text-align: left; cursor: pointer;
+    background: var(--primary-light); border: 1px solid var(--primary);
+    border-radius: var(--r-card); padding: 13px 16px; margin-bottom: 16px;
+  }
+  .peh-last-cap { display: block; font-size: 11.5px; font-weight: 800; color: var(--primary); letter-spacing: .04em; }
+  .peh-last-ttl { display: block; font-size: 14.5px; font-weight: 700; color: var(--text); margin-top: 3px; line-height: 1.5; }
+  .peh-sec { font-size: 12.5px; font-weight: 800; color: var(--gray-400); margin: 0 0 8px 2px; }
+  .peh-done { text-align: center; color: var(--gray-400); font-size: 13px; padding: 18px 0; }
+  .pe-catchips { display: inline-flex; gap: 6px; flex-wrap: wrap; }
+
+  .pe-sch-snip {
+    font-size: 13px; line-height: 1.8; color: var(--gray-500);
+    margin: 6px 0 2px; word-break: break-word;
+  }
+
   /* 작은 단추 안의 키 표시 (답 보기/가리기 옆) */
   .pe-key2 {
     font-size: 10px; font-weight: 800; padding: 1px 5px; margin-left: 3px;
@@ -7468,12 +7531,23 @@
       <button class="nav-tab" data-tab="pe" onclick="goPage('pe')"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-file"/></svg>기술사</button>
     </div>
     <div class="nav-right">
+      <!-- [추가] 공부 방식 바꾸기 — 문제풀이식(객관식·필답형) ↔ 서브노트식(기술사) -->
+      <button id="mode-toggle" class="mode-toggle" onclick="toggleAppMode()" title="공부 모드 바꾸기"></button>
       <button id="dark-toggle" onclick="toggleDarkMode()" title="다크모드 전환"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-moon"/></svg></button>
       <button class="nav-reset" onclick="goPage('settings')" title="설정"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-sliders"/></svg></button>
       <button id="nav-clock" onclick="toggleSchedPopup()" title="일정까지 남은 시간" aria-label="일정까지 남은 시간"></button>
     </div>
   </div>
 </nav>
+
+<!-- ─────────────────────────────── 기술사 홈 ───────────────────────────────
+     기술사 모드의 첫 화면. 정답률·암기도가 없는 공부라 지표가 아예 다르다
+     (외운 정도 · 회독 · 오늘 본 것). -->
+<div id="page-pe-home" class="page">
+  <div class="container">
+    <div id="pe-home-main"></div>
+  </div>
+</div>
 
 <!-- ─────────────────────────────── 홈(대시보드) ─────────────────────────────── -->
 <div id="page-dashboard" class="page active">
@@ -8648,8 +8722,8 @@
   <div class="container">
     <div class="section-header">
       <div>
-        <div class="page-title"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-search"/></svg> 문제 검색</div>
-        <div class="page-sub">문제·보기·정답·해설 전체 검색</div>
+        <div class="page-title"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-search"/></svg> <span id="search-title">문제 검색</span></div>
+        <div class="page-sub" id="search-sub">문제·보기·정답·해설 전체 검색</div>
       </div>
     </div>
     <div style="position:relative; margin-bottom:16px;">
@@ -10730,7 +10804,7 @@ new MutationObserver(() => {
 }).observe(document.body, { childList: true, subtree: true });
 let _navBusy = false;          // popstate로 인한 이동인지 구분
 const _pageState = {};         // 화면별 스크롤·필터 기억
-const pages = ['dashboard','home','review','quiz','result','wrong','wrong-quiz','star','star-quiz','flag','flag-quiz','hidden','calc','calc-quiz','mock','mock-quiz','mock-result','mock-wrong','mock-wrong-quiz','answer-sheet','search','memo-tab','quick-check','settings','pe','pe-view'];
+const pages = ['dashboard','home','review','quiz','result','wrong','wrong-quiz','star','star-quiz','flag','flag-quiz','hidden','calc','calc-quiz','mock','mock-quiz','mock-result','mock-wrong','mock-wrong-quiz','answer-sheet','search','memo-tab','quick-check','settings','pe','pe-view','pe-home'];
 
 // 탭 활성 표시만 먼저 갱신 (화면 전환 스냅샷에 이미 반영되게 → 끊김 방지)
 function _syncTabActive(name) {
@@ -10791,6 +10865,12 @@ function _goPageNow(name) {
       sBtn.dataset.arm = ''; sBtn.classList.remove('arm'); sBtn.textContent = 'X';
     }
   }
+  // [추가] 모드에 없는 화면이면 그 모드의 홈으로 돌려보낸다
+  //        (지난 자리로 돌아가기·주소 바로가기가 반대 모드 화면을 열 수 있다)
+  if (typeof pageAllowedInMode === 'function' && !pageAllowedInMode(name)) {
+    const h = modeHome();
+    if (h !== name) { _goPageNow(h); return; }
+  }
   const target = document.getElementById('page-' + name);
   if (!target) { console.warn('페이지 없음:', name); return; }
 
@@ -10808,6 +10888,7 @@ function _goPageNow(name) {
     mock: 'review', 'mock-result': 'review', 'mock-wrong': 'review',
     search: 'search', 'memo-tab': 'memo-tab',
     pe: 'pe', 'pe-view': 'pe'                // [추가] 기술사 — 보기 화면에서도 탭이 켜져 있게
+    , 'pe-home': ''                          // 홈은 어느 탭도 아니다 (로고가 그 역할)
   };
   const activeTab = tabMap[name] || '';
   document.querySelectorAll('.nav-tab, .nav-mobile-tab').forEach(t => {
@@ -10835,10 +10916,18 @@ function _goPageNow(name) {
     renderHiddenNote();
   } else if (name === 'pe') {              // [추가] 기술사 목록
     renderPeList();
+  } else if (name === 'pe-home') {
+    renderPeHome();
   } else if (name === 'mock' || name === 'mock-result' || name === 'mock-wrong') {
     if (name === 'mock') renderMockHome();
     if (name === 'mock-wrong') renderMockWrongNote();
   } else if (name === 'search') {
+    // [추가] 모드에 따라 찾는 곳이 달라 안내도 바꾼다
+    const pe = getAppMode() === 'pe';
+    const t = document.getElementById('search-title'), sb = document.getElementById('search-sub');
+    if (t) t.textContent = pe ? '서브노트 검색' : '문제 검색';
+    if (sb) sb.textContent = pe ? '제목·답·기출 전체 검색' : '문제·보기·정답·해설 전체 검색';
+    try { clearSearch(); } catch (_) {}
     setTimeout(() => { const el = document.getElementById('search-input'); if(el) el.focus(); }, 100);
   } else if (name === 'memo-tab') {
     initMemoTab();
@@ -19804,6 +19893,61 @@ function clearMemoAll() {
 
 let searchTimer = null;
 
+// [추가] 기술사 서브노트 검색 — 제목·답·기출을 한꺼번에 본다.
+//        문제풀이 쪽 검색과 섞지 않는다 (지금 공부하는 것만 나와야 한다)
+function doPeSearch(keyword) {
+  const kw = String(keyword || '').toLowerCase();
+  const cat = getPeCat();
+  const hits = [];
+  peRows().filter(r => r.cat === cat).forEach(r => {
+    const t = getPeTopic(r.id);
+    if (!t) return;
+    const inT = String(t.title || '').toLowerCase().includes(kw);
+    const inA = String(t.answer || '').toLowerCase().includes(kw);
+    const ex = (t.exams || []).filter(e =>
+      String(e.text || '').toLowerCase().includes(kw) || String(e.round || '').toLowerCase().includes(kw));
+    if (!inT && !inA && !ex.length) return;
+    hits.push({ r, t, inT, inA, ex });
+  });
+  hits.sort((a, b) => (a.r.no || 0) - (b.r.no || 0));
+
+  const st = document.getElementById('search-status');
+  const res = document.getElementById('search-results');
+  const cats = document.getElementById('search-cats');
+  if (cats) cats.innerHTML = '';
+  if (st) st.textContent = hits.length ? `${hits.length}덩어리를 찾았어요` : '';
+  if (!res) return;
+  if (!hits.length) {
+    res.innerHTML = `<div class="empty-state"><div class="emoji">🔍</div><p><b>${escHtml(keyword)}</b> 가 든 것이 없어요.</p></div>`;
+    return;
+  }
+  res.innerHTML = `<div class="wrong-note-list">${hits.map(({ r, t, inT, inA, ex }) => `
+    <div class="wrong-note-item">
+      <div class="wrong-note-meta">
+        <span style="font-weight:600">${escHtml(String(r.no ?? ''))}번</span>
+        ${inA ? '<span>답에 있음</span>' : ''}
+        ${ex.length ? `<span>기출 ${ex.length}</span>` : ''}
+        <button class="btn btn-secondary" style="margin-left:auto; font-size:12px; padding:4px 12px"
+                onclick="openPe('${escArg(r.id)}')">열기</button>
+      </div>
+      <div class="wrong-note-q">${highlight(escHtml(t.title || ''), keyword)}</div>
+      ${inA ? `<div class="pe-sch-snip">${highlight(escHtml(_peSnip(t.answer, keyword)), keyword)}</div>` : ''}
+      ${ex.map(e => `<div class="pe-exam">
+          ${e.round ? `<span class="pe-exam-r">${escHtml(e.round)}</span>` : ''}
+          <span class="pe-exam-t">${highlight(escHtml(e.text || ''), keyword)}</span>
+        </div>`).join('')}
+    </div>`).join('')}</div>`;
+}
+
+// 걸린 낱말 앞뒤만 잘라 보여준다 (답이 길어 통째로 띄우면 못 읽는다)
+function _peSnip(text, kw) {
+  const s0 = String(text || '').replace(/\s+/g, ' ');
+  const at = s0.toLowerCase().indexOf(String(kw).toLowerCase());
+  if (at < 0) return s0.slice(0, 120);
+  const a = Math.max(0, at - 50), b = Math.min(s0.length, at + kw.length + 90);
+  return (a ? '… ' : '') + s0.slice(a, b) + (b < s0.length ? ' …' : '');
+}
+
 function onSearchInput(val) {
   clearTimeout(searchTimer);
   if (!val.trim()) {
@@ -19859,6 +20003,8 @@ function setSearchCat(cat) {
 }
 
 function doSearch(keyword) {
+  // [추가] 기술사 모드에서는 서브노트만 찾는다 — 공부하는 것만 나와야 한다
+  if (getAppMode() === 'pe') return doPeSearch(keyword);
   const data = getData();
   const circleNums = ['①','②','③','④','⑤','⑥'];
   const results = [];
@@ -22941,8 +23087,187 @@ function renderSettings() {
 //   pe_i        : { topics: { <id>: {no, title, nq, rev, ts} }, del: {} }   ← 목록용 가벼운 색인
 //   pe::<id>    : { id, no, title, answer, exams: [{round, text}] }         ← 무거운 본문
 //   pe_prog     : { <id>: { lv: 0|1|2, cnt, at } }                          ← 외운 정도
+// ══════════════════════════════════════════════════════════════════════
+// 공부 모드 — 문제풀이식(exam) ↔ 서브노트식(pe)
+// ══════════════════════════════════════════════════════════════════════
+// 자격증을 가르는 게 아니라 '공부 방식'을 가른다.
+//   exam : 객관식·필답형. 채점이 있고 정답률·암기도가 의미 있다 (기능장·기사·산업기사 전부)
+//   pe   : 논술. 채점이 없고 회독으로 관리한다 (기술사)
+// 자격증은 각 모드 안에서 얼마든지 늘어난다 — exam 쪽은 quiz_categories 로 이미 여러 개다.
+// 데이터는 아무것도 건드리지 않는다. 모드를 되돌리면 전부 그대로 보인다.
+function getAppMode() { return localStorage.getItem('appMode') === 'pe' ? 'pe' : 'exam'; }
+
+function applyAppMode() {
+  const m = getAppMode();
+  document.body.classList.toggle('mode-pe', m === 'pe');
+  const btn = document.getElementById('mode-toggle');
+  if (btn) {
+    btn.textContent = m === 'pe' ? '기술사' : '문제풀이';
+    btn.title = m === 'pe' ? '문제풀이로 바꾸기' : '기술사로 바꾸기';
+  }
+}
+
+function setAppMode(m) {
+  localStorage.setItem('appMode', m === 'pe' ? 'pe' : 'exam');
+  applyAppMode();
+  closePeAns();
+  goPage(m === 'pe' ? 'pe-home' : 'dashboard');
+  showToast(m === 'pe' ? '기술사 모드' : '문제풀이 모드');
+}
+function toggleAppMode() { setAppMode(getAppMode() === 'pe' ? 'exam' : 'pe'); }
+
+// 모드마다 '홈'이 다르다 (로고를 눌렀을 때 가는 곳)
+function modeHome() { return getAppMode() === 'pe' ? 'pe-home' : 'dashboard'; }
+
+// 지금 모드에서 열 수 없는 화면이면 그 모드의 홈으로 돌려보낸다
+// (지난번에 보던 자리로 돌아가는 기능이 반대 모드 화면을 열 수 있다)
+const PE_ONLY  = ['pe-home', 'pe', 'pe-view'];
+const EXAM_ONLY = ['dashboard', 'home', 'review', 'quiz', 'result', 'wrong', 'wrong-quiz',
+                   'star', 'star-quiz', 'flag', 'flag-quiz', 'hidden', 'calc', 'calc-quiz',
+                   'mock', 'mock-quiz', 'mock-result', 'mock-wrong', 'mock-wrong-quiz',
+                   'answer-sheet', 'quick-check'];
+function pageAllowedInMode(name) {
+  const pe = getAppMode() === 'pe';
+  if (pe && EXAM_ONLY.includes(name)) return false;
+  if (!pe && PE_ONLY.includes(name)) return false;
+  return true;
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// 기술사 홈
+// ══════════════════════════════════════════════════════════════════════
+function _peTodayKey() {
+  const d = new Date();
+  return d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate();
+}
+function _peSameDay(ts) {
+  if (!ts) return false;
+  const d = new Date(ts);
+  return (d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate()) === _peTodayKey();
+}
+
+function renderPeHome() {
+  const el = document.getElementById('pe-home-main');
+  if (!el) return;
+  const cats = peCats();
+  const cat = getPeCat();
+  const rows = peRows().filter(r => !cat || r.cat === cat);
+  const prog = getPeProg();
+
+  if (!rows.length) {
+    el.innerHTML = `
+      <div class="section-header"><div>
+        <div class="page-title">📘 기술사</div>
+        <div class="page-sub">${escHtml(cat || '')}</div>
+      </div></div>
+      <div class="empty-state"><div class="emoji">📘</div>
+        <p>아직 넣은 것이 없어요.<br>서브노트를 OCR 해서 넣어 보세요.</p>
+        <button class="btn btn-primary empty-cta" onclick="goPage('pe')">기술사 목록으로</button>
+      </div>`;
+    return;
+  }
+
+  let n2 = 0, n1 = 0, n0 = 0, today = 0, rounds = 0;
+  rows.forEach(r => {
+    const p = prog[r.id] || {};
+    const lv = p.lv || 0;
+    if (lv === 2) n2++; else if (lv === 1) n1++; else n0++;
+    if (_peSameDay(p.at)) today++;
+    rounds += p.cnt || 0;
+  });
+  const total = rows.length;
+  const pct = total ? Math.round(n2 / total * 100) : 0;
+
+  // 마지막으로 본 것 — 이어보기
+  let last = null, lastAt = 0;
+  rows.forEach(r => { const p = prog[r.id]; if (p && (p.at || 0) > lastAt) { lastAt = p.at; last = r; } });
+
+  // 덜 본 것 — 모름 먼저, 그 다음 반쯤
+  const todo = rows.slice()
+    .sort((a, b) => ((prog[a.id] || {}).lv || 0) - ((prog[b.id] || {}).lv || 0) || (a.no - b.no))
+    .filter(r => ((prog[r.id] || {}).lv || 0) < 2)
+    .slice(0, 6);
+
+  el.innerHTML = `
+    <div class="section-header">
+      <div>
+        <div class="page-title">📘 기술사</div>
+        <div class="page-sub">${escHtml(cat || '')} · ${total}제</div>
+      </div>
+      <button class="btn btn-primary" onclick="goPage('pe')" style="white-space:nowrap">전체 목록</button>
+    </div>
+
+    ${cats.length > 1 ? `<div class="sch-cats" style="margin-bottom:14px">
+      ${cats.map(c => `<button class="sch-chip${c === cat ? ' on' : ''}" onclick="setPeCat('${escArg(c)}')">${escHtml(c)}<small>${peRows().filter(r => r.cat === c).length}</small></button>`).join('')}
+    </div>` : ''}
+
+    <div class="peh-card">
+      <div class="peh-top">
+        <span class="peh-pct">${pct}<small>%</small></span>
+        <span class="peh-cap">외운 것 ${n2} / ${total}</span>
+      </div>
+      <div class="peh-bar">
+        ${n2 ? `<span class="peh-seg l2" style="width:${n2 / total * 100}%"></span>` : ''}
+        ${n1 ? `<span class="peh-seg l1" style="width:${n1 / total * 100}%"></span>` : ''}
+        ${n0 ? `<span class="peh-seg l0" style="width:${n0 / total * 100}%"></span>` : ''}
+      </div>
+      <div class="peh-legend">
+        <span><i class="l2"></i>외움 ${n2}</span>
+        <span><i class="l1"></i>반쯤 ${n1}</span>
+        <span><i class="l0"></i>모름 ${n0}</span>
+      </div>
+    </div>
+
+    <div class="peh-nums">
+      <div class="peh-num"><b>${today}</b><span>오늘 본 것</span></div>
+      <div class="peh-num"><b>${rounds}</b><span>누적 회독</span></div>
+      <div class="peh-num"><b>${rows.reduce((s, r) => s + (r.nq || 0), 0)}</b><span>붙은 기출</span></div>
+    </div>
+
+    ${last ? `
+      <button class="peh-last" onclick="openPe('${escArg(last.id)}')">
+        <span class="peh-last-cap">이어보기</span>
+        <span class="peh-last-ttl">${escHtml(String(last.no ?? ''))}. ${escHtml(last.title || '')}</span>
+      </button>` : ''}
+
+    ${todo.length ? `
+      <div class="peh-sec">덜 본 것</div>
+      ${todo.map(r => {
+        const lv = (prog[r.id] || {}).lv || 0;
+        return `<button class="pe-row" onclick="openPe('${escArg(r.id)}')">
+          <span class="pe-lv l${lv}"></span>
+          <span class="pe-no">${escHtml(String(r.no ?? '-'))}</span>
+          <span class="pe-ttl">${escHtml(r.title || '')}</span>
+          ${r.nq ? `<span class="pe-hit">기출 ${r.nq}</span>` : ''}
+        </button>`;
+      }).join('')}` : `<div class="peh-done">모두 외웠어요 👏</div>`}
+  `;
+}
+
 const PE_IDX = 'pe_i';
 function peKey(id) { return 'pe::' + id; }
+
+// [추가] 기술사도 자격증이 둘 이상이 될 수 있다 (화공안전기술사 · 가스기술사 …).
+//        지금 칸을 만들어 두면 나중에 공짜고, 나중에 만들면 데이터를 옮겨야 한다.
+//        예전에 넣은 것은 자격증 칸이 없으므로 읽을 때 기본값으로 채워 준다.
+const PE_CAT0 = '화공안전기술사';
+function peCats() {
+  const t = getPeIdx().topics;
+  const set = new Set(Object.keys(t).map(id => t[id].cat || PE_CAT0));
+  if (!set.size) set.add(PE_CAT0);
+  return [...set].sort((a, b) => String(a).localeCompare(String(b), 'ko'));
+}
+// 지금 보고 있는 자격증 — 목록에 없는 값이 남아 있으면 첫 번째로 되돌린다
+function getPeCat() {
+  const list = peCats();
+  const v = localStorage.getItem('peCat');
+  return (v && list.includes(v)) ? v : list[0];
+}
+function setPeCat(c) {
+  localStorage.setItem('peCat', c);
+  if (currentPage === 'pe-home') renderPeHome();
+  if (currentPage === 'pe') renderPeList();
+}
 
 function getPeIdx() {
   const v = _getCache(PE_IDX, null);
@@ -22956,7 +23281,7 @@ function savePeTopic(t) {
   const idx = getPeIdx();
   const prev = idx.topics[t.id] || { rev: 0 };
   const ts = Date.now(), rev = (prev.rev || 0) + 1;
-  idx.topics[t.id] = { no: t.no, title: t.title, nq: (t.exams || []).length, rev, ts };
+  idx.topics[t.id] = { no: t.no, title: t.title, cat: t.cat || PE_CAT0, nq: (t.exams || []).length, rev, ts };
   delete idx.del[t.id];
   syncToFirebase(peKey(t.id), t);
   savePeIdx(idx);
@@ -22973,7 +23298,8 @@ function deletePeTopic(id) {
 // 목록용 — 색인만 읽으므로 본문을 건드리지 않는다 (300개여도 가볍다)
 function peRows() {
   const t = getPeIdx().topics;
-  return Object.keys(t).map(id => ({ id, no: t[id].no, title: t[id].title, nq: t[id].nq || 0 }));
+  return Object.keys(t).map(id => ({ id, no: t[id].no, title: t[id].title,
+                                     cat: t[id].cat || PE_CAT0, nq: t[id].nq || 0 }));
 }
 
 function getPeProg() { return _getCache('pe_prog', {}); }
@@ -22992,7 +23318,8 @@ let peSort = 'no';          // no(번호) · hit(빈출) · todo(덜 본 것)
 function setPeSort(s) { peSort = s; renderPeList(); }
 
 function renderPeList() {
-  const rows = peRows();
+  const cats = peCats(), cat = getPeCat();
+  const rows = peRows().filter(r => r.cat === cat);     // [추가] 자격증 하나씩만 본다
   const prog = getPeProg();
   const sub = document.getElementById('pe-sub');
   const nHit = rows.reduce((s, r) => s + r.nq, 0);
@@ -23007,7 +23334,9 @@ function renderPeList() {
   const sortEl = document.getElementById('pe-sorts');
   // [수정] '빈출순'을 뺐다 — 300제는 서로 다른 문제 300개라 기출 수로 줄 세울 일이 없다
   // [추가] 앞에 읽기/풀기 고르는 칸 — 어느 쪽으로 열릴지 여기서 정한다
-  if (sortEl) sortEl.innerHTML = peModeTabs() + [['no','번호순'],['todo','덜 본 것']]
+  const catChips = cats.length > 1 ? `<span class="pe-catchips">${cats.map(c =>
+    `<button class="sch-chip${c === cat ? ' on' : ''}" onclick="setPeCat('${escArg(c)}')">${escHtml(c)}</button>`).join('')}</span>` : '';
+  if (sortEl) sortEl.innerHTML = peModeTabs() + catChips + [['no','번호순'],['todo','덜 본 것']]
     .map(([k, label]) => `<button class="pe-sort${peSort === k ? ' on' : ''}" onclick="setPeSort('${k}')">${label}</button>`).join('');
 
   const listEl = document.getElementById('pe-list');
@@ -23116,7 +23445,8 @@ function togglePeAnswer() { peView.open = !peView.open; renderPeView(); }
 
 // 지금 보는 것이 정렬된 목록의 몇 번째인지 (이전·다음에 쓴다)
 function _peOrder() {
-  const rows = peRows().slice().sort((a, b) =>
+  const cat = getPeCat();
+  const rows = peRows().filter(r => r.cat === cat).sort((a, b) =>
     peSort === 'todo' ? (peLevelOf(a.id) - peLevelOf(b.id)) || (a.no - b.no) :
                         (a.no - b.no));
   return rows.map(r => r.id);
@@ -23403,6 +23733,7 @@ function savePeEdit() {
     .map(peExamFromStr).filter(Boolean);
   savePeTopic({
     id: t.id || peView.id,
+    cat: t.cat || getPeCat(),
     no: isNaN(no) ? t.no : no,
     title,
     answer: document.getElementById('pe-ed-answer').value.trim(),
@@ -23463,7 +23794,8 @@ function peFromJson(data) {
   else if (data && typeof data === 'object') arr = Object.values(data);
   const out = arr.map(_peNormOne).filter(t => t && t.title);
   // 번호를 안 적었으면 이어서 매긴다
-  let next = peRows().reduce((m, r) => Math.max(m, r.no || 0), 0);
+  const cat0 = getPeCat();
+  let next = peRows().filter(r => r.cat === cat0).reduce((m, r) => Math.max(m, r.no || 0), 0);
   out.forEach(t => { if (!t.no) t.no = ++next; else next = Math.max(next, t.no); });
   return out;
 }
@@ -23563,7 +23895,8 @@ function parsePeText(raw) {
   push();
 
   // 번호를 안 적었으면 이어서 매긴다 (이미 들어 있는 것 다음부터)
-  let next = peRows().reduce((m, r) => Math.max(m, r.no || 0), 0);
+  const cat0 = getPeCat();
+  let next = peRows().filter(r => r.cat === cat0).reduce((m, r) => Math.max(m, r.no || 0), 0);
   out.forEach(t => { if (!t.no) t.no = ++next; else next = Math.max(next, t.no); });
   return out;
 }
@@ -23615,9 +23948,11 @@ function pePasteApply() {
   const n = _pePending.length;
   _pePending.forEach(t => {
     // 같은 번호가 이미 있으면 덮어쓴다 (OCR 을 다시 돌려 고쳐 넣는 일이 잦다)
-    const same = peRows().find(r => r.no === t.no);
+    const cat = t.cat || getPeCat();
+    const same = peRows().find(r => r.no === t.no && r.cat === cat);
     savePeTopic({ id: same ? same.id : 'pe' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7),
-                  no: t.no, title: t.title, answer: t.answer, exams: t.exams });
+                  no: t.no, title: t.title, answer: t.answer, exams: t.exams,
+                  cat: t.cat || getPeCat() });                 // [추가] 지금 보고 있는 자격증으로 들어간다
   });
   _pePending = [];
   closePePaste();
@@ -23783,6 +24118,7 @@ function importBackup(input) {
 }
 
 initDarkMode();
+try { applyAppMode(); } catch (_) {}   // [추가] 공부 모드 먼저 입힌다 (탭 보임새가 달라진다)
 try { applyRtSize(); } catch (_) {}
 if (typeof _syncThemeColorMeta === 'function') _syncThemeColorMeta();
 if (typeof applySettings === 'function') applySettings();
@@ -23824,7 +24160,7 @@ if (typeof AUTH_SETTLED !== 'undefined' && AUTH_SETTLED) window._afterAuth(AUTH_
 
 // [추가] 로고 클릭 = 홈 이동 + 수동 동기화 (여러 브라우저를 오갈 때 최신 데이터 강제 반영)
 function goHomeAndSync() {
-  goPage('dashboard');
+  goPage(modeHome());                 // [수정] 모드마다 홈이 다르다
   try {
     if (typeof flushQMemo === 'function') flushQMemo();   // 쓰다 만 메모부터 저장
     flushPendingWrites();                                 // 모아둔 저장도 먼저
@@ -23996,6 +24332,13 @@ applyRenderFlags();
 //   k: 'new'(새 기능) · 'fix'(고침) · 'chg'(바뀜)
 // ══════════════════════════════════════════════════════════════════════
 const PATCH_NOTES = [
+  { v: '261016-1047', at: '2026-10-16', items: [
+    { k: 'new', t: '<b>공부 모드</b>가 생겼습니다. 맨 위 오른쪽 <b>문제풀이 ↔ 기술사</b> 단추로 바꾸세요 — 기술사 모드에서는 <b>문제 · 복습</b> 탭이 사라지고, 문제풀이 모드에서는 <b>기술사</b> 탭이 사라집니다' },
+    { k: 'chg', t: '<b>데이터는 하나도 건드리지 않습니다.</b> 모드를 되돌리면 문제 · 오답노트 · 별표 · 모의고사가 전부 그대로 있어요. 다른 기능장 자격증을 보실 때는 예전처럼 <b>관리 &gt; 자격증 추가</b> 로 넣으시면 됩니다' },
+    { k: 'new', t: '<b>기술사 홈</b>이 새로 생겼습니다 — <b>외움 / 반쯤 / 모름</b> 진도 막대, 오늘 본 것, 누적 회독, 붙은 기출, <b>이어보기</b>, <b>덜 본 것</b> 바로가기' },
+    { k: 'new', t: '<b>검색이 모드를 따라갑니다.</b> 기술사 모드에서는 <b>서브노트만</b> (제목·답·기출), 문제풀이 모드에서는 예전처럼 문제만 — 서로 섞이지 않아요' },
+    { k: 'new', t: '기술사에도 <b>자격증 칸</b>이 생겼습니다. 지금 것은 전부 <b>화공안전기술사</b> 로 들어가고, 나중에 다른 기술사를 넣어도 번호가 섞이지 않습니다' },
+  ]},
   { v: '261016-1036', at: '2026-10-16', items: [
     { k: 'chg', t: '기술사 <b>읽기</b>에서 <b>기출이 답 아래로</b> 내려왔습니다. 옆에 세워 두니 답이 좁아지고 시선이 갈렸어요 — 답을 넓게 읽고, 다 읽은 뒤에 기출을 봅니다' },
   ]},
@@ -24680,7 +25023,7 @@ function closePatchNotes() {
 // ── 앱 버전 ──
 // 폰이 옛 파일을 캐시해 두고 있는지 바로 확인할 수 있도록 화면에 표시한다.
 // (설정 맨 아래 · 개발자 도구 콘솔에도 찍힘)
-const APP_VERSION = '261016-1036';
+const APP_VERSION = '261016-1047';
 console.log('%c양진웅 Note 버전 ' + APP_VERSION, 'font-weight:bold');
 
 // PWA 서비스워커 등록
