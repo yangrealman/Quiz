@@ -1205,6 +1205,24 @@
   .pe-mini:disabled { opacity: .35; cursor: default; }
   .pe-fs { display: inline-flex; gap: 2px; }
 
+  /* [추가] 읽기 2단 — 왼쪽 답·기출, 오른쪽 쓰는 칸.
+     본문이 900px 고정이라 넓은 화면에서 양옆이 통째로 놀고 있었다.
+     좁은 화면(1200px 미만)에서는 자리가 없으므로 쓰는 칸을 감추고 한 줄로 둔다. */
+  .pe-two { display: block; }
+  .pe-pad { display: none; }
+  @media (min-width: 1200px) {
+    #page-pe-view.read2 > .container { max-width: 1480px; }
+    #page-pe-view.read2 .pe-two {
+      display: grid; grid-template-columns: 6fr 4fr; gap: 18px; align-items: start;
+    }
+    #page-pe-view.read2 .pe-pad { display: block; position: sticky; top: 76px; }
+    #page-pe-view.read2 .pe-pad .pe-card { margin-bottom: 0; }
+    #page-pe-view.read2 .pe-pad-in { min-height: calc(100vh - 230px); }
+    /* 아래 줄(이전·단계·다음)도 같이 넓어지면 단추가 과하게 길어진다 */
+    #page-pe-view.read2 .pe-foot { max-width: 900px; }
+  }
+  .pe-pad-note { font-size: 11px; color: var(--gray-400); font-weight: 500; }
+
   /* 풀기 — 답 쓰는 칸 */
   .pe-write {
     width: 100%; box-sizing: border-box; min-height: 42vh; resize: vertical;
@@ -23503,27 +23521,41 @@ function renderPeView() {
            <button class="btn btn-primary pe-show" onclick="openPeAns()">정답 보기 <span class="pe-key">Tab</span></button>
          </div>
        </div>`
-    : `<div class="pe-main">
-         <div class="pe-card">
-           <div class="pe-card-ttl">
-             <svg class="ic" viewBox="0 0 24 24"><use href="#ic-bulb"/></svg>답
-             <span class="pe-card-acts">
-               <button class="pe-mini" onclick="togglePeAnswer()">${peView.open ? '답 가리기' : '답 보기'} <span class="pe-key2">Tab</span></button>
-               ${fsBtns}
-             </span>
+    // [추가] 넓은 화면에서는 왼쪽에 답·기출, 오른쪽에 쓰는 칸을 나란히 둔다.
+    //        본문이 900px 고정이라 1440 화면에서 540px 가 그냥 비어 있었다.
+    //        쓰는 칸은 '풀기'의 답 칸과 같은 곳에 저장된다 — 쓰고 → 맞춰보고 → 고치는
+    //        흐름이 끊기지 않게. 좁은 화면에서는 자리가 없어 감춘다(CSS).
+    : `<div class="pe-two">
+         <div class="pe-col">
+           <div class="pe-card">
+             <div class="pe-card-ttl">
+               <svg class="ic" viewBox="0 0 24 24"><use href="#ic-bulb"/></svg>답
+               <span class="pe-card-acts">
+                 <button class="pe-mini" onclick="togglePeAnswer()">${peView.open ? '답 가리기' : '답 보기'} <span class="pe-key2">Tab</span></button>
+                 ${fsBtns}
+               </span>
+             </div>
+             ${peView.open
+               ? `<div class="pe-ans">${renderExp(t.answer || '')}</div>`
+               : `<button class="pe-reveal" onclick="togglePeAnswer()">먼저 떠올려 보고 — 눌러서 답 보기</button>`}
            </div>
-           ${peView.open
-             ? `<div class="pe-ans">${renderExp(t.answer || '')}</div>`
-             : `<button class="pe-reveal" onclick="togglePeAnswer()">먼저 떠올려 보고 — 눌러서 답 보기</button>`}
+           ${exams.length ? `
+             <div class="pe-card pe-card-exam">
+               <div class="pe-card-ttl"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-file"/></svg>기출 ${exams.length}개</div>
+               ${_peExamsHTML(exams)}
+             </div>` : ''}
          </div>
-       </div>
-       ${exams.length ? `
-         <div class="pe-side">
-           <div class="pe-card pe-card-exam">
-             <div class="pe-card-ttl"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-file"/></svg>기출 ${exams.length}개</div>
-             ${_peExamsHTML(exams)}
+         <div class="pe-pad">
+           <div class="pe-card">
+             <div class="pe-card-ttl">
+               <svg class="ic" viewBox="0 0 24 24"><use href="#ic-pencil"/></svg>쓰기
+               <span class="pe-card-acts"><span class="pe-pad-note">풀기의 답 칸과 같은 곳</span></span>
+             </div>
+             <textarea class="pe-write pe-pad-in" id="pe-pad-in" oninput="peDraftInput(this)"
+                       placeholder="옆의 답을 보면서 아무거나 써 보세요"></textarea>
            </div>
-         </div>` : ''}`;
+         </div>
+       </div>`;
 
   el.innerHTML = `
     ${peModeTabs()}
@@ -23549,10 +23581,12 @@ function renderPeView() {
       <button class="btn btn-secondary" style="font-size:12px" onclick="openPeEdit()">문제 수정</button>
     </div>`;
 
-  if (mode === 'solve') {
-    const ta = document.getElementById('pe-write');
-    if (ta) { ta.value = getPeDrafts()[peView.id] || ''; }
-  }
+  // [추가] 읽기 2단일 때만 본문 폭을 넓힌다 (화면에 표식을 달아 CSS 가 본다)
+  const pg = document.getElementById('page-pe-view');
+  if (pg) pg.classList.toggle('read2', mode === 'read');
+
+  const ta = document.getElementById(mode === 'solve' ? 'pe-write' : 'pe-pad-in');
+  if (ta) ta.value = getPeDrafts()[peView.id] || '';
 }
 
 // ── 정답 팝업 — 양옆으로 한 쪽씩 넘기기 ──────────────────────────────
@@ -24332,6 +24366,11 @@ applyRenderFlags();
 //   k: 'new'(새 기능) · 'fix'(고침) · 'chg'(바뀜)
 // ══════════════════════════════════════════════════════════════════════
 const PATCH_NOTES = [
+  { v: '261016-1056', at: '2026-10-16', items: [
+    { k: 'new', t: '넓은 화면에서 기술사 <b>읽기</b>가 <b>두 칸</b>이 됩니다 — 왼쪽에 <b>답과 기출</b>, 오른쪽에 <b>쓰는 칸</b>. 답을 보면서 바로 옆에 써 볼 수 있어요 (글을 내려도 쓰는 칸은 따라옵니다)' },
+    { k: 'chg', t: '오른쪽 쓰는 칸은 <b>풀기의 답 칸과 같은 곳</b>에 저장됩니다. 풀기에서 쓰고 → 읽기에서 정답을 띄워 놓고 고치는 흐름이 끊기지 않아요 · <b>문제마다 따로</b> 저장됩니다' },
+    { k: 'chg', t: '화면이 좁으면(1200px 미만) 예전처럼 <b>한 줄</b>로 나오고 쓰는 칸은 감춰집니다 — 폰에서는 <b>풀기</b>로 쓰시면 같은 곳에 저장돼요' },
+  ]},
   { v: '261016-1047', at: '2026-10-16', items: [
     { k: 'new', t: '<b>공부 모드</b>가 생겼습니다. 맨 위 오른쪽 <b>문제풀이 ↔ 기술사</b> 단추로 바꾸세요 — 기술사 모드에서는 <b>문제 · 복습</b> 탭이 사라지고, 문제풀이 모드에서는 <b>기술사</b> 탭이 사라집니다' },
     { k: 'chg', t: '<b>데이터는 하나도 건드리지 않습니다.</b> 모드를 되돌리면 문제 · 오답노트 · 별표 · 모의고사가 전부 그대로 있어요. 다른 기능장 자격증을 보실 때는 예전처럼 <b>관리 &gt; 자격증 추가</b> 로 넣으시면 됩니다' },
@@ -25023,7 +25062,7 @@ function closePatchNotes() {
 // ── 앱 버전 ──
 // 폰이 옛 파일을 캐시해 두고 있는지 바로 확인할 수 있도록 화면에 표시한다.
 // (설정 맨 아래 · 개발자 도구 콘솔에도 찍힘)
-const APP_VERSION = '261016-1047';
+const APP_VERSION = '261016-1056';
 console.log('%c양진웅 Note 버전 ' + APP_VERSION, 'font-weight:bold');
 
 // PWA 서비스워커 등록
