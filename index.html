@@ -9250,6 +9250,8 @@ async function syncFromFirebase() {
     await syncQuizData();
     // [추가] 기술사도 덩어리별 구조라 따로 맞춘다
     await syncPeTopics();
+    try { _migratePeDrafts(); } catch (_) {}   // 이 기기에만 있던 연습 답안을 한 번 옮긴다
+    await syncPeDrafts();
 
     await withTimeout(Promise.all(keys.map(async key => {
       const remote = await fbGet(key);
@@ -10835,6 +10837,7 @@ function _syncTabActive(name) {
 }
 
 function goPage(name) {
+  try { flushPeDraft(); } catch (_) {}         // [추가] 쓰던 연습 답안을 먼저 서버로
   try { flushPendingWrites(); } catch (_) {}   // [추가] 화면을 옮기기 전에 모아둔 저장을 보낸다
   try { disarmMockSubmit(); } catch (_) {}     // [추가] 화면을 떠나면 물어본 제출은 무른다
   _syncTabActive(name);
@@ -23423,6 +23426,7 @@ function setPeFs(v) {
 
 function getPeMode() { return localStorage.getItem('peMode') === 'solve' ? 'solve' : 'read'; }
 function setPeMode(m) {
+  try { flushPeDraft(); } catch (_) {}
   localStorage.setItem('peMode', m === 'solve' ? 'solve' : 'read');
   peView.open = (m !== 'solve');
   closePeAns();
@@ -23439,19 +23443,146 @@ function peModeTabs() {
 
 // 풀기에서 쓴 답 — 이 기기에만 둔다.
 // (연습 답안은 길어질 수 있어 서버 문서 한도를 건드릴 수 있고, 다른 기기로 옮길 이유도 없다)
-function getPeDrafts() { try { return JSON.parse(localStorage.getItem('pe_draft') || '{}'); } catch (_) { return {}; } }
-function savePeDraft(id, v) {
+// ── 쓰기 칸(연습 답안) ─────────────────────────────────────────────
+// 덩어리마다 문서를 나눠 서버에 올린다 (문제 본문과 같은 방식).
+//  · 한 덩어리에 몰아 넣으면 300개 × 논술 분량이라 서버 문서 한도(1MB)를 넘긴다
+//  · 쓴 것이 있는 덩어리만 문서가 생긴다 — 300개 중 손댄 것만
+//
+// [아낌] 글자 칸은 한 자 칠 때마다 불린다. 이 기기 저장은 곧바로 하고,
+//        서버로는 4초 쉬었을 때만 올린다 (기본 저장 지연 0.7초보다 길게).
+//        덩어리를 옮기거나 화면을 떠날 때는 기다리지 않고 바로 올린다.
+const PE_DIDX = 'pe_di';
+function peDraftKey(id) { return 'pe_d::' + id; }
+
+function getPeDIdx() {
+  const v = _getCache(PE_DIDX, null);
+  return (v && v.d) ? v : { d: {} };
+}
+function getPeDraft(id) {
+  if (!id) return '';
+  const v = _getCache(peDraftKey(id), '');
+  return typeof v === 'string' ? v : '';
+}
+
+let _peDraftTimer = null, _peDraftPend = null;
+
+function peDraftInput(ta) {
+  const id = peView.id;
+  if (!id) return;
+  _setCache(peDraftKey(id), ta.value);      // 이 기기에는 곧바로 (글을 잃지 않게)
+  _peDraftPend = id;
+  clearTimeout(_peDraftTimer);
+  _peDraftTimer = setTimeout(() => _peDraftPush(id), 4000);
+}
+
+function _peDraftPush(id) {
+  if (!id) return;
+  if (_peDraftPend === id) _peDraftPend = null;
+  const v = getPeDraft(id);
+  const idx = getPeDIdx();
+  const prev = idx.d[id] || { rev: 0 };
+  if (v && v.trim()) {
+    idx.d[id] = { rev: (prev.rev || 0) + 1, ts: Date.now(), n: v.length };
+    syncToFirebase(peDraftKey(id), v);
+  } else {
+    delete idx.d[id];                       // 비우면 색인에서 뺀다
+    syncToFirebase(peDraftKey(id), '');     // 서버 쪽 글도 비운다 (다른 기기에서 되살아나지 않게)
+  }
+  syncToFirebase(PE_DIDX, idx);
+}
+
+// 기다리지 않고 바로 올린다 (덩어리 이동 · 모드 전환 · 화면 떠날 때)
+function flushPeDraft() {
+  if (!_peDraftPend) return;
+  clearTimeout(_peDraftTimer);
+  _peDraftPush(_peDraftPend);
+}
+
+// 예전에 이 기기에만 두던 것(pe_draft)을 한 번만 옮긴다
+function _migratePeDrafts() {
   try {
-    const d = getPeDrafts();
-    if (v && v.trim()) d[id] = v; else delete d[id];
-    localStorage.setItem('pe_draft', JSON.stringify(d));
+    const raw = localStorage.getItem('pe_draft');
+    if (!raw) return;
+    const old = JSON.parse(raw);
+    const idx = getPeDIdx();
+    let n = 0;
+    Object.keys(old || {}).forEach(id => {
+      const v = old[id];
+      if (!v || !String(v).trim()) return;
+      if (idx.d[id]) return;                 // 이미 새 자리에 있으면 건드리지 않는다
+      _setCache(peDraftKey(id), String(v));
+      idx.d[id] = { rev: 1, ts: Date.now(), n: String(v).length };
+      syncToFirebase(peDraftKey(id), String(v));
+      n++;
+    });
+    if (n) syncToFirebase(PE_DIDX, idx);
+    localStorage.removeItem('pe_draft');
   } catch (_) {}
 }
-function peDraftInput(ta) { savePeDraft(peView.id, ta.value); }
+
+// 서버와 맞추기 — 색인을 먼저 보고 달라진 것만 받는다
+async function syncPeDrafts() {
+  if (!FIREBASE_OK) return;
+  try {
+    const remote = await fbGet(PE_DIDX);
+    const mine = getPeDIdx();
+    if (!remote) {
+      if (Object.keys(mine.d).length) {
+        syncToFirebase(PE_DIDX, mine);
+        Object.keys(mine.d).forEach(id => {
+          const v = getPeDraft(id); if (v) syncToFirebase(peDraftKey(id), v);
+        });
+      }
+      return;
+    }
+    const rd = (remote.value && remote.value.d) || {};
+    const need = [];
+    Object.keys(rd).forEach(id => {
+      const m = mine.d[id];
+      if (!m || (rd[id].rev || 0) > (m.rev || 0)) { mine.d[id] = rd[id]; need.push(id); }
+    });
+    Object.keys(mine.d).forEach(id => {       // 저쪽에서 지운 것
+      if (!rd[id] && (mine.d[id].ts || 0) < ((remote.updatedAt) || 0)) {
+        delete mine.d[id];
+        try { localStorage.removeItem(peDraftKey(id)); delete _cache[peDraftKey(id)]; } catch (_) {}
+      }
+    });
+    _setCache(PE_DIDX, mine);
+    for (const id of need) {
+      const d = await fbGet(peDraftKey(id));
+      if (d && typeof d.value === 'string') _setCache(peDraftKey(id), d.value);
+    }
+    // 서버에 없는 내 것은 올린다
+    for (const id of Object.keys(mine.d)) {
+      if (!rd[id]) { const v = getPeDraft(id); if (v) syncToFirebase(peDraftKey(id), v); }
+    }
+    if (need.length && currentPage === 'pe-view') renderPeView();
+  } catch (e) { console.warn('쓰기 칸 동기화 실패', e.message || e); }
+}
+
+// 백업에 담을 때 — 흩어져 있으므로 모아서 한 묶음으로
+function peAllDrafts() {
+  const idx = getPeDIdx(), out = {};
+  Object.keys(idx.d).forEach(id => { const v = getPeDraft(id); if (v) out[id] = v; });
+  return out;
+}
+function peRestoreDrafts(all) {
+  if (!all) return;
+  const idx = getPeDIdx();
+  Object.keys(all).forEach(id => {
+    const v = all[id];
+    if (!v || !String(v).trim()) return;
+    _setCache(peDraftKey(id), String(v));
+    idx.d[id] = { rev: ((idx.d[id] || {}).rev || 0) + 1, ts: Date.now(), n: String(v).length };
+    syncToFirebase(peDraftKey(id), String(v));
+  });
+  syncToFirebase(PE_DIDX, idx);
+}
 
 let peView = { id: null, open: false };    // open = 읽기에서 답을 펼쳐 둔 상태
 
 function openPe(id) {
+  try { flushPeDraft(); } catch (_) {}      // [추가] 쓰던 글을 먼저 올린다
   // [수정] 읽기는 보는 화면이므로 답이 처음부터 보인다 (Tab 으로 가렸다 폈다)
   //        풀기는 먼저 써 봐야 하므로 답을 주지 않는다
   peView = { id, open: getPeMode() === 'read' };
@@ -23586,7 +23717,7 @@ function renderPeView() {
   if (pg) pg.classList.toggle('read2', mode === 'read');
 
   const ta = document.getElementById(mode === 'solve' ? 'pe-write' : 'pe-pad-in');
-  if (ta) ta.value = getPeDrafts()[peView.id] || '';
+  if (ta) ta.value = getPeDraft(peView.id);
 }
 
 // ── 정답 팝업 — 양옆으로 한 쪽씩 넘기기 ──────────────────────────────
@@ -24083,7 +24214,7 @@ function peRestoreAll(all) {
 const BACKUP_KEYS = ['quiz_categories','quiz_data','quiz_progress','quiz_wrong','quiz_checks',
                      'resume_bookmark','quiz_mastery','quiz_starred','quiz_flagged','quiz_marked','quiz_hidden','quiz_daily','quiz_qmemo',
                      'quiz_memo_links','quiz_anki_lines','cal_data','mock_records','mock_wrong','quiz_srs','quiz_hl','quiz_imgw','quiz_quick_links','review_order',
-                     'wrong_quiz_resume','star_quiz_resume','flag_quiz_resume','calc_quiz_resume','mock_quiz_resume','mock_wrong_quiz_resume','mock_deck','pe_i','pe_prog'];
+                     'wrong_quiz_resume','star_quiz_resume','flag_quiz_resume','calc_quiz_resume','mock_quiz_resume','mock_wrong_quiz_resume','mock_deck','pe_i','pe_prog','pe_di'];
 
 async function exportBackup() {
   try {
@@ -24091,6 +24222,7 @@ async function exportBackup() {
     // [수정] 문제는 회차별로 흩어져 있으므로 모아서 담는다 (백업 파일 형식은 그대로)
     BACKUP_KEYS.forEach(k => { out.data[k] = (k === 'quiz_data') ? getAllData() : _getCache(k, null); });
     out.data['pe_all'] = peAllTopics();   // [추가] 기술사 덩어리는 흩어져 있어 모아 담는다
+    out.data['pe_drafts'] = peAllDrafts();
     // [추가] 문제 그림도 함께 백업 (IndexedDB 에 들어 있음)
     out.data['quiz_img_index'] = _getCache('quiz_img_index', []);
     for (const id of getQImgIndex()) {   // [수정] 새 형식({ids,del})에서도 안전하게
@@ -24121,7 +24253,7 @@ function importBackup(input) {
       const parsed = JSON.parse(reader.result);
       const d = parsed.data || parsed;
       const keys = Object.keys(d).filter(k =>
-        (BACKUP_KEYS.includes(k) || k === 'quiz_img_index' || k === 'pe_all' || k.startsWith('quiz_img_'))
+        (BACKUP_KEYS.includes(k) || k === 'quiz_img_index' || k === 'pe_all' || k === 'pe_drafts' || k.startsWith('quiz_img_'))
         && d[k] !== undefined && d[k] !== null);
       if (!keys.length) { showToast('복원할 데이터가 없어요'); return; }
       if (!confirm(`백업 ${keys.length}개 항목을 복원할까요?\n현재 데이터는 덮어써집니다.`)) return;
@@ -24130,6 +24262,7 @@ function importBackup(input) {
       keys.filter(k => !imgKeys.includes(k)).forEach(k => {
         if (k === 'quiz_data') saveData(d[k]);
         else if (k === 'pe_all') peRestoreAll(d[k]);   // [추가] 기술사
+        else if (k === 'pe_drafts') peRestoreDrafts(d[k]);
         else syncToFirebase(k, d[k]);
       });
       // 그림은 IndexedDB 에 넣고 서버에도 올림
@@ -24209,6 +24342,7 @@ function goHomeAndSync() {
     saveLastSpot();
     if (currentPage === 'quiz') { saveQuizProgress(); syncResumeFromQuiz(); }
     if (typeof flushQMemo === 'function') flushQMemo();
+    if (typeof flushPeDraft === 'function') flushPeDraft();   // [추가] 쓰던 연습 답안
     flushPendingWrites();          // [추가] 모아둔 저장을 반드시 내보낸다
   } catch (_) {}
 }));
@@ -24218,6 +24352,7 @@ document.addEventListener('visibilitychange', () => {
     saveLastSpot();
     if (currentPage === 'quiz') { saveQuizProgress(); syncResumeFromQuiz(); }
     if (typeof flushQMemo === 'function') flushQMemo();
+    if (typeof flushPeDraft === 'function') flushPeDraft();   // [추가] 쓰던 연습 답안
     flushPendingWrites();          // [추가] 모아둔 저장을 반드시 내보낸다
   } catch (_) {}
 });
@@ -24366,6 +24501,11 @@ applyRenderFlags();
 //   k: 'new'(새 기능) · 'fix'(고침) · 'chg'(바뀜)
 // ══════════════════════════════════════════════════════════════════════
 const PATCH_NOTES = [
+  { v: '261016-1105', at: '2026-10-16', items: [
+    { k: 'new', t: '기술사 <b>쓰기 칸</b>이 이제 <b>서버에 저장</b>됩니다 — 폰에서 쓰던 답을 PC에서 이어 쓰고, 그 반대도 됩니다 (전에는 쓰던 기기에만 남았어요)' },
+    { k: 'chg', t: '예전에 이 기기에 써 두신 것은 <b>처음 켤 때 한 번에 옮겨집니다</b> — 따로 하실 건 없어요' },
+    { k: 'chg', t: '글자를 칠 때마다 올리지 않고 <b>4초 쉬었을 때</b>만 올립니다. 덩어리를 옮기거나 앱을 닫을 때는 기다리지 않고 바로 올려요 (이 기기에는 치는 즉시 저장되니 글을 잃지 않습니다)' },
+  ]},
   { v: '261016-1056', at: '2026-10-16', items: [
     { k: 'new', t: '넓은 화면에서 기술사 <b>읽기</b>가 <b>두 칸</b>이 됩니다 — 왼쪽에 <b>답과 기출</b>, 오른쪽에 <b>쓰는 칸</b>. 답을 보면서 바로 옆에 써 볼 수 있어요 (글을 내려도 쓰는 칸은 따라옵니다)' },
     { k: 'chg', t: '오른쪽 쓰는 칸은 <b>풀기의 답 칸과 같은 곳</b>에 저장됩니다. 풀기에서 쓰고 → 읽기에서 정답을 띄워 놓고 고치는 흐름이 끊기지 않아요 · <b>문제마다 따로</b> 저장됩니다' },
@@ -25062,7 +25202,7 @@ function closePatchNotes() {
 // ── 앱 버전 ──
 // 폰이 옛 파일을 캐시해 두고 있는지 바로 확인할 수 있도록 화면에 표시한다.
 // (설정 맨 아래 · 개발자 도구 콘솔에도 찍힘)
-const APP_VERSION = '261016-1056';
+const APP_VERSION = '261016-1105';
 console.log('%c양진웅 Note 버전 ' + APP_VERSION, 'font-weight:bold');
 
 // PWA 서비스워커 등록
