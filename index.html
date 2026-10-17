@@ -1253,6 +1253,69 @@
   body:not(.mode-pe) .nav-tab[data-tab="pe"],
   body:not(.mode-pe) .nav-mobile-tab[data-tab="pe"] { display: none; }
 
+  /* ── 공부 타이머 ───────────────────────────────────────────── */
+  .pe-timer { display: inline-flex; align-items: center; gap: 4px; }
+  .pe-timer-m { display: none; }                      /* 폰에서만 쓴다 */
+  @media (max-width: 600px) {
+    /* 머리줄에 이미 들어갈 게 많다 → 폰에서는 켜고 끄는 단추 하나만 둔다.
+       흐른 시간과 '끝'은 기술사 홈에 있다. */
+    .pe-timer-m { display: inline-flex; }
+    .pe-timer-m .pt-num { display: none; }
+    .pe-timer-m .pt-btn ~ .pt-btn { display: none; }
+    .nav-right { gap: 6px; }
+    .mode-toggle { padding: 5px 9px; font-size: 11px; }
+    .pt-btn { width: 27px; height: 27px; }
+  }
+  .pt-btn {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 30px; height: 30px; flex-shrink: 0;
+    background: rgba(255,255,255,.16); border: 1px solid rgba(255,255,255,.26);
+    color: #fff; border-radius: 50%; cursor: pointer; padding: 0;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .pt-btn:hover { background: rgba(255,255,255,.3); }
+  .pt-btn .ic { width: 14px; height: 14px; }
+  .pt-btn.on { background: #fff; border-color: #fff; color: var(--primary); }
+  .pt-num {
+    font-size: 12.5px; font-weight: 800; color: #fff; white-space: nowrap;
+    font-variant-numeric: tabular-nums; min-width: 42px; text-align: center;
+  }
+  /* 돌고 있을 때만 숨 쉬듯 — 켜 둔 걸 잊지 않게 */
+  .pt-num.on { animation: ptBeat 2s ease-in-out infinite; }
+  @keyframes ptBeat { 50% { opacity: .55; } }
+  body.reduce-motion .pt-num.on { animation: none; }
+
+  /* 지금 재고 있는 중 — 폰 머리줄에는 단추 하나뿐이라 여기서 보고 끝낸다 */
+  .peh-now {
+    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+    background: var(--primary-light); border: 1px solid var(--primary);
+    border-radius: var(--r-card); padding: 11px 14px; margin-bottom: 12px;
+  }
+  .peh-now-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--gray-400); flex-shrink: 0; }
+  .peh-now-dot.on { background: #17A34A; animation: ptBeat 2s ease-in-out infinite; }
+  body.reduce-motion .peh-now-dot.on { animation: none; }
+  .peh-now-cap { font-size: 12.5px; font-weight: 700; color: var(--primary); }
+  .peh-now-time {
+    font-size: 17px; font-weight: 800; color: var(--text);
+    font-variant-numeric: tabular-nums; margin-left: auto;
+  }
+
+  /* ── 기술사 홈 — 최근 7일 ──────────────────────────────────── */
+  .peh-week-top { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 12px; }
+  .peh-week-ttl { font-size: 12.5px; font-weight: 800; color: var(--gray-400); }
+  .peh-week-sum { font-size: 12.5px; font-weight: 700; color: var(--primary); }
+  .peh-week-bars { display: flex; gap: 8px; align-items: flex-end; }
+  .peh-day { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 5px; min-width: 0; }
+  .peh-day-bar {
+    width: 100%; height: 56px; display: flex; align-items: flex-end;
+    background: var(--gray-100); border-radius: var(--r-sm); overflow: hidden;
+  }
+  .peh-day-bar i { display: block; width: 100%; background: var(--primary); border-radius: var(--r-sm); }
+  .peh-day.now .peh-day-bar i { background: #17A34A; }
+  .peh-day-lab { font-size: 11px; color: var(--gray-400); }
+  .peh-day.now .peh-day-lab { color: var(--text); font-weight: 800; }
+  .peh-day-min { font-size: 10.5px; color: var(--gray-400); font-variant-numeric: tabular-nums; }
+
   /* ── 기술사 홈 ──────────────────────────────────────────────── */
   .peh-card {
     background: var(--card); border: 1px solid var(--card-border);
@@ -1276,7 +1339,8 @@
   .peh-legend i.l1 { background: #F5A524; }
   .peh-legend i.l0 { background: var(--gray-300); }
 
-  .peh-nums { display: flex; gap: 10px; margin-bottom: 12px; }
+  .peh-nums { display: flex; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
+  .peh-num { flex: 1 1 calc(50% - 5px); min-width: 0; }
   .peh-num {
     flex: 1; background: var(--card); border: 1px solid var(--card-border);
     border-radius: var(--r-card); padding: 13px 10px; text-align: center;
@@ -7530,6 +7594,9 @@
     <g id="ic-pin"><path d="M12 21v-6.5"/><path d="M8 3.5h8l-1 5 2.5 2.5v1.5H6.5V11L9 8.5z"/></g>
     <g id="ic-target"><circle cx="12" cy="12" r="8.2"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="0.9" fill="currentColor" stroke="none"/></g>
     <g id="ic-expand"><path d="M9 4.5H4.5V9"/><path d="M15 4.5h4.5V9"/><path d="M9 19.5H4.5V15"/><path d="M15 19.5h4.5V15"/></g>
+    <g id="ic-pt-play"><path d="M8 5.5l11 6.5-11 6.5z"/></g>
+    <g id="ic-pt-pause"><path d="M9.5 5.5v13M14.5 5.5v13"/></g>
+    <g id="ic-pt-stop"><rect x="6.5" y="6.5" width="11" height="11" rx="1.5"/></g>
     <g id="ic-shrink"><path d="M4.5 9V4.5H9"/><path d="M19.5 9V4.5H15"/><path d="M4.5 15v4.5H9"/><path d="M19.5 15v4.5H15"/></g>
   </defs>
 </svg>
@@ -7547,9 +7614,13 @@
       <button class="nav-tab" data-tab="memo-tab" onclick="goPage('memo-tab')"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-note"/></svg>메모</button>
       <!-- [추가] 기술사 — 기능장(객관식·필답형)과 공부법이 아예 달라 따로 둔다 -->
       <button class="nav-tab" data-tab="pe" onclick="goPage('pe')"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-file"/></svg>기술사</button>
+      <!-- [추가] 공부 타이머 — 시작 · 잠깐 멈춤 · 끝 -->
+      <div class="pe-timer" id="pe-timer"></div>
     </div>
     <div class="nav-right">
       <!-- [추가] 공부 방식 바꾸기 — 문제풀이식(객관식·필답형) ↔ 서브노트식(기술사) -->
+      <!-- 폰에서는 위쪽 탭이 통째로 숨으므로 타이머 자리를 여기에도 둔다 (CSS 가 한쪽만 보여 준다) -->
+      <div class="pe-timer pe-timer-m" id="pe-timer-m"></div>
       <button id="mode-toggle" class="mode-toggle" onclick="toggleAppMode()" title="공부 모드 바꾸기"></button>
       <button id="dark-toggle" onclick="toggleDarkMode()" title="다크모드 전환"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-moon"/></svg></button>
       <button class="nav-reset" onclick="goPage('settings')" title="설정"><svg class="ic" viewBox="0 0 24 24"><use href="#ic-sliders"/></svg></button>
@@ -9245,7 +9316,7 @@ async function syncFromFirebase() {
   _syncing = true;
   showSyncStatus('☁️ 동기화 중...'); setSyncDot('busy');
   try {
-    const keys = ['quiz_progress','quiz_wrong','quiz_categories','quiz_starred','quiz_flagged','quiz_marked','quiz_hidden','mock_records','mock_wrong','cal_data','quiz_checks','resume_bookmark','quiz_mastery','quiz_daily','quiz_qmemo','quiz_memo_links','quiz_anki_lines','quiz_img_index','quiz_srs','quiz_hl','quiz_imgw','quiz_quick_links','review_order','wrong_quiz_resume','star_quiz_resume','flag_quiz_resume','calc_quiz_resume','mock_quiz_resume','mock_wrong_quiz_resume','mock_deck','pe_prog'];
+    const keys = ['quiz_progress','quiz_wrong','quiz_categories','quiz_starred','quiz_flagged','quiz_marked','quiz_hidden','mock_records','mock_wrong','cal_data','quiz_checks','resume_bookmark','quiz_mastery','quiz_daily','quiz_qmemo','quiz_memo_links','quiz_anki_lines','quiz_img_index','quiz_srs','quiz_hl','quiz_imgw','quiz_quick_links','review_order','wrong_quiz_resume','star_quiz_resume','flag_quiz_resume','calc_quiz_resume','mock_quiz_resume','mock_wrong_quiz_resume','mock_deck','pe_prog','pe_time'];
     // [추가] 문제 데이터는 회차별 구조라 따로 맞춘다 (색인 먼저 → 바뀐 회차만)
     await syncQuizData();
     // [추가] 기술사도 덩어리별 구조라 따로 맞춘다
@@ -23109,6 +23180,146 @@ function renderSettings() {
 //   pe::<id>    : { id, no, title, answer, exams: [{round, text}] }         ← 무거운 본문
 //   pe_prog     : { <id>: { lv: 0|1|2, cnt, at } }                          ← 외운 정도
 // ══════════════════════════════════════════════════════════════════════
+// 공부 타이머
+// ══════════════════════════════════════════════════════════════════════
+// 날마다 얼마나 공부했는지만 서버에 남긴다 (pe_time = { '2026-10-17': 초 }).
+// 지금 돌고 있는지는 기기마다 다르므로 이 기기에만 둔다 — 두 기기에서
+// 같이 돌리면 양쪽이 더해지는데, 그건 켜 둔 사람 책임이다.
+//
+// 흘러간 시간은 1분마다 오늘 칸에 더해 둔다. 그래야
+//  · 앱이 갑자기 닫혀도 잃는 게 1분을 넘지 않고
+//  · 자정을 넘겨도 대충 그 날짜에 들어간다.
+function _dayKey(d) {
+  d = d || new Date();
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+function getStudyLog() { return _getCache('pe_time', {}); }
+
+function _ptGet() {
+  try { return JSON.parse(localStorage.getItem('peTimer') || '{}') || {}; } catch (_) { return {}; }
+}
+function _ptSet(t) { try { localStorage.setItem('peTimer', JSON.stringify(t)); } catch (_) {} }
+
+// 흘러간 만큼 오늘 칸에 더한다
+const PT_GAP_MAX = 300000;   // 5분 — 이보다 길게 비면 돌고 있던 게 아니다
+
+function peTimerCommit() {
+  const t = _ptGet();
+  if (!t.run) return;
+  const now = Date.now();
+  const gap = now - (t.last || now);
+  // [중요] 1분마다 쌓으므로 정상이면 간격이 짧다. 아주 길면 앱이 멈춰 있었던 것이다
+  //        (닫혀 있었거나 · 폰이 잠들었거나 · 탭이 정지됨) → 그 시간은 공부로 치지 않고
+  //        타이머도 꺼 둔다. 안 그러면 밤새 켜 둔 게 공부 시간으로 들어간다.
+  if (gap > PT_GAP_MAX) { t.run = false; t.last = now; _ptSet(t); return; }
+  const add = Math.floor(gap / 1000);
+  if (add > 0) {
+    const log = getStudyLog();
+    const k = _dayKey();
+    log[k] = (log[k] || 0) + add;
+    syncToFirebase('pe_time', log);
+    t.sess = (t.sess || 0) + add;
+  }
+  t.last = now;
+  _ptSet(t);
+}
+
+function peTimerStart() {
+  const t = _ptGet();
+  t.run = true; t.last = Date.now(); t.sess = t.sess || 0;
+  _ptSet(t);
+  _ptTick(true);
+  showToast('공부 시작');
+}
+function peTimerPause() {
+  peTimerCommit();
+  const t = _ptGet();
+  t.run = false;
+  _ptSet(t);
+  _ptTick(true);
+  showToast('잠깐 멈춤 — 여기까지는 저장됐어요');
+}
+function peTimerStop() {
+  peTimerCommit();
+  const t = _ptGet();
+  const done = t.sess || 0;
+  _ptSet({ run: false, sess: 0, last: 0 });
+  _ptTick(true);
+  if (currentPage === 'pe-home') renderPeHome();
+  showToast(done ? `공부 끝 — 이번에 ${fmtDur(done)}` : '공부 끝');
+}
+function peTimerToggle() { _ptGet().run ? peTimerPause() : peTimerStart(); }
+
+// 지금까지 이번 판에 흐른 초
+function _ptElapsed() {
+  const t = _ptGet();
+  const run = t.run ? Math.floor((Date.now() - (t.last || Date.now())) / 1000) : 0;
+  return (t.sess || 0) + Math.max(0, run);
+}
+
+function fmtDur(sec) {
+  sec = Math.max(0, Math.round(sec));
+  const h = Math.floor(sec / 3600), m = Math.floor(sec % 3600 / 60);
+  if (h) return `${h}시간 ${m}분`;
+  if (m) return `${m}분`;
+  return `${sec}초`;
+}
+function _ptClock(sec) {
+  sec = Math.max(0, Math.round(sec));
+  const h = Math.floor(sec / 3600), m = Math.floor(sec % 3600 / 60), s = sec % 60;
+  const mm = String(m).padStart(2, '0'), ss = String(s).padStart(2, '0');
+  return h ? `${h}:${mm}:${ss}` : `${mm}:${ss}`;
+}
+
+let _ptTimer = null, _ptLastCommit = 0;
+function _ptTick(force) {
+  const boxes = [document.getElementById('pe-timer'), document.getElementById('pe-timer-m')].filter(Boolean);
+  if (!boxes.length) return;
+  const t = _ptGet();
+  const el = _ptElapsed();
+  const on = !!t.run, has = el > 0;
+
+  const html = `
+    <button class="pt-btn${on ? ' on' : ''}" onclick="peTimerToggle()" title="${on ? '잠깐 멈춤' : '공부 시작'}" aria-label="${on ? '잠깐 멈춤' : '공부 시작'}">
+      <svg class="ic" viewBox="0 0 24 24"><use href="#${on ? 'ic-pt-pause' : 'ic-pt-play'}"/></svg>
+    </button>
+    ${has ? `<span class="pt-num${on ? ' on' : ''}">${_ptClock(el)}</span>
+      <button class="pt-btn" onclick="peTimerStop()" title="공부 끝" aria-label="공부 끝">
+        <svg class="ic" viewBox="0 0 24 24"><use href="#ic-pt-stop"/></svg>
+      </button>` : ''}`;
+  boxes.forEach(b2 => { b2.innerHTML = html; });
+
+  // 1분마다 오늘 칸에 더해 둔다 (갑자기 닫혀도 잃는 게 1분을 안 넘게)
+  if (on && Date.now() - _ptLastCommit > 60000) { _ptLastCommit = Date.now(); peTimerCommit(); }
+
+  // 기술사 홈이 떠 있으면 거기 시계도 같이 움직인다
+  const nt = document.querySelector('#page-pe-home .peh-now-time');
+  if (nt) nt.textContent = _ptClock(el);
+
+  clearTimeout(_ptTimer);
+  if (on) _ptTimer = setTimeout(_ptTick, 1000);
+}
+
+// 앱을 열 때 — 켜 둔 채 닫혔으면 그 사이는 공부한 걸로 치지 않는다
+function initPeTimer() {
+  peTimerCommit();              // 짧게 끊겼으면 그만큼 쌓고, 길게 끊겼으면 알아서 꺼진다
+  const t = _ptGet();
+  if (t.run) { t.last = Date.now(); _ptSet(t); }
+  _ptLastCommit = Date.now();
+  _ptTick(true);
+}
+
+// 최근 n일 (오래된 것 → 최근)
+function studyDays(n) {
+  const log = getStudyLog(), out = [];
+  for (let i = n - 1; i >= 0; i--) {
+    const d = new Date(); d.setDate(d.getDate() - i);
+    out.push({ key: _dayKey(d), d, sec: log[_dayKey(d)] || 0 });
+  }
+  return out;
+}
+
+// ══════════════════════════════════════════════════════════════════════
 // 공부 모드 — 문제풀이식(exam) ↔ 서브노트식(pe)
 // ══════════════════════════════════════════════════════════════════════
 // 자격증을 가르는 게 아니라 '공부 방식'을 가른다.
@@ -23175,12 +23386,27 @@ function renderPeHome() {
   const rows = peRows().filter(r => !cat || r.cat === cat);
   const prog = getPeProg();
 
+  // [수정] 넣은 것이 없어도 타이머는 쓴다 → '재는 중' 줄은 빈 화면에서도 보인다
+  const ptSess = _ptElapsed(), ptRun = !!_ptGet().run;
+  const nowRow = ptSess ? `
+      <div class="peh-now">
+        <span class="peh-now-dot${ptRun ? ' on' : ''}"></span>
+        <span class="peh-now-cap">${ptRun ? '공부하는 중' : '잠깐 멈춤'}</span>
+        <span class="peh-now-time">${_ptClock(ptSess)}</span>
+        <button class="pe-mini" onclick="peTimerToggle(); renderPeHome();">${ptRun ? '멈춤' : '이어서'}</button>
+        <button class="pe-mini" onclick="peTimerStop()">끝</button>
+      </div>` : '';
+
   if (!rows.length) {
     el.innerHTML = `
       <div class="section-header"><div>
         <div class="page-title">📘 기술사</div>
         <div class="page-sub">${escHtml(cat || '')}</div>
       </div></div>
+      ${nowRow}
+      <div class="peh-card" style="text-align:center">
+        <div class="peh-cap">오늘 공부 <b style="color:var(--text)">${fmtDur(getStudyLog()[_dayKey()] || 0)}</b></div>
+      </div>
       <div class="empty-state"><div class="emoji">📘</div>
         <p>아직 넣은 것이 없어요.<br>서브노트를 OCR 해서 넣어 보세요.</p>
         <button class="btn btn-primary empty-cta" onclick="goPage('pe')">기술사 목록으로</button>
@@ -23198,6 +23424,10 @@ function renderPeHome() {
   });
   const total = rows.length;
   const pct = total ? Math.round(n2 / total * 100) : 0;
+
+  const studySec = getStudyLog()[_dayKey()] || 0;
+  const wk = studyDays(7);
+  const wkMax = Math.max(1, ...wk.map(d => d.sec));
 
   // 마지막으로 본 것 — 이어보기
   let last = null, lastAt = 0;
@@ -23222,6 +23452,8 @@ function renderPeHome() {
       ${cats.map(c => `<button class="sch-chip${c === cat ? ' on' : ''}" onclick="setPeCat('${escArg(c)}')">${escHtml(c)}<small>${peRows().filter(r => r.cat === c).length}</small></button>`).join('')}
     </div>` : ''}
 
+    ${nowRow}
+
     <div class="peh-card">
       <div class="peh-top">
         <span class="peh-pct">${pct}<small>%</small></span>
@@ -23240,9 +23472,26 @@ function renderPeHome() {
     </div>
 
     <div class="peh-nums">
+      <div class="peh-num"><b>${fmtDur(studySec)}</b><span>오늘 공부</span></div>
       <div class="peh-num"><b>${today}</b><span>오늘 본 것</span></div>
       <div class="peh-num"><b>${rounds}</b><span>누적 회독</span></div>
       <div class="peh-num"><b>${rows.reduce((s, r) => s + (r.nq || 0), 0)}</b><span>붙은 기출</span></div>
+    </div>
+
+    <!-- [추가] 날마다 얼마나 공부했는지 — 위 타이머가 쌓은 값 -->
+    <div class="peh-card peh-week">
+      <div class="peh-week-top">
+        <span class="peh-week-ttl">최근 7일</span>
+        <span class="peh-week-sum">합계 ${fmtDur(wk.reduce((a2, d) => a2 + d.sec, 0))}</span>
+      </div>
+      <div class="peh-week-bars">
+        ${wk.map((d, i) => `
+          <div class="peh-day${i === wk.length - 1 ? ' now' : ''}" title="${d.key} · ${escHtml(fmtDur(d.sec))}">
+            <span class="peh-day-bar"><i style="height:${wkMax ? Math.max(d.sec ? 6 : 0, d.sec / wkMax * 100) : 0}%"></i></span>
+            <span class="peh-day-lab">${'일월화수목금토'[d.d.getDay()]}</span>
+            <span class="peh-day-min">${d.sec ? Math.max(1, Math.round(d.sec / 60)) : '·'}</span>
+          </div>`).join('')}
+      </div>
     </div>
 
     ${last ? `
@@ -24214,7 +24463,7 @@ function peRestoreAll(all) {
 const BACKUP_KEYS = ['quiz_categories','quiz_data','quiz_progress','quiz_wrong','quiz_checks',
                      'resume_bookmark','quiz_mastery','quiz_starred','quiz_flagged','quiz_marked','quiz_hidden','quiz_daily','quiz_qmemo',
                      'quiz_memo_links','quiz_anki_lines','cal_data','mock_records','mock_wrong','quiz_srs','quiz_hl','quiz_imgw','quiz_quick_links','review_order',
-                     'wrong_quiz_resume','star_quiz_resume','flag_quiz_resume','calc_quiz_resume','mock_quiz_resume','mock_wrong_quiz_resume','mock_deck','pe_i','pe_prog','pe_di'];
+                     'wrong_quiz_resume','star_quiz_resume','flag_quiz_resume','calc_quiz_resume','mock_quiz_resume','mock_wrong_quiz_resume','mock_deck','pe_i','pe_prog','pe_di','pe_time'];
 
 async function exportBackup() {
   try {
@@ -24286,6 +24535,7 @@ function importBackup(input) {
 
 initDarkMode();
 try { applyAppMode(); } catch (_) {}   // [추가] 공부 모드 먼저 입힌다 (탭 보임새가 달라진다)
+try { initPeTimer(); } catch (_) {}    // [추가] 공부 타이머
 try { applyRtSize(); } catch (_) {}
 if (typeof _syncThemeColorMeta === 'function') _syncThemeColorMeta();
 if (typeof applySettings === 'function') applySettings();
@@ -24343,6 +24593,7 @@ function goHomeAndSync() {
     if (currentPage === 'quiz') { saveQuizProgress(); syncResumeFromQuiz(); }
     if (typeof flushQMemo === 'function') flushQMemo();
     if (typeof flushPeDraft === 'function') flushPeDraft();   // [추가] 쓰던 연습 답안
+    if (typeof peTimerCommit === 'function') peTimerCommit();  // [추가] 타이머가 돌고 있었으면 그만큼
     flushPendingWrites();          // [추가] 모아둔 저장을 반드시 내보낸다
   } catch (_) {}
 }));
@@ -24353,6 +24604,7 @@ document.addEventListener('visibilitychange', () => {
     if (currentPage === 'quiz') { saveQuizProgress(); syncResumeFromQuiz(); }
     if (typeof flushQMemo === 'function') flushQMemo();
     if (typeof flushPeDraft === 'function') flushPeDraft();   // [추가] 쓰던 연습 답안
+    if (typeof peTimerCommit === 'function') peTimerCommit();  // [추가] 타이머가 돌고 있었으면 그만큼
     flushPendingWrites();          // [추가] 모아둔 저장을 반드시 내보낸다
   } catch (_) {}
 });
@@ -24501,6 +24753,12 @@ applyRenderFlags();
 //   k: 'new'(새 기능) · 'fix'(고침) · 'chg'(바뀜)
 // ══════════════════════════════════════════════════════════════════════
 const PATCH_NOTES = [
+  { v: '261017-1043', at: '2026-10-17', items: [
+    { k: 'new', t: '<b>공부 타이머</b>가 생겼습니다. 맨 위 <b>기술사 탭 옆</b>의 <b>▶</b> 를 누르면 시작, 다시 누르면 <b>잠깐 멈춤</b>, <b>■</b> 로 <b>끝</b>냅니다' },
+    { k: 'new', t: '기술사 홈에 <b>오늘 공부</b> 시간과 <b>최근 7일</b> 막대가 나옵니다. 공부하는 중에는 홈 맨 위에 <b>지금 몇 분째인지</b>와 멈춤·끝 단추가 떠요' },
+    { k: 'chg', t: '폰에서는 머리줄이 좁아 <b>켜고 끄는 단추만</b> 둡니다 — 흐른 시간과 <b>끝</b>은 기술사 홈에서 하세요' },
+    { k: 'chg', t: '<b>켜 둔 채 앱을 닫아도 그 시간은 공부로 치지 않습니다.</b> 5분 넘게 끊기면 저절로 멈춘 것으로 봐요 (밤새 켜 둔 게 들어가지 않게) · 1분마다 저장되니 갑자기 닫혀도 잃는 건 1분을 넘지 않습니다' },
+  ]},
   { v: '261016-1105', at: '2026-10-16', items: [
     { k: 'new', t: '기술사 <b>쓰기 칸</b>이 이제 <b>서버에 저장</b>됩니다 — 폰에서 쓰던 답을 PC에서 이어 쓰고, 그 반대도 됩니다 (전에는 쓰던 기기에만 남았어요)' },
     { k: 'chg', t: '예전에 이 기기에 써 두신 것은 <b>처음 켤 때 한 번에 옮겨집니다</b> — 따로 하실 건 없어요' },
@@ -25202,7 +25460,7 @@ function closePatchNotes() {
 // ── 앱 버전 ──
 // 폰이 옛 파일을 캐시해 두고 있는지 바로 확인할 수 있도록 화면에 표시한다.
 // (설정 맨 아래 · 개발자 도구 콘솔에도 찍힘)
-const APP_VERSION = '261016-1105';
+const APP_VERSION = '261017-1043';
 console.log('%c양진웅 Note 버전 ' + APP_VERSION, 'font-weight:bold');
 
 // PWA 서비스워커 등록
