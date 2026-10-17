@@ -1304,17 +1304,73 @@
   .peh-week-top { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 12px; }
   .peh-week-ttl { font-size: 12.5px; font-weight: 800; color: var(--gray-400); }
   .peh-week-sum { font-size: 12.5px; font-weight: 700; color: var(--primary); }
-  .peh-week-bars { display: flex; gap: 8px; align-items: flex-end; }
-  .peh-day { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 5px; min-width: 0; }
-  .peh-day-bar {
-    width: 100%; height: 56px; display: flex; align-items: flex-end;
-    background: var(--gray-100); border-radius: var(--r-sm); overflow: hidden;
+  /* 기간 고르기 */
+  .peh-ranges { display: inline-flex; gap: 4px; }
+  .peh-range {
+    border: 1px solid var(--card-border); background: var(--card); color: var(--gray-500);
+    font: inherit; font-size: 11.5px; font-weight: 700; padding: 4px 10px;
+    border-radius: 999px; cursor: pointer; white-space: nowrap;
   }
-  .peh-day-bar i { display: block; width: 100%; background: var(--primary); border-radius: var(--r-sm); }
-  .peh-day.now .peh-day-bar i { background: #17A34A; }
-  .peh-day-lab { font-size: 11px; color: var(--gray-400); }
-  .peh-day.now .peh-day-lab { color: var(--text); font-weight: 800; }
-  .peh-day-min { font-size: 10.5px; color: var(--gray-400); font-variant-numeric: tabular-nums; }
+  .peh-range.on { background: var(--primary); border-color: var(--primary); color: #fff; }
+
+  /* 한 줄 요약 */
+  .peh-sum { display: flex; gap: 14px; flex-wrap: wrap; margin-bottom: 12px; font-size: 12px; color: var(--gray-400); }
+  .peh-sum b { color: var(--text); font-size: 13.5px; font-weight: 800; margin-right: 2px; }
+  .peh-sum .hot b { color: #17A34A; }
+
+  /* 주를 세로 한 줄로 세운 격자 — 1년도 같은 모양으로 본다 */
+  .peh-grid-wrap { overflow-x: auto; padding-bottom: 2px; }
+  .peh-grid-wrap::-webkit-scrollbar { height: 5px; }
+  .peh-grid-wrap::-webkit-scrollbar-thumb { background: var(--card-border); border-radius: 3px; }
+  .peh-grid { display: flex; gap: 6px; width: max-content; }
+  .peh-grid-days { display: grid; grid-template-rows: repeat(7, 13px); gap: 3px; flex-shrink: 0; }
+  .peh-grid-days span { font-size: 9.5px; line-height: 13px; color: var(--gray-400); }
+  .peh-grid-cols { display: flex; gap: 3px; }
+  .peh-gcol { display: grid; grid-template-rows: repeat(7, 13px); gap: 3px; }
+  .peh-gc {
+    display: block; width: 13px; height: 13px; border-radius: 3px;
+    background: var(--gray-100);
+  }
+  .peh-gc.l1 { background: #BBE7CA; }
+  .peh-gc.l2 { background: #7CCF9B; }
+  .peh-gc.l3 { background: #3FAE6B; }
+  .peh-gc.l4 { background: #17A34A; }
+  .peh-gc.off { background: none; }
+  .peh-gc.now { outline: 2px solid var(--primary); outline-offset: 1px; }
+  body.dark .peh-gc { background: #1E2A4A; }
+  body.dark .peh-gc.l1 { background: #1F5137; }
+  body.dark .peh-gc.l2 { background: #2A7A4C; }
+  body.dark .peh-gc.l3 { background: #2F9A5C; }
+  body.dark .peh-gc.l4 { background: #17A34A; }
+
+  /* 한 달 — 달력 모양 */
+  .peh-cal-head, .peh-cal-row { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+  .peh-cal-head { margin-bottom: 5px; }
+  .peh-cal-head span { font-size: 10.5px; color: var(--gray-400); text-align: center; }
+  .peh-cal-row { margin-bottom: 4px; }
+  .peh-cal-c {
+    display: flex; align-items: center; justify-content: center;
+    aspect-ratio: 1 / 1; border-radius: var(--r-sm);
+    font-size: 11px; font-weight: 700; color: var(--gray-400);
+    background: var(--gray-100);
+  }
+  .peh-cal-c.l1 { background: #BBE7CA; color: #14532D; }
+  .peh-cal-c.l2 { background: #7CCF9B; color: #14532D; }
+  .peh-cal-c.l3 { background: #3FAE6B; color: #fff; }
+  .peh-cal-c.l4 { background: #17A34A; color: #fff; }
+  .peh-cal-c.off { background: none; color: var(--gray-300); }
+  .peh-cal-c.now { outline: 2px solid var(--primary); outline-offset: -2px; }
+  body.dark .peh-cal-c { background: #1E2A4A; }
+  body.dark .peh-cal-c.l1 { background: #1F5137; color: #CFEAD9; }
+  body.dark .peh-cal-c.l2 { background: #2A7A4C; color: #EAF7EF; }
+  body.dark .peh-cal-c.l3 { background: #2F9A5C; color: #fff; }
+  body.dark .peh-cal-c.l4 { background: #17A34A; color: #fff; }
+
+  .peh-legend2 {
+    display: flex; align-items: center; gap: 4px; justify-content: flex-end;
+    margin-top: 10px; font-size: 10.5px; color: var(--gray-400);
+  }
+  .peh-legend2 .peh-gc { width: 11px; height: 11px; }
 
   /* ── 기술사 홈 ──────────────────────────────────────────────── */
   .peh-card {
@@ -23319,6 +23375,43 @@ function studyDays(n) {
   return out;
 }
 
+// [추가] 기술사는 1~2년 짜리라 7일만 봐서는 흐름이 안 보인다.
+//        주를 세로 한 줄로 세운 격자로 한 달 · 석 달 · 1년을 같은 모양으로 본다.
+const PE_RANGES = { m: { w: 5, label: '한 달' }, q: { w: 13, label: '석 달' }, y: { w: 53, label: '1년' } };
+function getPeRange() { const v = localStorage.getItem('peRange'); return PE_RANGES[v] ? v : 'm'; }
+function setPeRange(v) { localStorage.setItem('peRange', v); renderPeHome(); }
+
+// 주 묶음 — 일요일 시작. 마지막 주가 이번 주이고, 오늘 이후 칸은 비워 둔다.
+function studyWeeks(nWeeks) {
+  const log = getStudyLog();
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const end = new Date(today); end.setDate(end.getDate() + (6 - end.getDay()));   // 이번 주 토요일
+  const weeks = [];
+  for (let w = nWeeks - 1; w >= 0; w--) {
+    const col = [];
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(end);
+      d.setDate(d.getDate() - (w * 7) - (6 - i));
+      col.push({ key: _dayKey(d), d, sec: log[_dayKey(d)] || 0, future: d > today });
+    }
+    weeks.push(col);
+  }
+  return weeks;
+}
+
+// 며칠째 이어서 공부했나 (오늘 아직 안 했으면 어제부터 센다)
+function studyStreak() {
+  const log = getStudyLog();
+  const d = new Date(); d.setHours(0, 0, 0, 0);
+  if (!(log[_dayKey(d)] > 0)) d.setDate(d.getDate() - 1);
+  let n = 0;
+  while (log[_dayKey(d)] > 0) { n++; d.setDate(d.getDate() - 1); }
+  return n;
+}
+
+// 하루 공부량을 5단계로 (0 · ~30분 · ~1시간 · ~2시간 · 그 위)
+function _peLvOf(sec) { return !sec ? 0 : sec < 1800 ? 1 : sec < 3600 ? 2 : sec < 7200 ? 3 : 4; }
+
 // ══════════════════════════════════════════════════════════════════════
 // 공부 모드 — 문제풀이식(exam) ↔ 서브노트식(pe)
 // ══════════════════════════════════════════════════════════════════════
@@ -23426,8 +23519,13 @@ function renderPeHome() {
   const pct = total ? Math.round(n2 / total * 100) : 0;
 
   const studySec = getStudyLog()[_dayKey()] || 0;
-  const wk = studyDays(7);
-  const wkMax = Math.max(1, ...wk.map(d => d.sec));
+  const rng = getPeRange();
+  const weeks = studyWeeks(PE_RANGES[rng].w);
+  const flat = weeks.flat().filter(d => !d.future);
+  const gSum = flat.reduce((a2, d) => a2 + d.sec, 0);
+  const gDays = flat.filter(d => d.sec > 0).length;
+  const streak = studyStreak();
+  const todayKey = _dayKey();
 
   // 마지막으로 본 것 — 이어보기
   let last = null, lastAt = 0;
@@ -23478,19 +23576,45 @@ function renderPeHome() {
       <div class="peh-num"><b>${rows.reduce((s, r) => s + (r.nq || 0), 0)}</b><span>붙은 기출</span></div>
     </div>
 
-    <!-- [추가] 날마다 얼마나 공부했는지 — 위 타이머가 쌓은 값 -->
-    <div class="peh-card peh-week">
+    <!-- [추가] 날마다 얼마나 공부했는지 — 위 타이머가 쌓은 값.
+         1~2년 짜리 공부라 한 달 · 석 달 · 1년을 같은 격자로 본다. -->
+    <div class="peh-card peh-grid-card">
       <div class="peh-week-top">
-        <span class="peh-week-ttl">최근 7일</span>
-        <span class="peh-week-sum">합계 ${fmtDur(wk.reduce((a2, d) => a2 + d.sec, 0))}</span>
+        <span class="peh-week-ttl">공부한 날</span>
+        <span class="peh-ranges">
+          ${Object.keys(PE_RANGES).map(k =>
+            `<button class="peh-range${k === rng ? ' on' : ''}" onclick="setPeRange('${k}')">${PE_RANGES[k].label}</button>`).join('')}
+        </span>
       </div>
-      <div class="peh-week-bars">
-        ${wk.map((d, i) => `
-          <div class="peh-day${i === wk.length - 1 ? ' now' : ''}" title="${d.key} · ${escHtml(fmtDur(d.sec))}">
-            <span class="peh-day-bar"><i style="height:${wkMax ? Math.max(d.sec ? 6 : 0, d.sec / wkMax * 100) : 0}%"></i></span>
-            <span class="peh-day-lab">${'일월화수목금토'[d.d.getDay()]}</span>
-            <span class="peh-day-min">${d.sec ? Math.max(1, Math.round(d.sec / 60)) : '·'}</span>
-          </div>`).join('')}
+      <div class="peh-sum">
+        <span><b>${fmtDur(gSum)}</b> 합계</span>
+        <span><b>${gDays}일</b> 공부</span>
+        <span><b>${fmtDur(gDays ? Math.round(gSum / gDays) : 0)}</b> 하루 평균</span>
+        ${streak ? `<span class="hot"><b>${streak}일</b> 이어서</span>` : ''}
+      </div>
+      ${rng === 'm'
+        /* 한 달은 달력 모양이 읽기 쉽다 — 가로를 꽉 채우고 날짜도 보인다 */
+        ? `<div class="peh-cal">
+             <div class="peh-cal-head">${['일','월','화','수','목','금','토'].map(x => `<span>${x}</span>`).join('')}</div>
+             ${weeks.map(col => `<div class="peh-cal-row">${col.map(d => d.future
+               ? `<span class="peh-cal-c off">${d.d.getDate()}</span>`
+               : `<span class="peh-cal-c l${_peLvOf(d.sec)}${d.key === todayKey ? ' now' : ''}" title="${d.key} · ${escHtml(fmtDur(d.sec))}">${d.d.getDate()}</span>`).join('')}</div>`).join('')}
+           </div>`
+        /* 석 달·1년은 주를 세로로 세운 잔디 — 넓어도 한눈에 들어온다 */
+        : `<div class="peh-grid-wrap">
+             <div class="peh-grid">
+               <div class="peh-grid-days">${['','월','','수','','금',''].map(x => `<span>${x}</span>`).join('')}</div>
+               <div class="peh-grid-cols">
+                 ${weeks.map(col => `<div class="peh-gcol">${col.map(d => d.future
+                   ? `<i class="peh-gc off"></i>`
+                   : `<i class="peh-gc l${_peLvOf(d.sec)}${d.key === todayKey ? ' now' : ''}" title="${d.key} · ${escHtml(fmtDur(d.sec))}"></i>`).join('')}</div>`).join('')}
+               </div>
+             </div>
+           </div>`}
+      <div class="peh-legend2">
+        <span>적게</span>
+        ${[0,1,2,3,4].map(l => `<i class="peh-gc l${l}"></i>`).join('')}
+        <span>많이</span>
       </div>
     </div>
 
@@ -24753,6 +24877,11 @@ applyRenderFlags();
 //   k: 'new'(새 기능) · 'fix'(고침) · 'chg'(바뀜)
 // ══════════════════════════════════════════════════════════════════════
 const PATCH_NOTES = [
+  { v: '261017-1051', at: '2026-10-17', items: [
+    { k: 'chg', t: '기술사 홈의 공부 기록을 <b>최근 7일 → 한 달</b>로 넓혔습니다. 위 칩으로 <b>한 달 · 석 달 · 1년</b> 을 골라 봐요 — 오래 가는 공부라 흐름이 보여야 하니까요' },
+    { k: 'new', t: '<b>한 달</b>은 달력 모양으로, 많이 한 날일수록 진하게 칠해집니다 (오늘은 테두리). <b>석 달 · 1년</b>은 주를 세로로 세운 격자라 1년도 한눈에 들어와요' },
+    { k: 'new', t: '그 아래 <b>합계 · 공부한 날 · 하루 평균 · 며칠째 이어서</b> 가 함께 나옵니다' },
+  ]},
   { v: '261017-1043', at: '2026-10-17', items: [
     { k: 'new', t: '<b>공부 타이머</b>가 생겼습니다. 맨 위 <b>기술사 탭 옆</b>의 <b>▶</b> 를 누르면 시작, 다시 누르면 <b>잠깐 멈춤</b>, <b>■</b> 로 <b>끝</b>냅니다' },
     { k: 'new', t: '기술사 홈에 <b>오늘 공부</b> 시간과 <b>최근 7일</b> 막대가 나옵니다. 공부하는 중에는 홈 맨 위에 <b>지금 몇 분째인지</b>와 멈춤·끝 단추가 떠요' },
@@ -25460,7 +25589,7 @@ function closePatchNotes() {
 // ── 앱 버전 ──
 // 폰이 옛 파일을 캐시해 두고 있는지 바로 확인할 수 있도록 화면에 표시한다.
 // (설정 맨 아래 · 개발자 도구 콘솔에도 찍힘)
-const APP_VERSION = '261017-1043';
+const APP_VERSION = '261017-1051';
 console.log('%c양진웅 Note 버전 ' + APP_VERSION, 'font-weight:bold');
 
 // PWA 서비스워커 등록
