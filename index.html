@@ -8193,15 +8193,15 @@
     </div>
     <div class="pe-ed-row">
       <label class="pe-ed-lab">문제</label>
-      <input type="text" class="pe-ed-in" id="pe-ed-title">
+      <input type="text" class="pe-ed-in" id="pe-ed-title" spellcheck="false" autocorrect="off" autocapitalize="off">
     </div>
     <div class="pe-ed-row">
       <label class="pe-ed-lab">답</label>
-      <textarea class="pe-ed-in" id="pe-ed-answer" rows="14"></textarea>
+      <textarea class="pe-ed-in" id="pe-ed-answer" rows="14" spellcheck="false" autocorrect="off" autocapitalize="off"></textarea>
     </div>
     <div class="pe-ed-row">
       <label class="pe-ed-lab">기출 <small>한 줄에 하나씩 · 회차는 앞에 <b>131회 1교시 4번</b> 또는 끝에 <b>(122)</b></small></label>
-      <textarea class="pe-ed-in" id="pe-ed-exams" rows="4"></textarea>
+      <textarea class="pe-ed-in" id="pe-ed-exams" rows="4" spellcheck="false" autocorrect="off" autocapitalize="off"></textarea>
     </div>
     <div style="display:flex; gap:8px; align-items:center; margin-top:14px;">
       <button class="btn btn-secondary" id="pe-ed-del" style="font-size:12px; color:var(--danger); border-color:var(--danger-border)" onclick="askDeletePe(this)">이 덩어리 지우기</button>
@@ -8252,7 +8252,7 @@
 128회 2교시 3번 …</pre>
         <span class="pe-fmt-note"><b>문제)</b> <b>답)</b> <b>기출)</b> 대신 <b>[문제]</b> <b>문제:</b> 처럼 써도 읽습니다 · 기출은 한 줄에 하나씩</span>
       </div>
-      <textarea id="pe-paste-in" class="pe-paste-in" rows="12" oninput="pePastePreview()"
+      <textarea id="pe-paste-in" class="pe-paste-in" rows="12" oninput="pePastePreview()" spellcheck="false" autocorrect="off" autocapitalize="off"
                 placeholder="여기에 붙여넣기"></textarea>
       </div>
       <div id="pe-paste-preview"></div>
@@ -24090,7 +24090,7 @@ function renderPeView() {
              <svg class="ic" viewBox="0 0 24 24"><use href="#ic-pencil"/></svg>답 쓰기
              <span class="pe-card-acts">${fsBtns}</span>
            </div>
-           <textarea class="pe-write" id="pe-write" oninput="peDraftInput(this)"
+           <textarea class="pe-write" id="pe-write" oninput="peDraftInput(this)" spellcheck="false" autocorrect="off" autocapitalize="off"
                      placeholder="여기에 답을 써 보세요 · 다 쓰면 Tab 을 누르면 정답이 뜹니다"></textarea>
            <button class="btn btn-primary pe-show" onclick="openPeAns()">정답 보기 <span class="pe-key">Tab</span></button>
          </div>
@@ -24125,7 +24125,7 @@ function renderPeView() {
                <svg class="ic" viewBox="0 0 24 24"><use href="#ic-pencil"/></svg>쓰기
                <span class="pe-card-acts"><span class="pe-pad-note">풀기의 답 칸과 같은 곳</span></span>
              </div>
-             <textarea class="pe-write pe-pad-in" id="pe-pad-in" oninput="peDraftInput(this)"
+             <textarea class="pe-write pe-pad-in" id="pe-pad-in" oninput="peDraftInput(this)" spellcheck="false" autocorrect="off" autocapitalize="off"
                        placeholder="옆의 답을 보면서 아무거나 써 보세요"></textarea>
            </div>
          </div>
@@ -24949,6 +24949,9 @@ applyRenderFlags();
 //   k: 'new'(새 기능) · 'fix'(고침) · 'chg'(바뀜)
 // ══════════════════════════════════════════════════════════════════════
 const PATCH_NOTES = [
+  { v: '261017-1231', at: '2026-10-17', items: [
+    { k: 'fix', t: '기술사 <b>쓰기 칸</b>에 글자 아래 <b>빨간 물결 밑줄</b>이 생기던 것을 없앴습니다 (브라우저 맞춤법 검사) · <b>붙여넣기 칸</b>과 <b>문제 수정</b> 칸들도 같이 껐어요 — 전문 용어가 많아 계속 틀렸다고 나오니까요' },
+  ]},
   { v: '261017-1101', at: '2026-10-17', items: [
     { k: 'new', t: '기술사 답에도 <b>형광펜</b>을 칠할 수 있습니다. 글자를 긁으면 예전처럼 색 고르는 줄이 떠요 · 칠한 건 그 문제에 그대로 남습니다' },
     { k: 'chg', t: '기술사 <b>글자 크기</b>가 3단계 → <b>7단계</b>로 늘었습니다 (13 ~ 29px). 더 작게도, 더 크게도 됩니다' },
@@ -25666,7 +25669,7 @@ function closePatchNotes() {
 // ── 앱 버전 ──
 // 폰이 옛 파일을 캐시해 두고 있는지 바로 확인할 수 있도록 화면에 표시한다.
 // (설정 맨 아래 · 개발자 도구 콘솔에도 찍힘)
-const APP_VERSION = '261017-1101';
+const APP_VERSION = '261017-1231';
 console.log('%c양진웅 Note 버전 ' + APP_VERSION, 'font-weight:bold');
 
 // PWA 서비스워커 등록
