@@ -1188,9 +1188,36 @@
     display: flex; align-items: center; gap: 6px;
     font-size: 12px; font-weight: 800; color: var(--gray-400);
     margin-bottom: 10px; letter-spacing: .04em;
+    /* [수정] 왼쪽은 단추가 있어 머리가 더 높았다 → 양쪽 글 시작 높이가 8px 어긋났다.
+       두 머리의 높이를 맞춰야 답과 쓰는 칸의 줄이 나란히 간다. */
+    min-height: 30px;
   }
   .pe-card-ttl .ic { width: 14px; height: 14px; }
-  .pe-ans { font-size: var(--pe-fs, 18.5px); line-height: 1.95; color: var(--text); white-space: pre-wrap; word-break: break-word; }
+  /* [수정] 쓰는 칸과 줄이 어긋났다 → 줄 높이를 똑같이(글자 크기의 2배) 맞춘다 */
+  .pe-ans {
+    --lh: calc(var(--pe-fs, 18.5px) * 2);
+    font-size: var(--pe-fs, 18.5px); line-height: var(--lh);
+    color: var(--text); word-break: break-word;
+  }
+  /* 줄 한 칸 — 왼쪽에 가리기 단추, 오른쪽에 글 */
+  .plr { display: flex; align-items: flex-start; gap: 8px; min-height: var(--lh); }
+  .plr .pl { flex: 1; min-width: 0; white-space: pre-wrap; border-radius: 4px; }
+  .plb {
+    flex-shrink: 0; width: 14px; height: 14px; padding: 0; cursor: pointer;
+    margin-top: calc((var(--lh) - 14px) / 2);
+    border: 1.5px solid var(--gray-300); border-radius: 4px; background: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .plb:hover { border-color: var(--primary); background: var(--primary-light); }
+  .plr.hid .plb { background: var(--gray-400); border-color: var(--gray-400); }
+  .plr.hid .pl {
+    background: var(--gray-200, #E5E7EB); color: transparent;
+    box-shadow: 0 0 0 2px var(--gray-200, #E5E7EB);
+  }
+  .plr.hid .pl * { color: transparent !important; }
+  .plr.hid .pl img { visibility: hidden; }
+  body.dark .plr.hid .pl { background: #263252; box-shadow: 0 0 0 2px #263252; }
+  body.dark .plr.hid .plb { background: #4A5A80; border-color: #4A5A80; }
 
   /* [수정] 기출을 답 옆에 세워 뒀더니 답이 좁아지고 시선이 갈렸다 → 답 아래로 내린다.
      답은 통으로 읽는 것이고, 기출은 다 읽은 뒤에 보는 것이라 순서도 이게 맞다. */
@@ -1460,22 +1487,6 @@
   .peh-done { text-align: center; color: var(--gray-400); font-size: 13px; padding: 18px 0; }
   .pe-catchips { display: inline-flex; gap: 6px; flex-wrap: wrap; }
 
-  /* [추가] 가림판 — 한 줄씩 가렸다 눌러서 드러낸다 */
-  .pe-ans .pl { border-radius: 4px; }
-  .pe-ans.cover .pl {
-    background: var(--gray-200, #E5E7EB); color: transparent; cursor: pointer;
-    box-shadow: 0 0 0 2px var(--gray-200, #E5E7EB);
-    transition: background .12s, color .12s;
-  }
-  .pe-ans.cover .pl:not(.on) * { color: transparent !important; }
-  .pe-ans.cover .pl:not(.on) img { visibility: hidden; }
-  .pe-ans.cover .pl:hover { background: var(--gray-300); box-shadow: 0 0 0 2px var(--gray-300); }
-  .pe-ans.cover .pl.on,
-  .pe-ans.cover .pl.on:hover { background: none; color: inherit; box-shadow: none; }
-  .pe-ans.cover .pl.on * { color: inherit !important; }
-  .pe-ans.cover .pl.on img { visibility: visible; }
-  body.dark .pe-ans.cover .pl { background: #263252; box-shadow: 0 0 0 2px #263252; }
-  body.dark .pe-ans.cover .pl:hover { background: #30406B; box-shadow: 0 0 0 2px #30406B; }
   .pe-mini.on { background: var(--primary); border-color: var(--primary); color: #fff; }
   .pe-mini.on:hover:not(:disabled) { color: #fff; }
 
@@ -23910,6 +23921,22 @@ function getPeDraft(id) {
 
 let _peDraftTimer = null, _peDraftPend = null;
 
+// [추가] 공책처럼 아무 줄이나 눌러 거기서부터 쓰기.
+//        글자 칸은 원래 윗줄이 있어야 아랫줄에 쓸 수 있다 → 누른 줄까지 빈 줄을 채워 준다.
+function peWriteSpot(ta, ev) {
+  const cs = getComputedStyle(ta);
+  const lh = parseFloat(cs.lineHeight);
+  if (!lh) return;
+  const padTop = parseFloat(cs.paddingTop) || 0;
+  const y = ev.offsetY + ta.scrollTop - padTop;
+  const want = Math.floor(y / lh);                 // 누른 자리가 몇 번째 줄인가
+  const lines = ta.value.split('\n');
+  if (want < lines.length) return;                 // 이미 있는 줄이면 글자 칸이 알아서 한다
+  ta.value = ta.value + '\n'.repeat(want - lines.length + 1);
+  ta.selectionStart = ta.selectionEnd = ta.value.length;
+  peDraftInput(ta);
+}
+
 function peDraftInput(ta) {
   const id = peView.id;
   if (!id) return;
@@ -24023,8 +24050,8 @@ function peRestoreDrafts(all) {
   syncToFirebase(PE_DIDX, idx);
 }
 
-// open = 읽기에서 답을 펼쳐 둔 상태 · cover = 가림판 켬 · shown = 드러낸 줄
-let peView = { id: null, open: false, cover: false, shown: new Set() };
+// open = 읽기에서 답을 펼쳐 둔 상태 · hid = 가려 둔 줄
+let peView = { id: null, open: false, hid: new Set() };
 
 // [추가] 보던 덩어리로 돌아가기 — 홈·검색·메모에 갔다가 한 번에 제자리로.
 //        어디까지 읽었는지(스크롤)도 같이 기억한다.
@@ -24060,7 +24087,7 @@ function openPe(id) {
   _savePeLast(id);
   // [수정] 읽기는 보는 화면이므로 답이 처음부터 보인다 (Tab 으로 가렸다 폈다)
   //        풀기는 먼저 써 봐야 하므로 답을 주지 않는다
-  peView = { id, open: getPeMode() === 'read', cover: false, shown: new Set() };
+  peView = { id, open: getPeMode() === 'read', hid: new Set() };
   closePeAns();
   goPage('pe-view');
   renderPeView();
@@ -24097,14 +24124,43 @@ function peAnsLines(text) {
   return formatExplanation(text).split('\n').map((line, i) => {
     const us = _expImgUrls(line);
     const inner = us ? us.map(_expImgHtml).join('') : renderMathLine(line);
-    return `<span class="pl" data-i="${i}">${inner}</span>`;
-  }).join('<br>');
+    const hid = peView.hid && peView.hid.has(i);
+    // 왼쪽 단추에는 글자를 넣지 않는다 — 글자가 늘면 형광펜이 기억한 자리가 밀린다
+    return `<div class="plr${hid ? ' hid' : ''}" data-i="${i}">` +
+             `<button class="plb" onclick="peLineTog(${i})" aria-label="${hid ? '보이기' : '가리기'}" title="${hid ? '보이기' : '가리기'}"></button>` +
+             `<span class="pl">${inner}</span>` +
+           `</div>`;
+  }).join('');
 }
 
-function togglePeCover() {
-  peView.cover = !peView.cover;
-  peView.shown = new Set();
+// 줄 하나만 가렸다 푼다 — 통째로 다시 그리지 않아 형광펜·스크롤이 유지된다
+function peLineTog(i) {
+  if (!peView.hid) peView.hid = new Set();
+  const on = !peView.hid.has(i);
+  if (on) peView.hid.add(i); else peView.hid.delete(i);
+  const row = document.querySelector(`.pe-ans .plr[data-i="${i}"]`);
+  if (row) {
+    row.classList.toggle('hid', on);
+    const b = row.querySelector('.plb');
+    if (b) { b.setAttribute('aria-label', on ? '보이기' : '가리기'); b.title = on ? '보이기' : '가리기'; }
+  }
+  _paintPeCoverBtn();
+}
+
+// 모두 가리기 ↔ 모두 풀기
+function peCoverAll() {
+  const t = peView.id ? getPeTopic(peView.id) : null;
+  if (!t) return;
+  const n = formatExplanation(t.answer || '').split('\n').length;
+  const allHid = peView.hid && peView.hid.size >= n;
+  peView.hid = allHid ? new Set() : new Set(Array.from({ length: n }, (_, i) => i));
   renderPeView();
+}
+function _paintPeCoverBtn() {
+  const b = document.getElementById('pe-cover-btn');
+  if (!b) return;
+  b.textContent = (peView.hid && peView.hid.size) ? '모두 풀기' : '모두 가리기';
+  b.classList.toggle('on', !!(peView.hid && peView.hid.size));
 }
 
 function peHlAttr(t, field) {
@@ -24162,13 +24218,13 @@ function renderPeView() {
              <div class="pe-card-ttl">
                <svg class="ic" viewBox="0 0 24 24"><use href="#ic-bulb"/></svg>답
                <span class="pe-card-acts">
-                 ${peView.open ? `<button class="pe-mini${peView.cover ? ' on' : ''}" onclick="togglePeCover()" title="한 줄씩 가렸다 드러내기">${peView.cover ? '가림판 끄기' : '가림판'}</button>` : ''}
+                 ${peView.open ? `<button class="pe-mini${(peView.hid && peView.hid.size) ? ' on' : ''}" id="pe-cover-btn" onclick="peCoverAll()" title="줄 왼쪽 단추로 하나씩도 가릴 수 있어요">${(peView.hid && peView.hid.size) ? '모두 풀기' : '모두 가리기'}</button>` : ''}
                  <button class="pe-mini" onclick="togglePeAnswer()">${peView.open ? '답 가리기' : '답 보기'} <span class="pe-key2">Tab</span></button>
                  ${fsBtns}
                </span>
              </div>
              ${peView.open
-               ? `<div class="pe-ans${peView.cover ? ' cover' : ''}"${peHlAttr(t, 'a')}>${peAnsLines(t.answer || '')}</div>`
+               ? `<div class="pe-ans"${peHlAttr(t, 'a')}>${peAnsLines(t.answer || '')}</div>`
                : `<button class="pe-reveal" onclick="togglePeAnswer()">먼저 떠올려 보고 — 눌러서 답 보기</button>`}
            </div>
            ${exams.length ? `
@@ -24183,8 +24239,9 @@ function renderPeView() {
                <svg class="ic" viewBox="0 0 24 24"><use href="#ic-pencil"/></svg>쓰기
                <span class="pe-card-acts"><span class="pe-pad-note">풀기의 답 칸과 같은 곳</span></span>
              </div>
-             <textarea class="pe-write pe-pad-in" id="pe-pad-in" oninput="peDraftInput(this)" spellcheck="false" autocorrect="off" autocapitalize="off"
-                       placeholder="옆의 답을 보면서 아무거나 써 보세요"></textarea>
+             <textarea class="pe-write pe-pad-in" id="pe-pad-in" oninput="peDraftInput(this)"
+                       onmousedown="peWriteSpot(this, event)" spellcheck="false" autocorrect="off" autocapitalize="off"
+                       placeholder="아무 줄이나 눌러서 거기서부터 쓰세요"></textarea>
            </div>
          </div>
        </div>`;
@@ -24222,15 +24279,6 @@ function renderPeView() {
 
   try { hlBindList('pe-view'); } catch (_) {}   // [추가] 형광펜 연결
 
-  // [추가] 가림판이 켜졌을 때만 줄 누르기를 듣는다 — 꺼져 있으면 글자를 긁어 형광펜을 칠해야 한다
-  const ansEl = el.querySelector('.pe-ans');
-  if (ansEl && peView.cover) ansEl.onclick = (ev) => {
-    const sp = ev.target.closest && ev.target.closest('.pl');
-    if (!sp) return;
-    const i = +sp.dataset.i;
-    if (peView.shown.has(i)) peView.shown.delete(i); else peView.shown.add(i);
-    sp.classList.toggle('on', peView.shown.has(i));   // 통째로 다시 그리지 않는다 (형광펜·스크롤 유지)
-  };
 }
 
 // ── 정답 팝업 — 양옆으로 한 쪽씩 넘기기 ──────────────────────────────
@@ -25017,6 +25065,12 @@ applyRenderFlags();
 //   k: 'new'(새 기능) · 'fix'(고침) · 'chg'(바뀜)
 // ══════════════════════════════════════════════════════════════════════
 const PATCH_NOTES = [
+  { v: '261021-1932', at: '2026-10-21', items: [
+    { k: 'chg', t: '쓰는 칸에서 <b>아무 줄이나 눌러 거기서부터</b> 쓸 수 있습니다. 윗줄을 채우지 않아도 중간부터 써요' },
+    { k: 'fix', t: '답 칸과 쓰는 칸의 <b>줄이 어긋나던</b> 것을 맞췄습니다 (양쪽 머리 높이가 달라 8px 밀려 있었어요)' },
+    { k: 'chg', t: '가림판이 <b>줄마다 왼쪽 단추</b>로 바뀌었습니다. 글이 길어도 <b>맨 위로 올라갈 필요 없이</b> 그 자리에서 가렸다 풉니다 · 머리의 <b>모두 가리기 / 모두 풀기</b> 는 그대로예요' },
+    { k: 'chg', t: '이제 <b>글자를 눌러도 가려지지 않습니다</b> — 단추로만 가리므로 아무 때나 글자를 긁어 <b>형광펜</b>을 칠할 수 있어요' },
+  ]},
   { v: '261021-1921', at: '2026-10-21', items: [
     { k: 'chg', t: '읽기 오른쪽 <b>쓰는 칸</b>이 이제 <b>왼쪽 답 칸과 같은 높이</b>가 됩니다. 화면에 붙어 다니느라 아무리 늘려도 한 화면을 못 넘던 걸 없앴어요 (손으로 늘리는 손잡이도 뺐습니다 — 저절로 맞춰지니까요)' },
     { k: 'new', t: '쓰는 칸에 <b>공책 줄</b>이 생겼습니다. 글자 크기를 바꾸면 줄 간격도 같이 따라갑니다' },
@@ -25742,7 +25796,7 @@ function closePatchNotes() {
 // ── 앱 버전 ──
 // 폰이 옛 파일을 캐시해 두고 있는지 바로 확인할 수 있도록 화면에 표시한다.
 // (설정 맨 아래 · 개발자 도구 콘솔에도 찍힘)
-const APP_VERSION = '261021-1921';
+const APP_VERSION = '261021-1932';
 console.log('%c양진웅 Note 버전 ' + APP_VERSION, 'font-weight:bold');
 
 // PWA 서비스워커 등록
