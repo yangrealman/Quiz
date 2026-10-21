@@ -1219,6 +1219,38 @@
   body.dark .plr.hid .pl { background: #263252; box-shadow: 0 0 0 2px #263252; }
   body.dark .plr.hid .plb { background: #4A5A80; border-color: #4A5A80; }
 
+  /* [추가] 줄 오른쪽 연필 — 그 줄만 제자리에서 고친다.
+     왼쪽 가리기 단추와 짝이 되게 같은 크기·같은 높이에 둔다.
+     평소에는 흐리게 두고 줄에 손을 올렸을 때만 진해진다 — 300줄 내내
+     진한 연필이 줄줄이 서 있으면 글보다 단추가 먼저 보인다. */
+  .ple {
+    flex-shrink: 0; width: 18px; height: 18px; padding: 0; cursor: pointer;
+    margin-top: calc((var(--lh) - 18px) / 2);
+    border: 0; background: none; color: var(--gray-400);
+    opacity: .25; transition: opacity .15s, color .15s;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .ple .ic { width: 14px; height: 14px; }
+  .plr:hover .ple { opacity: 1; }
+  .ple:hover { color: var(--primary); }
+  .plr.hid .ple { visibility: hidden; }      /* 가려 둔 줄은 글이 안 보이니 고칠 수도 없다 */
+
+  /* 고치는 중인 줄 — 줄 높이를 그대로 써서 옆 쓰기 칸과의 줄 맞춤이 깨지지 않게 한다 */
+  .plr.ple-on { display: block; }
+  .ple-in {
+    display: block; width: 100%; box-sizing: border-box;
+    font: inherit; line-height: var(--lh); color: var(--text);
+    background: var(--card); border: 1.5px solid var(--primary); border-radius: var(--r-sm);
+    padding: 0 10px; resize: none; overflow: hidden;
+  }
+  .ple-in:focus { outline: none; }
+  .ple-bar { display: flex; align-items: center; gap: 6px; margin: 6px 0 10px; flex-wrap: wrap; }
+  .ple-hint { font-size: 11px; color: var(--gray-500); line-height: 1.4; }
+  .ple-bar .pe-mini { margin-left: 0; }
+  .ple-bar .ple-del { color: var(--danger, #DC2626); }
+  /* 폰은 외우는 용도라 단추 두 개면 글 칸이 너무 좁아진다 → 연필은 큰 화면에서만 */
+  @media (max-width: 700px) { .ple { display: none; } }
+
   /* [수정] 기출을 답 옆에 세워 뒀더니 답이 좁아지고 시선이 갈렸다 → 답 아래로 내린다.
      답은 통으로 읽는 것이고, 기출은 다 읽은 뒤에 보는 것이라 순서도 이게 맞다. */
   .pe-wrap { display: block; }
@@ -7272,6 +7304,14 @@
 
   /* [디테일] 토스트를 읽어주도록 + 여러 번 떠도 겹치지 않게 */
   .toast { pointer-events: none; }
+  /* [추가] '되돌리기' 처럼 누를 것이 있는 토스트만 손가락을 받는다
+     (평소 토스트는 글자만이라 받으면 뒤쪽 단추를 가로막는다) */
+  .toast.has-act { pointer-events: auto; display: flex; align-items: center; gap: 12px; }
+  .toast-act {
+    flex-shrink: 0; border: 0; background: rgba(255,255,255,0.16); color: #FFF;
+    font-size: 13px; font-weight: 700; padding: 5px 12px; border-radius: 999px; cursor: pointer;
+  }
+  .toast-act:hover { background: rgba(255,255,255,0.28); }
 
   /* ═══════════════════════════════════════════════════════════
      [추가] 문제 그림 (필답형 도면·그래프용)
@@ -20071,9 +20111,35 @@ function showToast(msg) {
   t.setAttribute('role', 'status');
   t.setAttribute('aria-live', 'polite');
   t.textContent = msg;
+  t.classList.remove('has-act');
   t.classList.add('show');
   clearTimeout(_toastTimer);
   _toastTimer = setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+// [추가] 누를 것이 하나 붙는 토스트 — 줄을 지웠을 때 '되돌리기' 에 쓴다.
+//        지우기는 서버까지 덮어쓰므로, 잘못 눌렀을 때 돌릴 길이 없으면 무서워서 못 쓴다.
+//        글자만 뜨는 토스트보다 오래(6초) 둔다 — 누를 틈이 있어야 한다.
+let _toastActFn = null;
+function showToastAct(msg, label, fn) {
+  const t = document.getElementById('toast');
+  if (!t) { if (fn) showToast(msg); return; }
+  _toastActFn = fn || null;
+  t.setAttribute('role', 'status');
+  t.setAttribute('aria-live', 'polite');
+  t.innerHTML = `<span>${escHtml(msg)}</span>` +
+    `<button class="toast-act" onclick="_toastActRun()">${escHtml(label || '되돌리기')}</button>`;
+  t.classList.add('show', 'has-act');
+  clearTimeout(_toastTimer);
+  _toastTimer = setTimeout(() => { t.classList.remove('show', 'has-act'); _toastActFn = null; }, 6000);
+}
+function _toastActRun() {
+  const fn = _toastActFn;
+  _toastActFn = null;
+  const t = document.getElementById('toast');
+  if (t) t.classList.remove('show', 'has-act');
+  clearTimeout(_toastTimer);
+  if (fn) try { fn(); } catch (e) { console.warn(e); }
 }
 
 // [수정] 스크롤 때마다 바로 DOM을 만져 모바일에서 스크롤이 무거웠고,
@@ -23884,6 +23950,7 @@ function setPeMode(m) {
   try { flushPeDraft(); } catch (_) {}
   localStorage.setItem('peMode', m === 'solve' ? 'solve' : 'read');
   peView.open = (m !== 'solve');
+  peView.edit = null;                 // 모드를 갈아타면 고치던 줄은 닫는다
   closePeAns();
   renderPeList();
   if (currentPage === 'pe-view') renderPeView();
@@ -24050,8 +24117,8 @@ function peRestoreDrafts(all) {
   syncToFirebase(PE_DIDX, idx);
 }
 
-// open = 읽기에서 답을 펼쳐 둔 상태 · hid = 가려 둔 줄
-let peView = { id: null, open: false, hid: new Set() };
+// open = 읽기에서 답을 펼쳐 둔 상태 · hid = 가려 둔 줄 · edit = 제자리에서 고치는 중인 줄
+let peView = { id: null, open: false, hid: new Set(), edit: null };
 
 // [추가] 보던 덩어리로 돌아가기 — 홈·검색·메모에 갔다가 한 번에 제자리로.
 //        어디까지 읽었는지(스크롤)도 같이 기억한다.
@@ -24087,7 +24154,7 @@ function openPe(id) {
   _savePeLast(id);
   // [수정] 읽기는 보는 화면이므로 답이 처음부터 보인다 (Tab 으로 가렸다 폈다)
   //        풀기는 먼저 써 봐야 하므로 답을 주지 않는다
-  peView = { id, open: getPeMode() === 'read', hid: new Set() };
+  peView = { id, open: getPeMode() === 'read', hid: new Set(), edit: null };
   closePeAns();
   goPage('pe-view');
   renderPeView();
@@ -24119,18 +24186,149 @@ function setPeLevelHere(lv) {
 // [추가] 답을 줄마다 감싼다 — 가림판처럼 한 줄씩 가렸다 드러내려고.
 //        renderExp 와 똑같이 만들되 줄마다 껍데기만 씌운다 (글자는 한 자도 안 늘어나므로
 //        형광펜이 기억해 둔 자리가 틀어지지 않는다).
+// [추가] 화면에 보이는 줄 = 저장된 줄 로 맞춘다.
+//        formatExplanation 은 ①②③·※·[비고] 앞에 줄바꿈을 끼워 넣으므로, 저장된 글을
+//        그대로 세면 '화면 5번째 줄' 이 저장된 글의 어디인지 알 수 없다 → 줄 수정이 엉뚱한
+//        줄을 고친다. 두 번 돌리면 더 이상 변하지 않는 모양이 되므로(줄바꿈이 두 개에서
+//        멈춘다) 그 모양을 줄 나눔의 기준으로 쓴다.
+function peFmtStable(text) {
+  return formatExplanation(formatExplanation(text || ''));
+}
+function peLines(text) {
+  const s = peFmtStable(text);
+  return s ? s.split('\n') : [];
+}
+
 function peAnsLines(text) {
   if (!text) return '';
-  return formatExplanation(text).split('\n').map((line, i) => {
+  const edit = (peView.edit != null) ? peView.edit : -1;
+  return peLines(text).map((line, i) => {
+    if (i === edit) return _peLineEditorHTML(line, i);
     const us = _expImgUrls(line);
     const inner = us ? us.map(_expImgHtml).join('') : renderMathLine(line);
     const hid = peView.hid && peView.hid.has(i);
-    // 왼쪽 단추에는 글자를 넣지 않는다 — 글자가 늘면 형광펜이 기억한 자리가 밀린다
+    // 양쪽 단추에는 글자를 넣지 않는다 — 글자가 늘면 형광펜이 기억한 자리가 밀린다
     return `<div class="plr${hid ? ' hid' : ''}" data-i="${i}">` +
              `<button class="plb" onclick="peLineTog(${i})" aria-label="${hid ? '보이기' : '가리기'}" title="${hid ? '보이기' : '가리기'}"></button>` +
              `<span class="pl">${inner}</span>` +
+             `<button class="ple" onclick="peLineEdit(${i})" aria-label="이 줄 고치기" title="이 줄만 고치기">` +
+               `<svg class="ic" viewBox="0 0 24 24"><use href="#ic-pencil"/></svg></button>` +
            `</div>`;
   }).join('');
+}
+
+// ── 줄 하나만 제자리에서 고치기 ──────────────────────────────────────
+// 전체 수정 팝업은 긴 논술에서 고칠 줄을 찾기가 어렵다 → 외우다가 눈에 걸린 줄을
+// 그 자리에서 고친다. 단추를 수정·삭제 두 개 두면 300줄 내내 어수선하므로
+// 연필 하나로 입력칸이 되고, 비워서 저장하면 그 줄이 지워진다.
+//  · Enter       저장
+//  · Shift+Enter 줄 나누기 (= 줄 추가)
+//  · Esc         취소
+function _peLineEditorHTML(line, i) {
+  const n = Math.max(1, String(line).split('\n').length);
+  return `<div class="plr ple-on" data-i="${i}">` +
+    `<textarea class="ple-in" id="ple-in" rows="${n}" spellcheck="false" autocorrect="off" autocapitalize="off"` +
+    ` oninput="_pleGrow(this)" onkeydown="peLineKey(event)">${escHtml(String(line))}</textarea>` +
+    `<div class="ple-bar">` +
+      `<button class="pe-mini" onclick="peLineSave()">저장</button>` +
+      `<button class="pe-mini" onclick="peLineCancel()">취소</button>` +
+      `<button class="pe-mini ple-del" onclick="peLineDel()">줄 지우기</button>` +
+      `<span class="ple-hint">Enter 저장 · Shift+Enter 줄 나누기 · Esc 취소</span>` +
+    `</div></div>`;
+}
+
+function _pleGrow(ta) {
+  if (!ta) return;
+  ta.style.height = 'auto';
+  ta.style.height = (ta.scrollHeight + 2) + 'px';
+}
+
+function peLineEdit(i) {
+  if (!peView.id) return;
+  if (peView.hid && peView.hid.has(i)) peLineTog(i);   // 가려 둔 줄은 먼저 드러낸다
+  peView.edit = i;
+  renderPeView();
+  const ta = document.getElementById('ple-in');
+  if (ta) {
+    _pleGrow(ta);
+    ta.focus();
+    ta.selectionStart = ta.selectionEnd = ta.value.length;
+  }
+}
+
+function peLineCancel() {
+  peView.edit = null;
+  renderPeView();
+}
+
+function peLineKey(e) {
+  if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); peLineCancel(); return; }
+  if (e.key === 'Enter' && !e.shiftKey && !e.ctrlKey && !e.metaKey) {
+    e.preventDefault(); e.stopPropagation(); peLineSave(); return;
+  }
+  if (e.key === 'Enter' && e.shiftKey) { setTimeout(() => _pleGrow(e.target), 0); }
+  e.stopPropagation();          // 위쪽 Tab·방향키 단축키가 가로채지 않게
+}
+
+// 줄 수가 바뀌면 가려 둔 줄 번호도 같이 밀어 준다 (안 밀면 엉뚱한 줄이 가려진다)
+function _peShiftHid(at, delta) {
+  if (!peView.hid || !peView.hid.size) return;
+  const out = new Set();
+  peView.hid.forEach(h => {
+    if (h < at) out.add(h);
+    else if (h === at) { if (delta >= 0) out.add(h); }   // 지운 줄의 가림은 함께 사라진다
+    else out.add(h + delta);
+  });
+  peView.hid = out;
+}
+
+// 고치기 전 답 전체를 들고 있다가 '되돌리기' 로 한 번 돌려 준다
+let _peLineUndo = null;
+
+function _peLineApply(i, parts, msg) {
+  const t = peView.id ? getPeTopic(peView.id) : null;
+  if (!t) return;
+  const before = t.answer || '';
+  const lines = peLines(before);
+  if (i < 0 || i >= lines.length) { peLineCancel(); return; }
+  lines.splice(i, 1, ...parts);
+  // 저장도 화면과 같은 모양으로 — 다음에 또 줄을 세도 번호가 어긋나지 않는다
+  t.answer = peFmtStable(lines.join('\n'));
+  savePeTopic(t);
+  _peShiftHid(i, parts.length - 1);
+  peView.edit = null;
+  renderPeView();
+  _peLineUndo = { id: t.id, answer: before };
+  showToastAct(msg, '되돌리기', peLineUndo);
+}
+
+function peLineSave() {
+  const ta = document.getElementById('ple-in');
+  if (!ta || peView.edit == null) return;
+  const i = peView.edit;
+  const v = ta.value;
+  if (!v.trim()) { peLineDel(); return; }          // 비워서 저장하면 그 줄을 지운다
+  const parts = v.split('\n');
+  _peLineApply(i, parts, parts.length > 1 ? `줄을 ${parts.length}개로 나눴어요` : '줄을 고쳤어요');
+}
+
+function peLineDel() {
+  if (peView.edit == null) return;
+  _peLineApply(peView.edit, [], '줄을 지웠어요');
+}
+
+function peLineUndo() {
+  const u = _peLineUndo;
+  if (!u) return;
+  const t = getPeTopic(u.id);
+  if (!t) { showToast('되돌릴 수 없어요'); return; }
+  t.answer = u.answer;
+  savePeTopic(t);
+  _peLineUndo = null;
+  peView.edit = null;
+  peView.hid = new Set();        // 줄 번호가 다시 바뀌므로 가림은 풀고 시작한다
+  if (peView.id === u.id) renderPeView();
+  showToast('되돌렸어요');
 }
 
 // 줄 하나만 가렸다 푼다 — 통째로 다시 그리지 않아 형광펜·스크롤이 유지된다
@@ -24151,7 +24349,7 @@ function peLineTog(i) {
 function peCoverAll() {
   const t = peView.id ? getPeTopic(peView.id) : null;
   if (!t) return;
-  const n = formatExplanation(t.answer || '').split('\n').length;
+  const n = peLines(t.answer || '').length;
   const allHid = peView.hid && peView.hid.size >= n;
   peView.hid = allHid ? new Set() : new Set(Array.from({ length: n }, (_, i) => i));
   renderPeView();
@@ -24390,6 +24588,9 @@ document.addEventListener('keydown', function (e) {
     if (e.key === 'Escape') { e.preventDefault(); closePeEdit(); }
     return;
   }
+  // [추가] 줄을 제자리에서 고치는 중 — Tab(정답 보기)·방향키(이전/다음)에 끌려가면
+  //        쓰던 글이 날아간다. 그 칸의 손잡이(peLineKey)에 맡긴다.
+  if (peView.edit != null) return;
   const el = document.activeElement;
   const inText = !!(el && (el.tagName === 'TEXTAREA' || el.tagName === 'INPUT' || el.isContentEditable));
 
@@ -25065,6 +25266,12 @@ applyRenderFlags();
 //   k: 'new'(새 기능) · 'fix'(고침) · 'chg'(바뀜)
 // ══════════════════════════════════════════════════════════════════════
 const PATCH_NOTES = [
+  { v: '261021-2331', at: '2026-10-21', items: [
+    { k: 'new', t: '답의 <b>줄 오른쪽 연필</b>을 누르면 <b>그 줄만 그 자리에서</b> 고칠 수 있습니다. 긴 답에서 고칠 줄을 찾느라 전체 수정 창을 뒤질 필요가 없어요' },
+    { k: 'new', t: '고치는 중 <b>Enter 로 저장</b> · <b>Shift+Enter 로 줄 나누기</b>(= 줄 추가) · <b>Esc 로 취소</b> 합니다. 글을 <b>다 비우고 저장하면 그 줄이 지워져요</b>' },
+    { k: 'new', t: '줄을 지우거나 고치면 <b>되돌리기</b>가 잠깐 떠서, 잘못 눌러도 한 번에 되돌릴 수 있습니다' },
+    { k: 'chg', t: '연필은 <b>큰 화면에서만</b> 보입니다. 폰은 외우는 화면이라 글 칸을 좁히지 않았어요' },
+  ]},
   { v: '261021-1932', at: '2026-10-21', items: [
     { k: 'chg', t: '쓰는 칸에서 <b>아무 줄이나 눌러 거기서부터</b> 쓸 수 있습니다. 윗줄을 채우지 않아도 중간부터 써요' },
     { k: 'fix', t: '답 칸과 쓰는 칸의 <b>줄이 어긋나던</b> 것을 맞췄습니다 (양쪽 머리 높이가 달라 8px 밀려 있었어요)' },
@@ -25796,7 +26003,7 @@ function closePatchNotes() {
 // ── 앱 버전 ──
 // 폰이 옛 파일을 캐시해 두고 있는지 바로 확인할 수 있도록 화면에 표시한다.
 // (설정 맨 아래 · 개발자 도구 콘솔에도 찍힘)
-const APP_VERSION = '261021-1932';
+const APP_VERSION = '261021-2331';
 console.log('%c양진웅 Note 버전 ' + APP_VERSION, 'font-weight:bold');
 
 // PWA 서비스워커 등록
