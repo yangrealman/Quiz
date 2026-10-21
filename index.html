@@ -1212,15 +1212,22 @@
   .pe-pad { display: none; }
   @media (min-width: 1200px) {
     #page-pe-view.read2 > .container { max-width: 1480px; }
+    /* [수정] 쓰는 칸이 화면에 붙어 다니다 보니 아무리 늘려도 한 화면을 못 넘었다.
+       → 붙어 다니는 걸 떼고 왼쪽 답 칸과 같은 높이로 늘린다 (stretch). */
     #page-pe-view.read2 .pe-two {
-      display: grid; grid-template-columns: 6fr 4fr; gap: 18px; align-items: start;
+      display: grid; grid-template-columns: 6fr 4fr; gap: 18px; align-items: stretch;
     }
-    #page-pe-view.read2 .pe-pad { display: block; position: sticky; top: 76px; }
-    #page-pe-view.read2 .pe-pad .pe-card { margin-bottom: 0; }
-    #page-pe-view.read2 .pe-pad-in { min-height: calc(100vh - 230px); }
+    #page-pe-view.read2 .pe-pad { display: flex; }
+    #page-pe-view.read2 .pe-pad .pe-card {
+      margin-bottom: 0; flex: 1; display: flex; flex-direction: column;
+    }
+    #page-pe-view.read2 .pe-pad-in {
+      flex: 1; min-height: 320px; resize: none;   /* 높이가 답 칸을 따라가므로 손으로 늘릴 일이 없다 */
+    }
     /* 아래 줄(이전·단계·다음)도 같이 넓어지면 단추가 과하게 길어진다 */
     #page-pe-view.read2 .pe-foot { max-width: 900px; }
   }
+
   .pe-pad-note { font-size: 11px; color: var(--gray-400); font-weight: 500; }
 
   /* 풀기 — 답 쓰는 칸 */
@@ -1231,6 +1238,18 @@
     background: var(--card); color: var(--text);
   }
   .pe-write:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-light); }
+
+  /* [추가] 쓰는 칸에 공책 줄 — 줄 높이를 글자 크기의 정확히 2배로 두고
+     그 간격으로 밑줄을 깐다. background-attachment:local 이라 글을 내려도 줄이 따라간다. */
+  .pe-pad-in {
+    --lh: calc(var(--pe-fs, 18.5px) * 2);
+    line-height: var(--lh);
+    padding: 0 16px;
+    background-image: repeating-linear-gradient(to bottom,
+      transparent 0, transparent calc(var(--lh) - 1px),
+      var(--card-border) calc(var(--lh) - 1px), var(--card-border) var(--lh));
+    background-attachment: local;
+  }
   .pe-show { width: 100%; margin-top: 12px; display: flex; align-items: center; justify-content: center; gap: 8px; }
   .pe-key {
     font-size: 11px; font-weight: 800; padding: 2px 7px; border-radius: var(--r-sm);
@@ -1440,6 +1459,25 @@
   .peh-sec { font-size: 12.5px; font-weight: 800; color: var(--gray-400); margin: 0 0 8px 2px; }
   .peh-done { text-align: center; color: var(--gray-400); font-size: 13px; padding: 18px 0; }
   .pe-catchips { display: inline-flex; gap: 6px; flex-wrap: wrap; }
+
+  /* [추가] 가림판 — 한 줄씩 가렸다 눌러서 드러낸다 */
+  .pe-ans .pl { border-radius: 4px; }
+  .pe-ans.cover .pl {
+    background: var(--gray-200, #E5E7EB); color: transparent; cursor: pointer;
+    box-shadow: 0 0 0 2px var(--gray-200, #E5E7EB);
+    transition: background .12s, color .12s;
+  }
+  .pe-ans.cover .pl:not(.on) * { color: transparent !important; }
+  .pe-ans.cover .pl:not(.on) img { visibility: hidden; }
+  .pe-ans.cover .pl:hover { background: var(--gray-300); box-shadow: 0 0 0 2px var(--gray-300); }
+  .pe-ans.cover .pl.on,
+  .pe-ans.cover .pl.on:hover { background: none; color: inherit; box-shadow: none; }
+  .pe-ans.cover .pl.on * { color: inherit !important; }
+  .pe-ans.cover .pl.on img { visibility: visible; }
+  body.dark .pe-ans.cover .pl { background: #263252; box-shadow: 0 0 0 2px #263252; }
+  body.dark .pe-ans.cover .pl:hover { background: #30406B; box-shadow: 0 0 0 2px #30406B; }
+  .pe-mini.on { background: var(--primary); border-color: var(--primary); color: #fff; }
+  .pe-mini.on:hover:not(:disabled) { color: #fff; }
 
   .pe-sch-snip {
     font-size: 13px; line-height: 1.8; color: var(--gray-500);
@@ -23985,7 +24023,8 @@ function peRestoreDrafts(all) {
   syncToFirebase(PE_DIDX, idx);
 }
 
-let peView = { id: null, open: false };    // open = 읽기에서 답을 펼쳐 둔 상태
+// open = 읽기에서 답을 펼쳐 둔 상태 · cover = 가림판 켬 · shown = 드러낸 줄
+let peView = { id: null, open: false, cover: false, shown: new Set() };
 
 // [추가] 보던 덩어리로 돌아가기 — 홈·검색·메모에 갔다가 한 번에 제자리로.
 //        어디까지 읽었는지(스크롤)도 같이 기억한다.
@@ -24021,7 +24060,7 @@ function openPe(id) {
   _savePeLast(id);
   // [수정] 읽기는 보는 화면이므로 답이 처음부터 보인다 (Tab 으로 가렸다 폈다)
   //        풀기는 먼저 써 봐야 하므로 답을 주지 않는다
-  peView = { id, open: getPeMode() === 'read' };
+  peView = { id, open: getPeMode() === 'read', cover: false, shown: new Set() };
   closePeAns();
   goPage('pe-view');
   renderPeView();
@@ -24050,6 +24089,24 @@ function setPeLevelHere(lv) {
 
 // [추가] 형광펜 — 기능장 쪽과 같은 저장소를 쓰되 열쇠만 'pe||<덩어리>' 로 따로 둔다
 //        (문제은행 쪽 열쇠는 '자격증||회차||문항' 이라 섞이지 않는다)
+// [추가] 답을 줄마다 감싼다 — 가림판처럼 한 줄씩 가렸다 드러내려고.
+//        renderExp 와 똑같이 만들되 줄마다 껍데기만 씌운다 (글자는 한 자도 안 늘어나므로
+//        형광펜이 기억해 둔 자리가 틀어지지 않는다).
+function peAnsLines(text) {
+  if (!text) return '';
+  return formatExplanation(text).split('\n').map((line, i) => {
+    const us = _expImgUrls(line);
+    const inner = us ? us.map(_expImgHtml).join('') : renderMathLine(line);
+    return `<span class="pl" data-i="${i}">${inner}</span>`;
+  }).join('<br>');
+}
+
+function togglePeCover() {
+  peView.cover = !peView.cover;
+  peView.shown = new Set();
+  renderPeView();
+}
+
 function peHlAttr(t, field) {
   if (!t || !t.id) return '';
   return ` data-hlk="${escHtml('pe||' + t.id)}" data-hlf="${field || 'a'}"`;
@@ -24105,12 +24162,13 @@ function renderPeView() {
              <div class="pe-card-ttl">
                <svg class="ic" viewBox="0 0 24 24"><use href="#ic-bulb"/></svg>답
                <span class="pe-card-acts">
+                 ${peView.open ? `<button class="pe-mini${peView.cover ? ' on' : ''}" onclick="togglePeCover()" title="한 줄씩 가렸다 드러내기">${peView.cover ? '가림판 끄기' : '가림판'}</button>` : ''}
                  <button class="pe-mini" onclick="togglePeAnswer()">${peView.open ? '답 가리기' : '답 보기'} <span class="pe-key2">Tab</span></button>
                  ${fsBtns}
                </span>
              </div>
              ${peView.open
-               ? `<div class="pe-ans"${peHlAttr(t, 'a')}>${renderExp(t.answer || '')}</div>`
+               ? `<div class="pe-ans${peView.cover ? ' cover' : ''}"${peHlAttr(t, 'a')}>${peAnsLines(t.answer || '')}</div>`
                : `<button class="pe-reveal" onclick="togglePeAnswer()">먼저 떠올려 보고 — 눌러서 답 보기</button>`}
            </div>
            ${exams.length ? `
@@ -24163,6 +24221,16 @@ function renderPeView() {
   if (ta) ta.value = getPeDraft(peView.id);
 
   try { hlBindList('pe-view'); } catch (_) {}   // [추가] 형광펜 연결
+
+  // [추가] 가림판이 켜졌을 때만 줄 누르기를 듣는다 — 꺼져 있으면 글자를 긁어 형광펜을 칠해야 한다
+  const ansEl = el.querySelector('.pe-ans');
+  if (ansEl && peView.cover) ansEl.onclick = (ev) => {
+    const sp = ev.target.closest && ev.target.closest('.pl');
+    if (!sp) return;
+    const i = +sp.dataset.i;
+    if (peView.shown.has(i)) peView.shown.delete(i); else peView.shown.add(i);
+    sp.classList.toggle('on', peView.shown.has(i));   // 통째로 다시 그리지 않는다 (형광펜·스크롤 유지)
+  };
 }
 
 // ── 정답 팝업 — 양옆으로 한 쪽씩 넘기기 ──────────────────────────────
@@ -24949,6 +25017,11 @@ applyRenderFlags();
 //   k: 'new'(새 기능) · 'fix'(고침) · 'chg'(바뀜)
 // ══════════════════════════════════════════════════════════════════════
 const PATCH_NOTES = [
+  { v: '261021-1921', at: '2026-10-21', items: [
+    { k: 'chg', t: '읽기 오른쪽 <b>쓰는 칸</b>이 이제 <b>왼쪽 답 칸과 같은 높이</b>가 됩니다. 화면에 붙어 다니느라 아무리 늘려도 한 화면을 못 넘던 걸 없앴어요 (손으로 늘리는 손잡이도 뺐습니다 — 저절로 맞춰지니까요)' },
+    { k: 'new', t: '쓰는 칸에 <b>공책 줄</b>이 생겼습니다. 글자 크기를 바꾸면 줄 간격도 같이 따라갑니다' },
+    { k: 'new', t: '답 칸에 <b>가림판</b>이 생겼습니다. 누르면 <b>모든 줄이 가려지고</b>, 줄을 하나씩 눌러 드러내며 외울 수 있어요 (다시 누르면 도로 가려집니다) · 가림판을 끄면 예전처럼 글자를 긁어 <b>형광펜</b>을 칠할 수 있습니다' },
+  ]},
   { v: '261017-1231', at: '2026-10-17', items: [
     { k: 'fix', t: '기술사 <b>쓰기 칸</b>에 글자 아래 <b>빨간 물결 밑줄</b>이 생기던 것을 없앴습니다 (브라우저 맞춤법 검사) · <b>붙여넣기 칸</b>과 <b>문제 수정</b> 칸들도 같이 껐어요 — 전문 용어가 많아 계속 틀렸다고 나오니까요' },
   ]},
@@ -25669,7 +25742,7 @@ function closePatchNotes() {
 // ── 앱 버전 ──
 // 폰이 옛 파일을 캐시해 두고 있는지 바로 확인할 수 있도록 화면에 표시한다.
 // (설정 맨 아래 · 개발자 도구 콘솔에도 찍힘)
-const APP_VERSION = '261017-1231';
+const APP_VERSION = '261021-1921';
 console.log('%c양진웅 Note 버전 ' + APP_VERSION, 'font-weight:bold');
 
 // PWA 서비스워커 등록
